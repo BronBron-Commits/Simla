@@ -197,6 +197,14 @@ case "LIST": {
         break;
       }
 
+
+      case "APPEND": {
+        const item = stack.pop();
+        const list = stack.pop();
+        stack.push(Array.isArray(list) ? [...list, item] : [item]);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }
