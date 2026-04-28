@@ -1,0 +1,27 @@
+case "MAP": {
+  const fn = stack.pop();     // 🔥 FIX: function first
+  const list = stack.pop();   // then list
+
+  console.log("MAP input list:", JSON.stringify(list));
+
+  if (!Array.isArray(list)) {
+    stack.push([]);
+    break;
+  }
+
+  const result = [];
+
+  for (const item of list) {
+    const newEnv = makeEnv(fn.closure);
+    newEnv.vars[fn.params[0]] = item;
+
+    const value = exec(fn.body, newEnv);
+
+    result.push(value);
+  }
+
+  console.log("MAP final:", JSON.stringify(result));
+
+  stack.push(result);
+  break;
+}

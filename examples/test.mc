@@ -1,23 +1,52 @@
 (begin
+  ;; init once
   (let entities
     (or entities
       (list
-        (list "x" 200 "y" 50 "vy" 0 "r" 255 "g" 0 "b" 0)
-        (list "x" 500 "y" 100 "vy" 0 "r" 0 "g" 0 "b" 255)
+        (list "x" 200 "y" 50 "vx" 0 "vy" 0 "r" 255 "g" 0 "b" 0)
       )
     )
   )
 
+  ;; update
   (let entities
     (map
       (fn (e)
         (begin
-          (let vy (add (get e "vy") 0.5))
-          (let y  (min 580 (add (get e "y") vy)))
+          ;; compute new velocity directly from entity
+          (let nvx
+            (mul
+              (add
+                (get e "vx")
+                (mul (sub keyd keya) 0.5)
+              )
+              0.9
+            )
+          )
 
-          (set
-            (set e "vy" vy)
-            "y" y
+          (let nvy
+            (mul
+              (add
+                (get e "vy")
+                (mul (sub keys keyw) 0.5)
+              )
+              0.9
+            )
+          )
+
+          ;; compute new position
+          (let nx (add (get e "x") nvx))
+          (let ny (add (get e "y") nvy))
+
+          ;; 🔥 RETURN FULL NEW ENTITY
+          (list
+            "x" nx
+            "y" ny
+            "vx" nvx
+            "vy" nvy
+            "r" (get e "r")
+            "g" (get e "g")
+            "b" (get e "b")
           )
         )
       )
@@ -25,6 +54,7 @@
     )
   )
 
+  ;; render
   (map
     (fn (e)
       (list "circle"

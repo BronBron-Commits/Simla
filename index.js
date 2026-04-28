@@ -13,8 +13,12 @@ function tokenize(code) {
 
 let bytecode;
 let ctx;
-
 let state = {};
+
+const keys = {};
+
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = 1);
+window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = 0);
 
 const FIXED_DT = 16;
 let accumulator = 0;
@@ -43,9 +47,20 @@ function loop(time) {
   let result;
 
   while (accumulator >= FIXED_DT) {
-    const step = run(bytecode, state);
-    state = step.state;
+
+    const step = run(bytecode, {
+      ...state,
+      keyw: keys["w"] || 0,
+      keya: keys["a"] || 0,
+      keys: keys["s"] || 0,
+      keyd: keys["d"] || 0
+    });
+
+    // 🔥 CRITICAL: merge, don't replace blindly
+    state = { ...state, ...step.state };
+
     result = step.result;
+
     accumulator -= FIXED_DT;
   }
 
