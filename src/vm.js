@@ -120,7 +120,31 @@ function exec(code, env) {
         break;
       }
 
-      default:
+      
+      case "FILTER": {
+        const fn = stack.pop();
+        const list = stack.pop();
+
+        if (!Array.isArray(list)) {
+          stack.push([]);
+          break;
+        }
+
+        const result = [];
+
+        for (const item of list) {
+          const newEnv = makeEnv(fn.closure);
+          newEnv.vars[fn.params[0]] = item;
+          const keep = exec(fn.body, newEnv);
+
+          if (keep) result.push(item);
+        }
+
+        stack.push(result);
+        break;
+      }
+
+default:
         throw new Error("Unknown op: " + op);
     }
   }

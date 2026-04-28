@@ -72,7 +72,15 @@ function compile(node, out = []) {
     }
 
     // 🔥 COMPONENT OPS
-    if (name === "get") {
+    
+  if (name === "filter") {
+    compile(node.args[1], out); // list first
+    compile(node.args[0], out); // function second
+    out.push(["FILTER"]);
+    return out;
+  }
+
+if (name === "get") {
       compile(node.args[0], out); // entity
       compile(node.args[1], out); // key
       out.push(["GET"]);
