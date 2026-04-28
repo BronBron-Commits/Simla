@@ -93,24 +93,22 @@ function compile(node, out = []) {
         return out;
       }
 
-      // lists
       if (name === "list") {
         for (const arg of node.args) compile(arg, out);
         out.push(["LIST", node.args.length]);
         return out;
       }
 
-      // math + compare
-      if (["add","sub","mul","div","gt","lt","eq"].includes(name)) {
-        compile(node.args[0], out);
-        compile(node.args[1], out);
+      // 🔥 FIXED: correct placement
+      if (["first","rest","cons","len","map","reduce"].includes(name)) {
+        for (const arg of node.args) compile(arg, out);
         out.push([name.toUpperCase()]);
         return out;
       }
 
-      // list ops + map
-      if (["first","rest","cons","len","map"].includes(name)) {
-        for (const arg of node.args) compile(arg, out);
+      if (["add","sub","mul","div","gt","lt","eq"].includes(name)) {
+        compile(node.args[0], out);
+        compile(node.args[1], out);
         out.push([name.toUpperCase()]);
         return out;
       }
@@ -122,7 +120,6 @@ function compile(node, out = []) {
       }
     }
 
-    // general call
     compile(callee, out);
     for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.args.length]);

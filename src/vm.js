@@ -131,6 +131,7 @@ function run(bytecode) {
         frame.ip = a;
         break;
 
+      // 🔥 MAP (already working)
       case "MAP": {
         const list = stack.pop();
         const fn = stack.pop();
@@ -142,14 +143,37 @@ function run(bytecode) {
 
           frames.push({ code: fn.code, ip: 0, env: newEnv });
 
-          while (frames.length > 1) {
-            step();
-          }
+          while (frames.length > 1) step();
 
           result.push(stack.pop());
         }
 
         stack.push(result);
+        break;
+      }
+
+      // 🔥 REDUCE (correct placement)
+      case "REDUCE": {
+        const list = stack.pop();
+        const initial = stack.pop();
+        const fn = stack.pop();
+
+        let acc = initial;
+
+        for (const item of list) {
+          const newEnv = makeEnv(fn.closure);
+
+          newEnv.vars[fn.params[0]] = acc;
+          newEnv.vars[fn.params[1]] = item;
+
+          frames.push({ code: fn.code, ip: 0, env: newEnv });
+
+          while (frames.length > 1) step();
+
+          acc = stack.pop();
+        }
+
+        stack.push(acc);
         break;
       }
 
