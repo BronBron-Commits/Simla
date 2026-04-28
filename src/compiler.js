@@ -1,9 +1,7 @@
 function compile(node, out = []) {
 
   if (node.type === "program") {
-    for (const expr of node.body) {
-      compile(expr, out);
-    }
+    for (const expr of node.body) compile(expr, out);
     return out;
   }
 
@@ -26,26 +24,41 @@ function compile(node, out = []) {
       return out;
     }
 
+    // fn  => store function object in env
+    if (node.name === "fn") {
+      const nameNode   = node.args[0];
+      const paramsNode = node.args[1];
+      const bodyNode   = node.args[2];
+
+      // extract params from (a b c) form
+      const params = [paramsNode.name, ...paramsNode.args.map(a => a.name)];
+
+      // compile body into its own chunk
+      const bodyCode = [];
+      compile(bodyNode, bodyCode);
+      bodyCode.push(["RET"]);
+
+      out.push(["FUNC", nameNode.name, params, bodyCode]);
+      return out;
+    }
+
     // if
     if (node.name === "if") {
-      compile(node.args[0], out); // condition
+      compile(node.args[0], out);
 
-      const jmpFalseIndex = out.length;
+      const jmpFalse = out.length;
       out.push(["JMP_IF_FALSE", null]);
 
-      compile(node.args[1], out); // true branch
+      compile(node.args[1], out);
 
-      const jmpEndIndex = out.length;
+      const jmpEnd = out.length;
       out.push(["JMP", null]);
 
-      // patch false jump
-      out[jmpFalseIndex][1] = out.length;
+      out[jmpFalse][1] = out.length;
 
-      compile(node.args[2], out); // false branch
+      compile(node.args[2], out);
 
-      // patch end jump
-      out[jmpEndIndex][1] = out.length;
-
+      out[jmpEnd][1] = out.length;
       return out;
     }
 
@@ -64,9 +77,7 @@ function compile(node, out = []) {
     }
 
     // function call
-    for (const arg of node.args) {
-      compile(arg, out);
-    }
+    for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.name, node.args.length]);
     return out;
   }

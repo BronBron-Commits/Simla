@@ -1,11 +1,22 @@
 function run(bytecode) {
   const stack = [];
-  const env = {};
 
-  let ip = 0;
+  const frames = [{
+    code: bytecode,
+    ip: 0,
+    env: {}
+  }];
 
-  while (ip < bytecode.length) {
-    const [op, a] = bytecode[ip];
+  while (frames.length) {
+    const frame = frames[frames.length - 1];
+    const { code } = frame;
+
+    if (frame.ip >= code.length) {
+      frames.pop();
+      continue;
+    }
+
+    const [op, a, b, c] = code[frame.ip++];
 
     switch (op) {
 
@@ -14,13 +25,51 @@ function run(bytecode) {
         break;
 
       case "LOAD":
-        if (!(a in env)) throw new Error("Undefined: " + a);
-        stack.push(env[a]);
+        if (!(a in frame.env)) throw new Error("Undefined: " + a);
+        stack.push(frame.env[a]);
         break;
 
       case "STORE":
-        env[a] = stack.pop();
+        frame.env[a] = stack.pop();
         break;
+
+      case "FUNC":
+        frame.env[a] = {
+          params: b,
+          code: c
+        };
+        break;
+
+      case "CALL": {
+        const fn = frame.env[a];
+        if (!fn) throw new Error("Not a function: " + a);
+
+        const args = [];
+        for (let i = 0; i < b; i++) args.unshift(stack.pop());
+
+        // FIX: inherit parent env
+        const newEnv = Object.create(frame.env);
+
+        for (let i = 0; i < fn.params.length; i++) {
+          newEnv[fn.params[i]] = args[i];
+        }
+
+        frames.push({
+          code: fn.code,
+          ip: 0,
+          env: newEnv
+        });
+        break;
+      }
+
+      case "RET": {
+        const retVal = stack.pop();
+        frames.pop();
+        if (frames.length) {
+          stack.push(retVal);
+        }
+        break;
+      }
 
       case "ADD":
         stack.push(stack.pop() + stack.pop());
@@ -65,25 +114,21 @@ function run(bytecode) {
       case "PRINT": {
         const val = stack.pop();
         console.log(val);
+        stack.push(val);
         break;
       }
 
       case "JMP_IF_FALSE":
-        if (!stack.pop()) {
-          ip = a;
-          continue;
-        }
+        if (!stack.pop()) frame.ip = a;
         break;
 
       case "JMP":
-        ip = a;
-        continue;
+        frame.ip = a;
+        break;
 
       default:
         throw new Error("Unknown op: " + op);
     }
-
-    ip++;
   }
 
   return stack.pop();

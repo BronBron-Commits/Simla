@@ -1,4 +1,6 @@
-(let x 5)
-(if (gt x 3)
-    (print 1)
-    (print 2))
+(fn fact (n)
+  (if (eq n 0)
+      1
+      (mul n (fact (sub n 1)))))
+
+(print (fact 5))
