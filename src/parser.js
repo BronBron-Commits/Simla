@@ -2,62 +2,51 @@ function parse(tokens) {
   let i = 0;
 
   function walk() {
-    let token = tokens[i++];
+    const token = tokens[i++];
 
     if (token === "(") {
-      // 🔥 EMPTY LIST FIX
       if (tokens[i] === ")") {
-        i++; // consume ')'
+        i++;
         return { type: "list", elements: [] };
       }
 
-      // parse first element
-      const first = walk();
+      const elements = [];
 
-      const args = [];
       while (tokens[i] !== ")") {
-        args.push(walk());
+        elements.push(walk());
       }
 
       i++; // consume ')'
 
-      // if first is identifier → function call
-      if (first.type === "identifier") {
+      // 🔥 FIX:
+      // only treat as CALL if it clearly has arguments
+      if (
+        elements.length > 1 &&
+        elements[0].type === "identifier"
+      ) {
         return {
           type: "call",
-          callee: first,
-          args
+          callee: elements[0],
+          args: elements.slice(1)
         };
       }
 
-      // otherwise it's just a list
+      // otherwise it's a LIST (important for (e))
       return {
         type: "list",
-        elements: [first, ...args]
+        elements
       };
     }
 
-    // number
     if (!isNaN(token)) {
-      return {
-        type: "number",
-        value: Number(token)
-      };
+      return { type: "number", value: Number(token) };
     }
 
-    // string
     if (token.startsWith('"')) {
-      return {
-        type: "string",
-        value: token.slice(1, -1)
-      };
+      return { type: "string", value: token.slice(1, -1) };
     }
 
-    // identifier
-    return {
-      type: "identifier",
-      name: token
-    };
+    return { type: "identifier", name: token };
   }
 
   const body = [];
@@ -65,10 +54,7 @@ function parse(tokens) {
     body.push(walk());
   }
 
-  return {
-    type: "program",
-    body
-  };
+  return { type: "program", body };
 }
 
 export { parse };
