@@ -93,7 +93,7 @@ function compile(node, out = []) {
         return out;
       }
 
-      // 🔥 LIST
+      // lists
       if (name === "list") {
         for (const arg of node.args) compile(arg, out);
         out.push(["LIST", node.args.length]);
@@ -108,8 +108,8 @@ function compile(node, out = []) {
         return out;
       }
 
-      // list ops
-      if (["first","rest","cons","len"].includes(name)) {
+      // list ops + map
+      if (["first","rest","cons","len","map"].includes(name)) {
         for (const arg of node.args) compile(arg, out);
         out.push([name.toUpperCase()]);
         return out;
@@ -122,6 +122,7 @@ function compile(node, out = []) {
       }
     }
 
+    // general call
     compile(callee, out);
     for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.args.length]);

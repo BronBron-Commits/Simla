@@ -20,50 +20,31 @@ function run(bytecode) {
     env: makeEnv()
   }];
 
-  while (frames.length) {
+  function step() {
     const frame = frames[frames.length - 1];
 
     if (frame.ip >= frame.code.length) {
       frames.pop();
-      continue;
+      return;
     }
 
     const [op, a, b] = frame.code[frame.ip++];
 
     switch (op) {
 
-      case "PUSH":
-        stack.push(a);
-        break;
-
-      case "LOAD":
-        stack.push(lookup(frame.env, a));
-        break;
-
-      case "STORE":
-        frame.env.vars[a] = stack.pop();
-        break;
-
-      case "DUP":
-        stack.push(stack[stack.length - 1]);
-        break;
-
-      case "POP":
-        stack.pop();
-        break;
+      case "PUSH": stack.push(a); break;
+      case "LOAD": stack.push(lookup(frame.env, a)); break;
+      case "STORE": frame.env.vars[a] = stack.pop(); break;
+      case "DUP": stack.push(stack[stack.length - 1]); break;
+      case "POP": stack.pop(); break;
 
       case "MAKE_FUNC":
-        stack.push({
-          params: a,
-          code: b,
-          closure: frame.env
-        });
+        stack.push({ params: a, code: b, closure: frame.env });
         break;
 
       case "CALL": {
-        const argCount = a;
         const args = [];
-        for (let i = 0; i < argCount; i++) args.unshift(stack.pop());
+        for (let i = 0; i < a; i++) args.unshift(stack.pop());
         const fn = stack.pop();
 
         const newEnv = makeEnv(fn.closure);
@@ -89,13 +70,8 @@ function run(bytecode) {
         break;
       }
 
-      case "FIRST":
-        stack.push(stack.pop()[0]);
-        break;
-
-      case "REST":
-        stack.push(stack.pop().slice(1));
-        break;
+      case "FIRST": stack.push(stack.pop()[0]); break;
+      case "REST": stack.push(stack.pop().slice(1)); break;
 
       case "CONS": {
         const list = stack.pop();
@@ -104,9 +80,7 @@ function run(bytecode) {
         break;
       }
 
-      case "LEN":
-        stack.push(stack.pop().length);
-        break;
+      case "LEN": stack.push(stack.pop().length); break;
 
       case "ADD": stack.push(stack.pop() + stack.pop()); break;
 
@@ -140,9 +114,7 @@ function run(bytecode) {
         break;
       }
 
-      case "EQ":
-        stack.push(stack.pop() === stack.pop());
-        break;
+      case "EQ": stack.push(stack.pop() === stack.pop()); break;
 
       case "PRINT": {
         const val = stack.pop();
@@ -159,9 +131,35 @@ function run(bytecode) {
         frame.ip = a;
         break;
 
+      case "MAP": {
+        const list = stack.pop();
+        const fn = stack.pop();
+        const result = [];
+
+        for (const item of list) {
+          const newEnv = makeEnv(fn.closure);
+          newEnv.vars[fn.params[0]] = item;
+
+          frames.push({ code: fn.code, ip: 0, env: newEnv });
+
+          while (frames.length > 1) {
+            step();
+          }
+
+          result.push(stack.pop());
+        }
+
+        stack.push(result);
+        break;
+      }
+
       default:
         throw new Error("Unknown op: " + op);
     }
+  }
+
+  while (frames.length) {
+    step();
   }
 
   return stack.pop();
