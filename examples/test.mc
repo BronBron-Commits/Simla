@@ -1,1 +1,2 @@
-(print (add 2 (mul 3 4)))
+(let x 5)
+(print (add x 3))

@@ -29,7 +29,16 @@ function parse(tokens) {
     return { type: "identifier", name: token };
   }
 
-  return walk();
+  const program = {
+    type: "program",
+    body: []
+  };
+
+  while (current < tokens.length) {
+    program.body.push(walk());
+  }
+
+  return program;
 }
 
 module.exports = { parse };
