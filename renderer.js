@@ -6,18 +6,19 @@ export function render(ctx, commands) {
   for (const cmd of commands) {
     if (!cmd) continue;
 
-    const [type, x, y, w, h, r, g, b] = cmd;
+    const [type, x, y, a, b, r, g, bl] = cmd;
 
     if (type === "circle") {
-      const [_, cx, cy, rad, cr, cg, cb] = cmd;
-      ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+      const radius = a;
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
       ctx.beginPath();
-      ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
 
     if (type === "rect") {
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      const w = a, h = b;
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
       ctx.fillRect(x, y, w, h);
     }
   }
