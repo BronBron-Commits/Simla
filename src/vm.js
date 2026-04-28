@@ -13,86 +13,23 @@ function run(bytecode, globals = {}) {
       if (name in cur.vars) return cur.vars[name];
       cur = cur.parent;
     }
-    return undefined;
+    return 0; // avoid NaN propagation
   }
 
-  const globalEnv = makeEnv();
-  Object.assign(globalEnv.vars, GLOBAL_STATE);
-  Object.assign(globalEnv.vars, globals);
+  const env = makeEnv();
+  Object.assign(env.vars, GLOBAL_STATE);
+  Object.assign(env.vars, globals);
 
-  const frames = [{
-    code: bytecode,
-    ip: 0,
-    env: globalEnv
-  }];
+  let ip = 0;
 
-  function step() {
-    const frame = frames[frames.length - 1];
-
-    if (frame.ip >= frame.code.length) {
-      frames.pop();
-      return;
-    }
-
-    const [op, a, b] = frame.code[frame.ip++];
+  while (ip < bytecode.length) {
+    const [op, a] = bytecode[ip++];
 
     switch (op) {
-
       case "PUSH": stack.push(a); break;
-      case "LOAD": stack.push(lookup(frame.env, a)); break;
-      case "STORE": frame.env.vars[a] = stack.pop(); break;
-      case "DUP": stack.push(stack[stack.length - 1]); break;
+      case "LOAD": stack.push(lookup(env, a)); break;
+      case "STORE": env.vars[a] = stack.pop(); break;
       case "POP": stack.pop(); break;
-
-      case "MAKE_FUNC":
-        stack.push({ params: a, code: b, closure: frame.env });
-        break;
-
-      case "CALL": {
-        const args = [];
-        for (let i = 0; i < a; i++) args.unshift(stack.pop());
-
-        const fn = stack.pop();
-
-        if (!fn || typeof fn !== "object" || !fn.code) {
-          throw new Error("CALL on non-function: " + JSON.stringify(fn));
-        }
-
-        const newEnv = makeEnv(fn.closure);
-
-        for (let i = 0; i < fn.params.length; i++) {
-          newEnv.vars[fn.params[i]] = args[i];
-        }
-
-        frames.push({ code: fn.code, ip: 0, env: newEnv });
-        break;
-      }
-
-      case "RET": {
-        const val = stack.pop();
-        frames.pop();
-        if (frames.length) stack.push(val);
-        break;
-      }
-
-      case "LIST": {
-        const arr = [];
-        for (let i = 0; i < a; i++) arr.unshift(stack.pop());
-        stack.push(arr);
-        break;
-      }
-
-      case "FIRST": stack.push(stack.pop()[0]); break;
-      case "REST": stack.push(stack.pop().slice(1)); break;
-
-      case "CONS": {
-        const list = stack.pop();
-        const val = stack.pop();
-        stack.push([val, ...list]);
-        break;
-      }
-
-      case "LEN": stack.push(stack.pop().length); break;
 
       case "ADD": stack.push(stack.pop() + stack.pop()); break;
 
@@ -112,89 +49,33 @@ function run(bytecode, globals = {}) {
         break;
       }
 
+      case "OR": stack.push(stack.pop() || stack.pop()); break;
+
+      case "MIN": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.min(a, b));
+        break;
+      }
+
+      case "MAX": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.max(a, b));
+        break;
+      }
+
       case "GT": {
         const b = stack.pop();
         const a = stack.pop();
-        stack.push(a > b);
+        stack.push(a > b ? 1 : 0);
         break;
       }
 
-      case "LT": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(a < b);
-        break;
-      }
-
-      case "EQ": stack.push(stack.pop() === stack.pop()); break;
-
-      case "OR":
-        stack.push(stack.pop() || stack.pop());
-        break;
-
-      case "SIN":
-        stack.push(Math.sin(stack.pop()));
-        break;
-
-      case "COS":
-        stack.push(Math.cos(stack.pop()));
-        break;
-
-      case "PRINT": {
-        const val = stack.pop();
-        console.log(val);
-        stack.push(val);
-        break;
-      }
-
-      case "JMP_IF_FALSE":
-        if (!stack.pop()) frame.ip = a;
-        break;
-
-      case "JMP":
-        frame.ip = a;
-        break;
-
-      case "MAP": {
-        const list = stack.pop();
-        const fn = stack.pop();
-        const result = [];
-
-        for (const item of list) {
-          const newEnv = makeEnv(fn.closure);
-          newEnv.vars[fn.params[0]] = item;
-
-          frames.push({ code: fn.code, ip: 0, env: newEnv });
-
-          while (frames.length > 1) step();
-
-          result.push(stack.pop());
-        }
-
-        stack.push(result);
-        break;
-      }
-
-      case "REDUCE": {
-        const list = stack.pop();
-        const initial = stack.pop();
-        const fn = stack.pop();
-
-        let acc = initial;
-
-        for (const item of list) {
-          const newEnv = makeEnv(fn.closure);
-          newEnv.vars[fn.params[0]] = acc;
-          newEnv.vars[fn.params[1]] = item;
-
-          frames.push({ code: fn.code, ip: 0, env: newEnv });
-
-          while (frames.length > 1) step();
-
-          acc = stack.pop();
-        }
-
-        stack.push(acc);
+      case "LIST": {
+        const arr = [];
+        for (let i = 0; i < a; i++) arr.unshift(stack.pop());
+        stack.push(arr);
         break;
       }
 
@@ -203,13 +84,11 @@ function run(bytecode, globals = {}) {
     }
   }
 
-  while (frames.length) {
-    step();
-  }
-
-  Object.assign(GLOBAL_STATE, globalEnv.vars);
-
+  Object.assign(GLOBAL_STATE, env.vars);
   return stack.pop();
 }
 
 export { run };
+
+// add this at the bottom if not present
+export { GLOBAL_STATE };

@@ -1,11 +1,3 @@
-function getParams(paramsNode) {
-  if (paramsNode.type !== "call") throw new Error("Invalid parameter list");
-  const params = [];
-  params.push(paramsNode.callee.name);
-  for (const arg of paramsNode.args) params.push(arg.name);
-  return params;
-}
-
 function compile(node, out = []) {
 
   if (node.type === "program") {
@@ -29,120 +21,91 @@ function compile(node, out = []) {
   }
 
   if (node.type === "call") {
-    const callee = node.callee;
+    const name = node.callee.name;
 
-    if (callee.type === "identifier") {
-      const name = callee.name;
-
-      if (name === "let") {
-        compile(node.args[1], out);
-        out.push(["STORE", node.args[0].name]);
-        return out;
-      }
-
-      if (name === "fn") {
-        let nameNode = null;
-        let paramsNode, bodyNodes;
-
-        if (node.args.length >= 3 && node.args[0].type === "identifier") {
-          nameNode = node.args[0];
-          paramsNode = node.args[1];
-          bodyNodes = node.args.slice(2);
-        } else {
-          paramsNode = node.args[0];
-          bodyNodes = node.args.slice(1);
-        }
-
-        const params = getParams(paramsNode);
-
-        const bodyCode = [];
-        for (let i = 0; i < bodyNodes.length; i++) {
-          compile(bodyNodes[i], bodyCode);
-          if (i < bodyNodes.length - 1) bodyCode.push(["POP"]);
-        }
-        bodyCode.push(["RET"]);
-
-        out.push(["MAKE_FUNC", params, bodyCode]);
-
-        if (nameNode) {
-          out.push(["DUP"]);
-          out.push(["STORE", nameNode.name]);
-        }
-        return out;
-      }
-
-      if (name === "begin") {
-        for (let i = 0; i < node.args.length; i++) {
-          compile(node.args[i], out);
-          if (i < node.args.length - 1) out.push(["POP"]);
-        }
-        return out;
-      }
-
-      if (name === "if") {
-        compile(node.args[0], out);
-
-        const jf = out.length;
-        out.push(["JMP_IF_FALSE", null]);
-
-        compile(node.args[1], out);
-
-        const je = out.length;
-        out.push(["JMP", null]);
-
-        out[jf][1] = out.length;
-
-        compile(node.args[2], out);
-
-        out[je][1] = out.length;
-        return out;
-      }
-
-      if (name === "list") {
-        for (const arg of node.args) compile(arg, out);
-        out.push(["LIST", node.args.length]);
-        return out;
-      }
-
-      if (["first","rest","cons","len","map","reduce"].includes(name)) {
-        for (const arg of node.args) compile(arg, out);
-        out.push([name.toUpperCase()]);
-        return out;
-      }
-
-      if (["sin","cos"].includes(name)) {
-        compile(node.args[0], out);
-        out.push([name.toUpperCase()]);
-        return out;
-      }
-
-      if (["add","sub","mul","div","gt","lt","eq"].includes(name)) {
-        compile(node.args[0], out);
-        compile(node.args[1], out);
-        out.push([name.toUpperCase()]);
-        return out;
-      }
-
-      // 🔥 OR added
-      if (name === "or") {
-        compile(node.args[0], out);
-        compile(node.args[1], out);
-        out.push(["OR"]);
-        return out;
-      }
-
-      if (name === "print") {
-        compile(node.args[0], out);
-        out.push(["PRINT"]);
-        return out;
-      }
+    // assignment
+    if (name === "let") {
+      compile(node.args[1], out);
+      out.push(["STORE", node.args[0].name]);
+      return out;
     }
 
-    compile(callee, out);
-    for (const arg of node.args) compile(arg, out);
-    out.push(["CALL", node.args.length]);
+    // sequence
+    if (name === "begin") {
+      for (let i = 0; i < node.args.length; i++) {
+        compile(node.args[i], out);
+        if (i < node.args.length - 1) out.push(["POP"]);
+      }
+      return out;
+    }
 
-    return out;
+    // math
+    if (name === "add") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["ADD"]);
+      return out;
+    }
+
+    if (name === "sub") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["SUB"]);
+      return out;
+    }
+
+    if (name === "mul") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["MUL"]);
+      return out;
+    }
+
+    if (name === "div") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["DIV"]);
+      return out;
+    }
+
+    // logic
+    if (name === "or") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["OR"]);
+      return out;
+    }
+
+    if (name === "gt") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["GT"]);
+      return out;
+    }
+
+    // clamp helpers
+    if (name === "min") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["MIN"]);
+      return out;
+    }
+
+    if (name === "max") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["MAX"]);
+      return out;
+    }
+
+    // list (render)
+    if (name === "list") {
+      for (const arg of node.args) compile(arg, out);
+      out.push(["LIST", node.args.length]);
+      return out;
+    }
+
+    throw new Error("Unsupported call: " + name);
   }
 
   return out;

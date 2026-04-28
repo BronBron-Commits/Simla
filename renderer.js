@@ -1,23 +1,23 @@
-export function render(commands) {
-  const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d");
+export function render(ctx, commands) {
+  if (!ctx) return;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, 800, 600);
 
   for (const cmd of commands) {
-    const [type, ...args] = cmd;
+    if (!cmd) continue;
+
+    const [type, x, y, w, h, r, g, b] = cmd;
 
     if (type === "circle") {
-      const [x, y, r, cr=255, cg=255, cb=255] = args;
+      const [_, cx, cy, rad, cr, cg, cb] = cmd;
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
       ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.arc(cx, cy, rad, 0, Math.PI * 2);
       ctx.fill();
     }
 
     if (type === "rect") {
-      const [x, y, w, h, cr=255, cg=255, cb=255] = args;
-      ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fillRect(x, y, w, h);
     }
   }

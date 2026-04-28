@@ -1,18 +1,21 @@
 (begin
   (let x (or x 400))
-  (let y (or y 300))
-
+  (let y (or y 100))
   (let vx (or vx 0))
   (let vy (or vy 0))
 
-  (let vx (add vx (mul (sub keyD keyA) 0.5)))
-  (let vy (add vy (mul (sub keyS keyW) 0.5)))
+  ;; gravity
+  (let vy (add vy 0.5))
 
-  (let vx (mul vx 0.9))
-  (let vy (mul vy 0.9))
+  ;; integrate
+  (let ny (add y vy))
 
-  (let x (add x vx))
-  (let y (add y vy))
+  ;; floor clamp
+  (let ny (min 580 ny))
+
+  ;; commit
+  (let y ny)
 
   (list
-    (list "circle" x y 20 0 255 0)))
+    (list "circle" x y 20 255 0 0))
+)
