@@ -1,19 +1,29 @@
 (begin
   (let t tick)
 
-  (list
-    "camera" (list "x" 0 "y" 0 "z" -8)
-    "objects"
-      (list
+  (let base
+    (list 0 1 2 3 4 5 6 7 8 9)
+  )
+
+  (let objects
+    (map
+      (fn (i)
         (list
           "type" "cube"
-          "id" 1
-          "x" (mul (sin (mul t 0.002)) 3)
-          "y" (mul (cos (mul t 0.002)) 2)
-          "z" 6
-          "size" 2
+          "id" i
+          "x" (mul (sin (add (mul t 0.002) i)) 4)
+          "y" (mul (cos (add (mul t 0.002) i)) 2)
+          "z" (add 5 (mul (sin (add i t)) 1))
+          "size" 1
           "rotY" (mul t 0.002)
         )
       )
+      base
+    )
+  )
+
+  (list
+    "camera" (list "x" 0 "y" 0 "z" -10)
+    "objects" objects
   )
 )
