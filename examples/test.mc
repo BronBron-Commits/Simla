@@ -1,2 +1,3 @@
-(let x 10)
-(print ((fn (y) (add x y)) 5))
+(print ((fn (x)
+  (print x)
+  (add x 1)) 5))

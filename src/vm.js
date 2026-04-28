@@ -48,11 +48,15 @@ function run(bytecode) {
         stack.push(stack[stack.length - 1]);
         break;
 
+      case "POP":
+        stack.pop();
+        break;
+
       case "MAKE_FUNC":
         stack.push({
           params: a,
           code: b,
-          closure: frame.env   // ✅ correct
+          closure: frame.env
         });
         break;
 
@@ -70,7 +74,6 @@ function run(bytecode) {
           throw new Error("Not a function value");
         }
 
-        // ✅ correct lexical scope
         const newEnv = makeEnv(fn.closure);
 
         for (let i = 0; i < fn.params.length; i++) {
@@ -82,7 +85,6 @@ function run(bytecode) {
           ip: 0,
           env: newEnv
         });
-
         break;
       }
 

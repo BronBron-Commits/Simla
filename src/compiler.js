@@ -5,16 +5,9 @@ function getParams(paramsNode) {
 
   const params = [];
 
-  if (paramsNode.callee.type !== "identifier") {
-    throw new Error("Invalid parameter");
-  }
-
   params.push(paramsNode.callee.name);
 
   for (const arg of paramsNode.args) {
-    if (arg.type !== "identifier") {
-      throw new Error("Invalid parameter");
-    }
     params.push(arg.name);
   }
 
@@ -51,31 +44,36 @@ function compile(node, out = []) {
         return out;
       }
 
-      // 🔥 UPDATED fn
       if (name === "fn") {
         let nameNode = null;
-        let paramsNode, bodyNode;
+        let paramsNode, bodyNodes;
 
-        // named: (fn name (params) body)
-        if (node.args.length === 3 && node.args[0].type === "identifier") {
+        if (node.args.length >= 3 && node.args[0].type === "identifier") {
           nameNode = node.args[0];
           paramsNode = node.args[1];
-          bodyNode = node.args[2];
+          bodyNodes = node.args.slice(2);
         } else {
-          // anonymous: (fn (params) body)
           paramsNode = node.args[0];
-          bodyNode = node.args[1];
+          bodyNodes = node.args.slice(1);
         }
 
         const params = getParams(paramsNode);
 
         const bodyCode = [];
-        compile(bodyNode, bodyCode);
+
+        for (let i = 0; i < bodyNodes.length; i++) {
+          compile(bodyNodes[i], bodyCode);
+
+          // discard intermediate results
+          if (i < bodyNodes.length - 1) {
+            bodyCode.push(["POP"]);
+          }
+        }
+
         bodyCode.push(["RET"]);
 
         out.push(["MAKE_FUNC", params, bodyCode]);
 
-        // if named, bind it
         if (nameNode) {
           out.push(["DUP"]);
           out.push(["STORE", nameNode.name]);
@@ -117,13 +115,8 @@ function compile(node, out = []) {
       }
     }
 
-    // general call (callee is expression)
     compile(callee, out);
-
-    for (const arg of node.args) {
-      compile(arg, out);
-    }
-
+    for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.args.length]);
 
     return out;
