@@ -1,2 +1,7 @@
-(fn addTwo (x) (add x 2))
-(print (addTwo 5))
+(fn max (a b)
+  (if (gt a b)
+      a
+      b))
+
+(print (max 10 5))
+(print (max 3 7))

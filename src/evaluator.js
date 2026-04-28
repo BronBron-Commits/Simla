@@ -14,7 +14,6 @@ function createEnv(parent = null) {
 }
 
 function extractParams(node) {
-  // (x) OR (x y z)
   if (node.type !== "call") {
     throw new Error("Invalid parameter list");
   }
@@ -23,7 +22,7 @@ function extractParams(node) {
 
   for (const arg of node.args) {
     if (arg.type !== "identifier") {
-      throw new Error("Invalid parameter: " + JSON.stringify(arg));
+      throw new Error("Invalid parameter");
     }
     params.push(arg.name);
   }
@@ -50,11 +49,8 @@ function evaluate(node, env) {
 
     // let
     if (node.name === "let") {
-      const nameNode = node.args[0];
-      const valueNode = node.args[1];
-
-      const value = evaluate(valueNode, env);
-      env.set(nameNode.name, value);
+      const value = evaluate(node.args[1], env);
+      env.set(node.args[0].name, value);
       return value;
     }
 
@@ -77,8 +73,19 @@ function evaluate(node, env) {
       return func;
     }
 
+    // if (special form)
+    if (node.name === "if") {
+      const cond = evaluate(node.args[0], env);
+
+      if (cond) {
+        return evaluate(node.args[1], env);
+      } else {
+        return evaluate(node.args[2], env);
+      }
+    }
+
     // builtins
-    if (["add", "sub", "mul", "div", "print"].includes(node.name)) {
+    if (["add","sub","mul","div","print","gt","lt","eq"].includes(node.name)) {
       const args = node.args.map(arg => evaluate(arg, env));
 
       switch (node.name) {
@@ -89,6 +96,9 @@ function evaluate(node, env) {
         case "print":
           console.log(args[0]);
           return args[0];
+        case "gt": return args[0] > args[1];
+        case "lt": return args[0] < args[1];
+        case "eq": return args[0] === args[1];
       }
     }
 
