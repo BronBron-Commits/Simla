@@ -45,7 +45,13 @@ function compile(node, out = []) {
     }
 
     if (name === "fn") {
-      const params = node.args[0].elements.map(e => e.name);
+      const rawParams = node.args[0];
+      const params =
+        rawParams.elements ? rawParams.elements.map(e => e.name) :
+        rawParams.type === "call" ? [rawParams.callee.name, ...rawParams.args.map(e => e.name)] :
+        rawParams.args ? rawParams.args.map(e => e.name) :
+        rawParams.name ? [rawParams.name] :
+        [];
 
       const body = [];
       for (let i = 1; i < node.args.length; i++) {
@@ -77,6 +83,15 @@ function compile(node, out = []) {
     compile(node.args[1], out); // list first
     compile(node.args[0], out); // function second
     out.push(["FILTER"]);
+    return out;
+  }
+
+
+  if (name === "reduce") {
+    compile(node.args[2], out); // list
+    compile(node.args[1], out); // initial accumulator
+    compile(node.args[0], out); // function
+    out.push(["REDUCE"]);
     return out;
   }
 

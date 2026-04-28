@@ -144,6 +144,28 @@ function exec(code, env) {
         break;
       }
 
+
+      case "REDUCE": {
+        const fn = stack.pop();
+        let acc = stack.pop();
+        const list = stack.pop();
+
+        if (!Array.isArray(list)) {
+          stack.push(acc);
+          break;
+        }
+
+        for (const item of list) {
+          const newEnv = makeEnv(fn.closure);
+          newEnv.vars[fn.params[0]] = acc;
+          newEnv.vars[fn.params[1]] = item;
+          acc = exec(fn.body, newEnv);
+        }
+
+        stack.push(acc);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }
