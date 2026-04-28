@@ -271,7 +271,7 @@
       ctx.restore();
     }
 
-    const code = await fetch("./examples/cube_scene.sim?cb=" + Date.now()).then(r => r.text());
+    const code = await fetch("./examples/cube_scene.sim").then(r => r.text());
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
