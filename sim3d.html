@@ -16,21 +16,7 @@
       display: block;
       background: #02030a;
     }
-
-    #hud {
-      position: fixed;
-      top: 14px;
-      left: 14px;
-      background: rgba(0,0,0,.55);
-      padding: 10px 14px;
-      border-radius: 10px;
-      z-index: 5;
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(102,204,255,.25);
-      box-shadow: 0 0 24px rgba(102,204,255,.15);
-    }
-
-    #controls {
+#controls {
       position: fixed;
       left: 20px;
       right: 20px;
@@ -50,19 +36,20 @@
 
     #title {
       position: fixed;
-      bottom: 22px;
-      right: 28px;
-      font-size: 32px;
-      letter-spacing: 2px;
-      color: rgba(180,230,255,.8);
-      text-shadow: 0 0 18px rgba(102,204,255,.7);
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 36px;
+      letter-spacing: 3px;
+      color: rgba(180,230,255,.9);
+      text-shadow: 0 0 24px rgba(102,204,255,.8);
       pointer-events: none;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <div id="hud">Simλ cinematic renderer</div>
-  <div id="title">Simλ</div>
+<div id="title">Simλ</div>
   <canvas id="view"></canvas>
   <div id="controls">
     <label>Speed: <span id="speedValue">1.00</span>x</label>
@@ -98,8 +85,7 @@
 
     const canvas = document.getElementById("view");
     const ctx = canvas.getContext("2d");
-    const hud = document.getElementById("hud");
-    const speedSlider = document.getElementById("speed");
+const speedSlider = document.getElementById("speed");
     const speedValue = document.getElementById("speedValue");
 
     function resize() {
@@ -339,10 +325,7 @@
       }
 
       ctx.globalCompositeOperation = "source-over";
-
-      hud.textContent = `Simλ cinematic renderer — ${objects.length} objects`;
-
-      requestAnimationFrame(frame);
+requestAnimationFrame(frame);
     }
 
     frame(0);
