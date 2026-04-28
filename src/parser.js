@@ -6,9 +6,13 @@ function parse(tokens) {
 
     if (token === "(") {
       current++;
+
+      // 🔥 FIRST element is now ANY expression
+      const callee = walk();
+
       const node = {
         type: "call",
-        name: tokens[current++],
+        callee,
         args: []
       };
 
@@ -29,10 +33,7 @@ function parse(tokens) {
     return { type: "identifier", name: token };
   }
 
-  const program = {
-    type: "program",
-    body: []
-  };
+  const program = { type: "program", body: [] };
 
   while (current < tokens.length) {
     program.body.push(walk());

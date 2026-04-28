@@ -1,22 +1,34 @@
 function run(bytecode) {
   const stack = [];
 
+  function makeEnv(parent = null) {
+    return { vars: {}, parent };
+  }
+
+  function lookup(env, name) {
+    let cur = env;
+    while (cur) {
+      if (name in cur.vars) return cur.vars[name];
+      cur = cur.parent;
+    }
+    throw new Error("Undefined: " + name);
+  }
+
   const frames = [{
     code: bytecode,
     ip: 0,
-    env: {}
+    env: makeEnv()
   }];
 
   while (frames.length) {
     const frame = frames[frames.length - 1];
-    const { code } = frame;
 
-    if (frame.ip >= code.length) {
+    if (frame.ip >= frame.code.length) {
       frames.pop();
       continue;
     }
 
-    const [op, a, b, c] = code[frame.ip++];
+    const [op, a, b] = frame.code[frame.ip++];
 
     switch (op) {
 
@@ -25,35 +37,44 @@ function run(bytecode) {
         break;
 
       case "LOAD":
-        if (!(a in frame.env)) throw new Error("Undefined: " + a);
-        stack.push(frame.env[a]);
+        stack.push(lookup(frame.env, a));
         break;
 
       case "STORE":
-        frame.env[a] = stack.pop();
+        frame.env.vars[a] = stack.pop();
         break;
 
-      case "FUNC":
-        // capture lexical environment HERE
-        frame.env[a] = {
-          params: b,
-          code: c,
-          closure: frame.env
-        };
+      case "DUP":
+        stack.push(stack[stack.length - 1]);
+        break;
+
+      case "MAKE_FUNC":
+        stack.push({
+          params: a,
+          code: b,
+          closure: frame.env   // ✅ correct
+        });
         break;
 
       case "CALL": {
-        const fn = frame.env[a];
-        if (!fn) throw new Error("Not a function: " + a);
+        const argCount = a;
 
         const args = [];
-        for (let i = 0; i < b; i++) args.unshift(stack.pop());
+        for (let i = 0; i < argCount; i++) {
+          args.unshift(stack.pop());
+        }
 
-        // USE captured closure, not caller env
-        const newEnv = Object.create(fn.closure);
+        const fn = stack.pop();
+
+        if (!fn || !fn.code) {
+          throw new Error("Not a function value");
+        }
+
+        // ✅ correct lexical scope
+        const newEnv = makeEnv(fn.closure);
 
         for (let i = 0; i < fn.params.length; i++) {
-          newEnv[fn.params[i]] = args[i];
+          newEnv.vars[fn.params[i]] = args[i];
         }
 
         frames.push({
@@ -61,15 +82,14 @@ function run(bytecode) {
           ip: 0,
           env: newEnv
         });
+
         break;
       }
 
       case "RET": {
-        const retVal = stack.pop();
+        const val = stack.pop();
         frames.pop();
-        if (frames.length) {
-          stack.push(retVal);
-        }
+        if (frames.length) stack.push(val);
         break;
       }
 
