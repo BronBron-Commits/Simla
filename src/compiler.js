@@ -18,7 +18,6 @@ function compile(node, out = []) {
     return out;
   }
 
-  // 🔥 string support
   if (node.type === "string") {
     out.push(["PUSH", node.value]);
     return out;
@@ -107,6 +106,13 @@ function compile(node, out = []) {
 
       if (["first","rest","cons","len","map","reduce"].includes(name)) {
         for (const arg of node.args) compile(arg, out);
+        out.push([name.toUpperCase()]);
+        return out;
+      }
+
+      // 🔥 ADD SIN/COS HERE
+      if (["sin","cos"].includes(name)) {
+        compile(node.args[0], out);
         out.push([name.toUpperCase()]);
         return out;
       }

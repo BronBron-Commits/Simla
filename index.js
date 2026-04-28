@@ -10,24 +10,35 @@ function tokenize(code) {
     .match(/"[^"]*"|\S+/g);
 }
 
-async function main() {
+let bytecode;
+
+async function init() {
   const res = await fetch("./examples/test.mc");
   const code = await res.text();
 
   const tokens = tokenize(code);
-
   const ast = parse(tokens);
-  const bytecode = compile(ast);
+  bytecode = compile(ast);
 
   console.log("BYTECODE:", bytecode);
 
-  const result = run(bytecode);
+  requestAnimationFrame(loop);
+}
+
+function loop(t) {
+  // inject time (seconds)
+  const result = runWithTime(bytecode, t / 1000);
 
   if (Array.isArray(result)) {
     render(result);
-  } else {
-    console.log("Result:", result);
   }
+
+  requestAnimationFrame(loop);
 }
 
-main();
+// simple hook: extend VM env with time
+function runWithTime(bytecode, time) {
+  return run(bytecode, { time });
+}
+
+init();

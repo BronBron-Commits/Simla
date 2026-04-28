@@ -1,4 +1,4 @@
-function run(bytecode) {
+function run(bytecode, globals = {}) {
   const stack = [];
 
   function makeEnv(parent = null) {
@@ -14,10 +14,13 @@ function run(bytecode) {
     throw new Error("Undefined: " + name);
   }
 
+  const globalEnv = makeEnv();
+  Object.assign(globalEnv.vars, globals);
+
   const frames = [{
     code: bytecode,
     ip: 0,
-    env: makeEnv()
+    env: globalEnv
   }];
 
   function step() {
@@ -116,6 +119,15 @@ function run(bytecode) {
 
       case "EQ": stack.push(stack.pop() === stack.pop()); break;
 
+      // 🔥 NEW MATH OPS
+      case "SIN":
+        stack.push(Math.sin(stack.pop()));
+        break;
+
+      case "COS":
+        stack.push(Math.cos(stack.pop()));
+        break;
+
       case "PRINT": {
         const val = stack.pop();
         console.log(val);
@@ -187,5 +199,4 @@ function run(bytecode) {
   return stack.pop();
 }
 
-// 🔥 proper export
 export { run };
