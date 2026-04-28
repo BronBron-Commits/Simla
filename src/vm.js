@@ -226,6 +226,16 @@ case "LIST": {
         break;
       }
 
+
+      case "CONCAT": {
+        const b = stack.pop();
+        const a = stack.pop();
+        const aa = Array.isArray(a) ? a : [];
+        const bb = Array.isArray(b) ? b : [];
+        stack.push([...aa, ...bb]);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }

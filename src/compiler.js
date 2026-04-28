@@ -167,6 +167,14 @@ if (name === "get") {
       return out;
     }
 
+
+    if (name === "concat") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["CONCAT"]);
+      return out;
+    }
+
 throw new Error("Unknown function: " + name);
   }
 
