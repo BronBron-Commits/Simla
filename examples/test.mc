@@ -1,3 +1,7 @@
-(print ((fn (x)
-  (print x)
-  (add x 1)) 5))
+(print
+  ((fn (x)
+     (begin
+       (print x)
+       (print (add x 1))
+       (add x 2)))
+   5))

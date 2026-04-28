@@ -2,15 +2,9 @@ function getParams(paramsNode) {
   if (paramsNode.type !== "call") {
     throw new Error("Invalid parameter list");
   }
-
   const params = [];
-
   params.push(paramsNode.callee.name);
-
-  for (const arg of paramsNode.args) {
-    params.push(arg.name);
-  }
-
+  for (const arg of paramsNode.args) params.push(arg.name);
   return params;
 }
 
@@ -32,7 +26,6 @@ function compile(node, out = []) {
   }
 
   if (node.type === "call") {
-
     const callee = node.callee;
 
     if (callee.type === "identifier") {
@@ -60,16 +53,10 @@ function compile(node, out = []) {
         const params = getParams(paramsNode);
 
         const bodyCode = [];
-
         for (let i = 0; i < bodyNodes.length; i++) {
           compile(bodyNodes[i], bodyCode);
-
-          // discard intermediate results
-          if (i < bodyNodes.length - 1) {
-            bodyCode.push(["POP"]);
-          }
+          if (i < bodyNodes.length - 1) bodyCode.push(["POP"]);
         }
-
         bodyCode.push(["RET"]);
 
         out.push(["MAKE_FUNC", params, bodyCode]);
@@ -78,7 +65,17 @@ function compile(node, out = []) {
           out.push(["DUP"]);
           out.push(["STORE", nameNode.name]);
         }
+        return out;
+      }
 
+      // 🔥 NEW: begin
+      if (name === "begin") {
+        for (let i = 0; i < node.args.length; i++) {
+          compile(node.args[i], out);
+          if (i < node.args.length - 1) {
+            out.push(["POP"]); // discard intermediate
+          }
+        }
         return out;
       }
 
@@ -115,6 +112,7 @@ function compile(node, out = []) {
       }
     }
 
+    // general call
     compile(callee, out);
     for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.args.length]);
