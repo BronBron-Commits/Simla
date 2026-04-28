@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MiniCompiler Entity World</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+      background: #181818;
+    }
+    #hud {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,.65);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">MiniCompiler Entity World</div>
+  <canvas id="game"></canvas>
+
+  <script type="module">
+    import { parse } from "./src/parser.js";
+    import { compile } from "./src/compiler.js";
+    import { run } from "./src/vm.js";
+
+    function tokenize(code) {
+      return code
+        .replace(/;;.*$/gm, "")
+        .replace(/\(/g, " ( ")
+        .replace(/\)/g, " ) ")
+        .match(/"[^"]*"|\S+/g);
+    }
+
+    function get(entity, key) {
+      for (let i = 0; i < entity.length; i += 2) {
+        if (entity[i] === key) return entity[i + 1];
+      }
+      return 0;
+    }
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const hud = document.getElementById("hud");
+
+    function resize() {
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+    }
+
+    addEventListener("resize", resize);
+    resize();
+
+    const code = await fetch("./examples/entity_world.mc").then(r => r.text());
+    const ast = parse(tokenize(code));
+    const bytecode = compile(ast);
+    const step = run(bytecode, {});
+
+    const entities = step.result[1];
+    const count = step.result[3];
+
+    hud.textContent = `MiniCompiler Entity World — ${count} entities`;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    entities.forEach((e, i) => {
+      const team = get(e, "team");
+      const hp = get(e, "hp");
+      const id = get(e, "id");
+
+      const x = 140 + i * 140;
+      const y = canvas.height / 2;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 35, 0, Math.PI * 2);
+      ctx.fillStyle = team === "player" ? "#4aa3ff" : "#ff5a5a";
+      ctx.fill();
+
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
+      ctx.font = "16px system-ui";
+      ctx.fillText(`${team} #${id}`, x, y - 50);
+      ctx.fillText(`HP ${hp}`, x, y + 5);
+    });
+  </script>
+</body>
+</html>
