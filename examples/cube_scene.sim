@@ -1,4 +1,6 @@
 (begin
+  (let t tick)
+
   (list
     "camera" (list "x" 0 "y" 0 "z" -6)
     "objects"
@@ -10,6 +12,7 @@
           "y" 0
           "z" 4
           "size" 2
+          "rotY" (mul t 0.003)
         )
       )
   )

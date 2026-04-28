@@ -108,7 +108,7 @@
     const bytecode = compile(ast);
 
     function frame(time) {
-      const step = run(bytecode, {});
+      const step = run(bytecode, { tick: time });
       const scene = step.result;
       const objects = get(scene, "objects");
 
@@ -116,7 +116,7 @@
 
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
-          drawCube(obj, time * 0.001);
+          drawCube(obj, get(obj, "rotY"));
         }
       }
 
