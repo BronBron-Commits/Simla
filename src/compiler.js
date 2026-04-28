@@ -119,8 +119,6 @@ if (name === "get") {
       min: "MIN",
       max: "MAX",
       or: "OR",
-        sin: "SIN",
-        cos: "COS",
         and: "AND",
         gt: "GT",
         lt: "LT",
@@ -189,6 +187,18 @@ if (name === "get") {
     if (name === "debug") {
       compile(node.args[0], out);
       out.push(["DEBUG"]);
+      return out;
+    }
+
+    if (name === "sin") {
+      compile(node.args[0], out);
+      out.push(["SIN"]);
+      return out;
+    }
+
+    if (name === "cos") {
+      compile(node.args[0], out);
+      out.push(["COS"]);
       return out;
     }
 
