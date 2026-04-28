@@ -5,6 +5,8 @@ import { render } from "./renderer.js";
 
 function tokenize(code) {
   return code
+    // 🔥 remove comments
+    .replace(/;;.*$/gm, "")
     .replace(/\(/g, " ( ")
     .replace(/\)/g, " ) ")
     .match(/"[^"]*"|\S+/g);

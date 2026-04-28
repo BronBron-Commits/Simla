@@ -7,14 +7,13 @@ function run(bytecode, globals = {}) {
     return { vars: {}, parent };
   }
 
-  // 🔥 FIXED: no error, return undefined
   function lookup(env, name) {
     let cur = env;
     while (cur) {
       if (name in cur.vars) return cur.vars[name];
       cur = cur.parent;
     }
-    return undefined; // instead of throw
+    return undefined;
   }
 
   const globalEnv = makeEnv();
@@ -52,9 +51,15 @@ function run(bytecode, globals = {}) {
       case "CALL": {
         const args = [];
         for (let i = 0; i < a; i++) args.unshift(stack.pop());
+
         const fn = stack.pop();
 
+        if (!fn || typeof fn !== "object" || !fn.code) {
+          throw new Error("CALL on non-function: " + JSON.stringify(fn));
+        }
+
         const newEnv = makeEnv(fn.closure);
+
         for (let i = 0; i < fn.params.length; i++) {
           newEnv.vars[fn.params[i]] = args[i];
         }
