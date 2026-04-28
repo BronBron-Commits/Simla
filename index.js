@@ -1,4 +1,4 @@
-import { run, GLOBAL_STATE } from "./src/vm.js";
+import { run } from "./src/vm.js";
 import { compile } from "./src/compiler.js";
 import { parse } from "./src/parser.js";
 import { render } from "./renderer.js";
@@ -14,18 +14,19 @@ function tokenize(code) {
 let bytecode;
 let ctx;
 
-// 🔥 persistent state (do NOT recreate each frame)
+// 🔥 persistent state (correct way)
 let state = { x: 400, y: 100, vx: 0, vy: 0 };
 
-const keys = {};
-window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = 1);
-window.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = 0);
+const FIXED_DT = 16;
+let accumulator = 0;
+let lastTime = 0;
 
 async function init() {
   const canvas = document.createElement("canvas");
   canvas.width = 800;
   canvas.height = 600;
   document.body.appendChild(canvas);
+
   ctx = canvas.getContext("2d");
 
   const code = await (await fetch("./examples/test.mc")).text();
@@ -35,21 +36,21 @@ async function init() {
   requestAnimationFrame(loop);
 }
 
-function loop() {
-  // run with previous state + inputs
-  const result = run(bytecode, {
-    ...state,
-    keyW: keys["w"] || 0,
-    keyA: keys["a"] || 0,
-    keyS: keys["s"] || 0,
-    keyD: keys["d"] || 0
-  });
+function loop(time) {
+  const dt = time - lastTime;
+  lastTime = time;
+  accumulator += dt;
 
-  // 🔥 pull updated values back out
-  state = { ...state, ...GLOBAL_STATE };
+  while (accumulator >= FIXED_DT) {
+    const { state: nextState } = run(bytecode, state);
+    state = nextState;
+    accumulator -= FIXED_DT;
+  }
 
-  // normalize to list-of-commands
-  const commands = Array.isArray(result?.[0]) ? result : [result];
+  const commands = [
+    ["circle", state.x, state.y, 20, 255, 0, 0]
+  ];
+
   render(ctx, commands);
 
   requestAnimationFrame(loop);

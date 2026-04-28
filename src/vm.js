@@ -48,6 +48,27 @@ function run(bytecode, initialState = {}) {
 
       case "OR": stack.push(stack.pop() || stack.pop()); break;
 
+      case "GT": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a > b ? 1 : 0);
+        break;
+      }
+
+      case "MIN": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.min(a, b));
+        break;
+      }
+
+      case "MAX": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.max(a, b));
+        break;
+      }
+
       case "LIST": {
         const arr = [];
         for (let i = 0; i < a; i++) arr.unshift(stack.pop());
