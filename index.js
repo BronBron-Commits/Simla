@@ -11,11 +11,14 @@ function tokenize(code) {
 }
 
 let bytecode;
-let mouse = { x: 0, y: 0 };
+const keys = {};
 
-window.addEventListener("mousemove", (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
+window.addEventListener("keydown", (e) => {
+  keys[e.key.toLowerCase()] = 1;
+});
+
+window.addEventListener("keyup", (e) => {
+  keys[e.key.toLowerCase()] = 0;
 });
 
 async function init() {
@@ -32,8 +35,10 @@ async function init() {
 function loop(t) {
   const globals = {
     time: t / 1000,
-    mouseX: mouse.x,
-    mouseY: mouse.y
+    keyW: keys["w"] || 0,
+    keyA: keys["a"] || 0,
+    keyS: keys["s"] || 0,
+    keyD: keys["d"] || 0
   };
 
   const result = run(bytecode, globals);

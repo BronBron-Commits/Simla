@@ -1,5 +1,9 @@
 (begin
-  (let x (or x 0))
-  (let x (add x 2))
+  (let x (or x 400))
+  (let y (or y 300))
+
+  (let x (add x (sub keyD keyA)))
+  (let y (add y (sub keyS keyW)))
+
   (list
-    (list "circle" x 200 20 0 255 0)))
+    (list "circle" x y 20 255 0 0)))

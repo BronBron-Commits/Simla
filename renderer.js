@@ -7,45 +7,18 @@ export function render(commands) {
   for (const cmd of commands) {
     const [type, ...args] = cmd;
 
-    if (type === "rect") {
-      const [x, y, w, h, r=0, g=0, b=0] = args;
-
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(x, y, w, h);
-    }
-
     if (type === "circle") {
-      const [x, y, radius, r=0, g=0, b=0] = args;
-
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-
+      const [x, y, r, cr=255, cg=255, cb=255] = args;
+      ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
       ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    if (type === "rotate") {
-      const [angle, inner] = args;
-
-      ctx.save();
-      ctx.translate(400, 300);
-      ctx.rotate(angle);
-      ctx.translate(-400, -300);
-
-      render([inner]);
-
-      ctx.restore();
-    }
-
-    if (type === "translate") {
-      const [tx, ty, inner] = args;
-
-      ctx.save();
-      ctx.translate(tx, ty);
-
-      render([inner]);
-
-      ctx.restore();
+    if (type === "rect") {
+      const [x, y, w, h, cr=255, cg=255, cb=255] = args;
+      ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+      ctx.fillRect(x, y, w, h);
     }
   }
 }
