@@ -21,25 +21,13 @@ function run(bytecode, initialState = {}) {
       const [op, a, b] = code[ip++];
 
       switch (op) {
-        case "PUSH":
-          stack.push(a);
-          break;
 
-        case "LOAD":
-          stack.push(lookup(env, a));
-          break;
+        case "PUSH": stack.push(a); break;
+        case "LOAD": stack.push(lookup(env, a)); break;
+        case "STORE": env.vars[a] = stack.pop(); break;
+        case "POP": stack.pop(); break;
 
-        case "STORE":
-          env.vars[a] = stack.pop();
-          break;
-
-        case "POP":
-          stack.pop();
-          break;
-
-        case "ADD":
-          stack.push(stack.pop() + stack.pop());
-          break;
+        case "ADD": stack.push(stack.pop() + stack.pop()); break;
 
         case "SUB": {
           const y = stack.pop();
@@ -48,9 +36,7 @@ function run(bytecode, initialState = {}) {
           break;
         }
 
-        case "MUL":
-          stack.push(stack.pop() * stack.pop());
-          break;
+        case "MUL": stack.push(stack.pop() * stack.pop()); break;
 
         case "DIV": {
           const y = stack.pop();
@@ -73,16 +59,7 @@ function run(bytecode, initialState = {}) {
           break;
         }
 
-        case "OR":
-          stack.push(stack.pop() || stack.pop());
-          break;
-
-        case "GT": {
-          const y = stack.pop();
-          const x = stack.pop();
-          stack.push(x > y ? 1 : 0);
-          break;
-        }
+        case "OR": stack.push(stack.pop() || stack.pop()); break;
 
         case "LIST": {
           const arr = [];
@@ -91,23 +68,57 @@ function run(bytecode, initialState = {}) {
           break;
         }
 
-        // ✅ LIST ACCESS OPS
-        case "FIRST": {
-          const arr = stack.pop();
-          stack.push(arr[0]);
+        // ✅ SAFE GET
+        case "GET": {
+          const key = stack.pop();
+          const obj = stack.pop();
+
+          if (!Array.isArray(obj)) {
+            stack.push(0);
+            break;
+          }
+
+          let found = false;
+
+          for (let i = 0; i < obj.length; i += 2) {
+            if (obj[i] === key) {
+              stack.push(obj[i + 1]);
+              found = true;
+              break;
+            }
+          }
+
+          if (!found) stack.push(0);
           break;
         }
 
-        case "SECOND": {
-          const arr = stack.pop();
-          stack.push(arr[1]);
-          break;
-        }
+        // ✅ SAFE SET
+        case "SET": {
+          const value = stack.pop();
+          const key = stack.pop();
+          const obj = stack.pop();
 
-        case "NTH": {
-          const idx = stack.pop();
-          const arr = stack.pop();
-          stack.push(arr[idx]);
+          if (!Array.isArray(obj)) {
+            stack.push(obj);
+            break;
+          }
+
+          const newObj = [...obj];
+          let found = false;
+
+          for (let i = 0; i < newObj.length; i += 2) {
+            if (newObj[i] === key) {
+              newObj[i + 1] = value;
+              found = true;
+              break;
+            }
+          }
+
+          if (!found) {
+            newObj.push(key, value);
+          }
+
+          stack.push(newObj);
           break;
         }
 
@@ -130,13 +141,11 @@ function run(bytecode, initialState = {}) {
           for (let i = 0; i < a; i++) args.unshift(stack.pop());
 
           const newEnv = makeEnv(fn.closure);
-
           fn.params.forEach((p, i) => {
             newEnv.vars[p] = args[i];
           });
 
-          const result = exec(fn.body, newEnv);
-          stack.push(result);
+          stack.push(exec(fn.body, newEnv));
           break;
         }
 
@@ -144,17 +153,21 @@ function run(bytecode, initialState = {}) {
           const list = stack.pop();
           const fn = stack.pop();
 
+          if (!Array.isArray(list)) {
+            stack.push([]);
+            break;
+          }
+
           if (!fn || !fn.params) {
             throw new Error("MAP expected function, got " + JSON.stringify(fn));
           }
 
-          if (!Array.isArray(list)) {
-            throw new Error("MAP expected list, got " + JSON.stringify(list));
-          }
-
           const result = list.map(item => {
+            if (item === undefined) return item;
+
             const newEnv = makeEnv(fn.closure);
             newEnv.vars[fn.params[0]] = item;
+
             return exec(fn.body, newEnv);
           });
 
@@ -173,10 +186,8 @@ function run(bytecode, initialState = {}) {
   const env = makeEnv();
   Object.assign(env.vars, initialState);
 
-  const result = exec(bytecode, env);
-
   return {
-    result,
+    result: exec(bytecode, env),
     state: env.vars
   };
 }

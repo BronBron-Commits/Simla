@@ -29,7 +29,7 @@ function compile(node, out = []) {
   if (node.type === "call") {
     const name = node.callee.name;
 
-    // ===== CONTROL =====
+    // control
     if (name === "begin") {
       for (let i = 0; i < node.args.length; i++) {
         compile(node.args[i], out);
@@ -57,7 +57,7 @@ function compile(node, out = []) {
       return out;
     }
 
-    // ===== DATA =====
+    // data
     if (name === "list") {
       for (const arg of node.args) compile(arg, out);
       out.push(["LIST", node.args.length]);
@@ -71,27 +71,23 @@ function compile(node, out = []) {
       return out;
     }
 
-    // ===== LIST ACCESS (CRITICAL FIX) =====
-    if (name === "first") {
-      compile(node.args[0], out);
-      out.push(["FIRST"]);
+    // 🔥 COMPONENT OPS
+    if (name === "get") {
+      compile(node.args[0], out); // entity
+      compile(node.args[1], out); // key
+      out.push(["GET"]);
       return out;
     }
 
-    if (name === "second") {
-      compile(node.args[0], out);
-      out.push(["SECOND"]);
+    if (name === "set") {
+      compile(node.args[0], out); // entity
+      compile(node.args[1], out); // key
+      compile(node.args[2], out); // value
+      out.push(["SET"]);
       return out;
     }
 
-    if (name === "nth") {
-      compile(node.args[0], out);
-      compile(node.args[1], out);
-      out.push(["NTH"]);
-      return out;
-    }
-
-    // ===== MATH =====
+    // math
     const ops = {
       add: "ADD",
       sub: "SUB",
@@ -99,8 +95,7 @@ function compile(node, out = []) {
       div: "DIV",
       min: "MIN",
       max: "MAX",
-      or: "OR",
-      gt: "GT"
+      or: "OR"
     };
 
     if (ops[name]) {
@@ -110,7 +105,6 @@ function compile(node, out = []) {
       return out;
     }
 
-    // 🚨 HARD FAIL instead of silent CALL
     throw new Error("Unknown function: " + name);
   }
 
