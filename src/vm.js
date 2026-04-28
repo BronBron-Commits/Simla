@@ -219,6 +219,13 @@ case "LIST": {
         break;
       }
 
+
+      case "LEN": {
+        const v = stack.pop();
+        stack.push(Array.isArray(v) ? v.length : 0);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }

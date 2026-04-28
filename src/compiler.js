@@ -160,6 +160,13 @@ if (name === "get") {
       return out;
     }
 
+
+    if (name === "len") {
+      compile(node.args[0], out);
+      out.push(["LEN"]);
+      return out;
+    }
+
 throw new Error("Unknown function: " + name);
   }
 
