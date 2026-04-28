@@ -1,5 +1,5 @@
 (begin
-  (let t (mul tick 0.001))
+  (let t (mul (mul tick 0.001) speed))
 
   (let base (list 0 1 2 3 4 5 6 7 8 9))
 
@@ -14,6 +14,9 @@
           "z" (add 8 (mul (sin (add (mul t 0.4) i)) 1))
           "size" 1
           "rotY" (mul t 1.5)
+          "r" (add 120 (mul (sin (add t i)) 120))
+          "g" (add 120 (mul (sin (add (mul t 1.3) i)) 120))
+          "b" (add 180 (mul (cos (add (mul t 0.9) i)) 70))
         )
       )
       base
@@ -22,8 +25,10 @@
 
   (let pyramids
     (list
-      (list "type" "pyramid" "id" 100 "x" -5 "y" -1 "z" 9 "size" 2 "rotY" (mul t 0.7))
-      (list "type" "pyramid" "id" 101 "x" 5  "y" -1 "z" 9 "size" 2 "rotY" (mul t -0.7))
+      (list "type" "pyramid" "id" 100 "x" -5 "y" -1 "z" 9 "size" 2 "rotY" (mul t 0.7)
+        "r" 255 "g" (add 120 (mul (sin t) 100)) "b" 80)
+      (list "type" "pyramid" "id" 101 "x" 5 "y" -1 "z" 9 "size" 2 "rotY" (mul t -0.7)
+        "r" 80 "g" (add 160 (mul (cos t) 80)) "b" 255)
     )
   )
 

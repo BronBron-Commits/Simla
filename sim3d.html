@@ -30,6 +30,24 @@
       box-shadow: 0 0 24px rgba(102,204,255,.15);
     }
 
+    #controls {
+      position: fixed;
+      left: 20px;
+      right: 20px;
+      bottom: 18px;
+      z-index: 20;
+      background: rgba(0,0,0,.55);
+      border: 1px solid rgba(102,204,255,.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      backdrop-filter: blur(6px);
+      color: white;
+    }
+
+    #speed {
+      width: 100%;
+    }
+
     #title {
       position: fixed;
       bottom: 22px;
@@ -46,6 +64,10 @@
   <div id="hud">Simλ cinematic renderer</div>
   <div id="title">Simλ</div>
   <canvas id="view"></canvas>
+  <div id="controls">
+    <label>Speed: <span id="speedValue">1.00</span>x</label>
+    <input id="speed" type="range" min="0" max="3" step="0.05" value="1">
+  </div>
 
   <script type="module">
     import { parse } from "./src/parser.js";
@@ -67,9 +89,18 @@
       return 0;
     }
 
+    function colorOf(obj, fallback = [102, 204, 255]) {
+      const r = Math.max(0, Math.min(255, get(obj, "r") || fallback[0]));
+      const g = Math.max(0, Math.min(255, get(obj, "g") || fallback[1]));
+      const b = Math.max(0, Math.min(255, get(obj, "b") || fallback[2]));
+      return { r, g, b, css: `rgb(${r},${g},${b})` };
+    }
+
     const canvas = document.getElementById("view");
     const ctx = canvas.getContext("2d");
     const hud = document.getElementById("hud");
+    const speedSlider = document.getElementById("speed");
+    const speedValue = document.getElementById("speedValue");
 
     function resize() {
       canvas.width = innerWidth;
@@ -202,8 +233,9 @@
         ctx.globalAlpha = alpha;
 
         ctx.shadowBlur = 18 * bright;
-        ctx.shadowColor = "rgba(100,220,255,.9)";
-        ctx.strokeStyle = `rgba(${80 + bright * 120}, ${180 + bright * 60}, 255, ${alpha})`;
+        const col = colorOf(obj);
+        ctx.shadowColor = `rgba(${col.r},${col.g},${col.b},.9)`;
+        ctx.strokeStyle = `rgba(${col.r}, ${col.g}, ${col.b}, ${alpha})`;
         ctx.lineWidth = 1.5 + bright * 2.2;
 
         ctx.beginPath();
@@ -276,7 +308,13 @@
     const bytecode = compile(ast);
 
     function frame(time) {
-      const step = run(bytecode, { tick: time });
+      const speed = Number(speedSlider.value);
+      speedValue.textContent = speed.toFixed(2);
+
+      const step = run(bytecode, {
+        tick: time,
+        speed
+      });
       const scene = step.result;
       const objects = get(scene, "objects");
 
@@ -296,7 +334,7 @@
         }
 
         if (get(obj, "type") === "pyramid") {
-          drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), "#ffcc66");
+          drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), colorOf(obj, [255, 204, 102]).css);
         }
       }
 
