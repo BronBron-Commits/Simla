@@ -188,6 +188,15 @@ case "LIST": {
         break;
       }
 
+
+      case "IF": {
+        const cond = stack.pop();
+        const branch = cond ? a : b;
+        const result = exec(branch, makeEnv(env));
+        stack.push(result);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }

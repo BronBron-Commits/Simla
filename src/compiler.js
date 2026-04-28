@@ -131,7 +131,21 @@ if (name === "get") {
       return out;
     }
 
-    throw new Error("Unknown function: " + name);
+    
+    if (name === "if") {
+      compile(node.args[0], out); // condition
+
+      const thenBlock = [];
+      compile(node.args[1], thenBlock);
+
+      const elseBlock = [];
+      compile(node.args[2], elseBlock);
+
+      out.push(["IF", thenBlock, elseBlock]);
+      return out;
+    }
+
+throw new Error("Unknown function: " + name);
   }
 
   return out;
