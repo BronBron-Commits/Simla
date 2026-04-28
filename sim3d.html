@@ -97,6 +97,16 @@
       [0,4],[1,5],[2,6],[3,7],
     ];
 
+    const pyramidVerts = [
+      [-1,-1,-1], [1,-1,-1], [1,-1,1], [-1,-1,1],
+      [0,1,0]
+    ];
+
+    const pyramidEdges = [
+      [0,1],[1,2],[2,3],[3,0],
+      [0,4],[1,4],[2,4],[3,4]
+    ];
+
     function rotateY(p, a) {
       const [x,y,z] = p;
       const c = Math.cos(a);
@@ -205,6 +215,62 @@
       }
     }
 
+    function drawWireObject(obj, vertsDef, edgesDef, t, color = "#ffcc66") {
+      const ox = get(obj, "x");
+      const oy = get(obj, "y");
+      const oz = get(obj, "z");
+      const size = get(obj, "size") || 1;
+
+      const verts = vertsDef.map(v => {
+        let p = [v[0] * size, v[1] * size, v[2] * size];
+        p = rotateY(p, t);
+        return [p[0] + ox, p[1] + oy, p[2] + oz];
+      });
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = color;
+
+      for (const [a, b] of edgesDef) {
+        const pa = project(verts[a]);
+        const pb = project(verts[b]);
+
+        ctx.beginPath();
+        ctx.moveTo(pa[0], pa[1]);
+        ctx.lineTo(pb[0], pb[1]);
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+    }
+
+    function drawGrid(time) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(80,180,255,.18)";
+      ctx.lineWidth = 1;
+
+      for (let x = -10; x <= 10; x++) {
+        const a = project([x, -2, 2]);
+        const b = project([x, -2, 18]);
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
+
+      for (let z = 2; z <= 18; z++) {
+        const a = project([-10, -2, z]);
+        const b = project([10, -2, z]);
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
     const code = await fetch("./examples/cube_scene.sim?cb=" + Date.now()).then(r => r.text());
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
@@ -222,9 +288,15 @@
 
       ctx.globalCompositeOperation = "lighter";
 
+      drawGrid(time);
+
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
           drawCube(obj, get(obj, "rotY"));
+        }
+
+        if (get(obj, "type") === "pyramid") {
+          drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), "#ffcc66");
         }
       }
 

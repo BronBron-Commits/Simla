@@ -1,18 +1,16 @@
 (begin
   (let t (mul tick 0.001))
 
-  (let base
-    (list 0 1 2 3 4 5 6 7 8 9)
-  )
+  (let base (list 0 1 2 3 4 5 6 7 8 9))
 
-  (let objects
+  (let cubes
     (map
       (fn (i)
         (list
           "type" "cube"
           "id" i
           "x" (mul (sin (add (mul t 0.8) i)) 4)
-          "y" (mul (cos (add (mul t 0.6) i)) 2)
+          "y" (add 1 (mul (cos (add (mul t 0.6) i)) 1.5))
           "z" (add 8 (mul (sin (add (mul t 0.4) i)) 1))
           "size" 1
           "rotY" (mul t 1.5)
@@ -22,8 +20,15 @@
     )
   )
 
+  (let pyramids
+    (list
+      (list "type" "pyramid" "id" 100 "x" -5 "y" -1 "z" 9 "size" 2 "rotY" (mul t 0.7))
+      (list "type" "pyramid" "id" 101 "x" 5  "y" -1 "z" 9 "size" 2 "rotY" (mul t -0.7))
+    )
+  )
+
   (list
     "camera" (list "x" 0 "y" 0 "z" -10)
-    "objects" objects
+    "objects" (concat cubes pyramids)
   )
 )
