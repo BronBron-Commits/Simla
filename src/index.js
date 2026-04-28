@@ -1,21 +1,20 @@
 const fs = require("fs");
 const { tokenize } = require("./lexer");
 const { parse } = require("./parser");
-const { evaluate, createEnv } = require("./evaluator");
+const { compile } = require("./compiler");
+const { run } = require("./vm");
 
 const file = process.argv[2];
-
-if (!file) {
-  console.error("Provide a file");
-  process.exit(1);
-}
 
 const input = fs.readFileSync(file, "utf-8");
 
 const tokens = tokenize(input);
 const ast = parse(tokens);
 
-const globalEnv = createEnv();
-const result = evaluate(ast, globalEnv);
+const bytecode = compile(ast);
+
+console.log("BYTECODE:", bytecode);
+
+const result = run(bytecode);
 
 console.log("Result:", result);
