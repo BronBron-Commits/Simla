@@ -1,5 +1,2 @@
-(fn makeAdder (n)
-  (fn inner (y)
-    (add n y)))
-
-(print ((makeAdder 5) 3))
+(let x 10)
+(print ((fn (y) (add x y)) 5))

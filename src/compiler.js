@@ -1,19 +1,16 @@
 function getParams(paramsNode) {
-  // paramsNode is a call node: (n) or (a b c)
   if (paramsNode.type !== "call") {
     throw new Error("Invalid parameter list");
   }
 
   const params = [];
 
-  // first param = callee name
   if (paramsNode.callee.type !== "identifier") {
     throw new Error("Invalid parameter");
   }
 
   params.push(paramsNode.callee.name);
 
-  // rest
   for (const arg of paramsNode.args) {
     if (arg.type !== "identifier") {
       throw new Error("Invalid parameter");
@@ -54,10 +51,21 @@ function compile(node, out = []) {
         return out;
       }
 
+      // 🔥 UPDATED fn
       if (name === "fn") {
-        const nameNode   = node.args[0];
-        const paramsNode = node.args[1];
-        const bodyNode   = node.args[2];
+        let nameNode = null;
+        let paramsNode, bodyNode;
+
+        // named: (fn name (params) body)
+        if (node.args.length === 3 && node.args[0].type === "identifier") {
+          nameNode = node.args[0];
+          paramsNode = node.args[1];
+          bodyNode = node.args[2];
+        } else {
+          // anonymous: (fn (params) body)
+          paramsNode = node.args[0];
+          bodyNode = node.args[1];
+        }
 
         const params = getParams(paramsNode);
 
@@ -67,7 +75,8 @@ function compile(node, out = []) {
 
         out.push(["MAKE_FUNC", params, bodyCode]);
 
-        if (nameNode && nameNode.name) {
+        // if named, bind it
+        if (nameNode) {
           out.push(["DUP"]);
           out.push(["STORE", nameNode.name]);
         }
@@ -108,9 +117,13 @@ function compile(node, out = []) {
       }
     }
 
-    // general call
+    // general call (callee is expression)
     compile(callee, out);
-    for (const arg of node.args) compile(arg, out);
+
+    for (const arg of node.args) {
+      compile(arg, out);
+    }
+
     out.push(["CALL", node.args.length]);
 
     return out;
