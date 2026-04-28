@@ -46,7 +46,29 @@ function exec(code, env) {
         break;
       }
 
-      case "LIST": {
+      
+        case "GT": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a > b);
+          break;
+        }
+
+        case "LT": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a < b);
+          break;
+        }
+
+        case "EQ": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a === b);
+          break;
+        }
+
+case "LIST": {
         const arr = [];
         for (let i = 0; i < a; i++) arr.unshift(stack.pop());
         stack.push(arr);

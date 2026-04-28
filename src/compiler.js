@@ -118,7 +118,10 @@ if (name === "get") {
       div: "DIV",
       min: "MIN",
       max: "MAX",
-      or: "OR"
+      or: "OR",
+        gt: "GT",
+        lt: "LT",
+        eq: "EQ"
     };
 
     if (ops[name]) {
