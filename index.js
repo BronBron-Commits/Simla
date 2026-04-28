@@ -11,6 +11,12 @@ function tokenize(code) {
 }
 
 let bytecode;
+let mouse = { x: 0, y: 0 };
+
+window.addEventListener("mousemove", (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
 
 async function init() {
   const res = await fetch("./examples/test.mc");
@@ -20,25 +26,23 @@ async function init() {
   const ast = parse(tokens);
   bytecode = compile(ast);
 
-  console.log("BYTECODE:", bytecode);
-
   requestAnimationFrame(loop);
 }
 
 function loop(t) {
-  // inject time (seconds)
-  const result = runWithTime(bytecode, t / 1000);
+  const globals = {
+    time: t / 1000,
+    mouseX: mouse.x,
+    mouseY: mouse.y
+  };
+
+  const result = run(bytecode, globals);
 
   if (Array.isArray(result)) {
     render(result);
   }
 
   requestAnimationFrame(loop);
-}
-
-// simple hook: extend VM env with time
-function runWithTime(bytecode, time) {
-  return run(bytecode, { time });
 }
 
 init();

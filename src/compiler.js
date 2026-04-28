@@ -110,7 +110,6 @@ function compile(node, out = []) {
         return out;
       }
 
-      // 🔥 ADD SIN/COS HERE
       if (["sin","cos"].includes(name)) {
         compile(node.args[0], out);
         out.push([name.toUpperCase()]);
@@ -121,6 +120,14 @@ function compile(node, out = []) {
         compile(node.args[0], out);
         compile(node.args[1], out);
         out.push([name.toUpperCase()]);
+        return out;
+      }
+
+      // 🔥 OR added
+      if (name === "or") {
+        compile(node.args[0], out);
+        compile(node.args[1], out);
+        out.push(["OR"]);
         return out;
       }
 

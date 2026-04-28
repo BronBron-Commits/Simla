@@ -1,3 +1,5 @@
+let GLOBAL_STATE = {};
+
 function run(bytecode, globals = {}) {
   const stack = [];
 
@@ -5,16 +7,18 @@ function run(bytecode, globals = {}) {
     return { vars: {}, parent };
   }
 
+  // 🔥 FIXED: no error, return undefined
   function lookup(env, name) {
     let cur = env;
     while (cur) {
       if (name in cur.vars) return cur.vars[name];
       cur = cur.parent;
     }
-    throw new Error("Undefined: " + name);
+    return undefined; // instead of throw
   }
 
   const globalEnv = makeEnv();
+  Object.assign(globalEnv.vars, GLOBAL_STATE);
   Object.assign(globalEnv.vars, globals);
 
   const frames = [{
@@ -119,7 +123,10 @@ function run(bytecode, globals = {}) {
 
       case "EQ": stack.push(stack.pop() === stack.pop()); break;
 
-      // 🔥 NEW MATH OPS
+      case "OR":
+        stack.push(stack.pop() || stack.pop());
+        break;
+
       case "SIN":
         stack.push(Math.sin(stack.pop()));
         break;
@@ -172,7 +179,6 @@ function run(bytecode, globals = {}) {
 
         for (const item of list) {
           const newEnv = makeEnv(fn.closure);
-
           newEnv.vars[fn.params[0]] = acc;
           newEnv.vars[fn.params[1]] = item;
 
@@ -195,6 +201,8 @@ function run(bytecode, globals = {}) {
   while (frames.length) {
     step();
   }
+
+  Object.assign(GLOBAL_STATE, globalEnv.vars);
 
   return stack.pop();
 }
