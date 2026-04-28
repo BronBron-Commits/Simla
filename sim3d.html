@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Simλ 3D</title>
+  <style>
+    body { margin: 0; background: #050505; color: white; font-family: system-ui; }
+    canvas { display: block; background: #111; }
+    #hud { position: fixed; top: 12px; left: 12px; background: #0009; padding: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="hud">Simλ 3D Renderer</div>
+  <canvas id="view"></canvas>
+
+  <script type="module">
+    import { parse } from "./src/parser.js";
+    import { compile } from "./src/compiler.js";
+    import { run } from "./src/vm.js";
+
+    function tokenize(code) {
+      return code
+        .replace(/;;.*$/gm, "")
+        .replace(/\(/g, " ( ")
+        .replace(/\)/g, " ) ")
+        .match(/"[^"]*"|\S+/g);
+    }
+
+    function get(list, key) {
+      for (let i = 0; i < list.length; i += 2) {
+        if (list[i] === key) return list[i + 1];
+      }
+      return 0;
+    }
+
+    const canvas = document.getElementById("view");
+    const ctx = canvas.getContext("2d");
+
+    function resize() {
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+    }
+
+    addEventListener("resize", resize);
+    resize();
+
+    const cubeVerts = [
+      [-1,-1,-1], [ 1,-1,-1], [ 1, 1,-1], [-1, 1,-1],
+      [-1,-1, 1], [ 1,-1, 1], [ 1, 1, 1], [-1, 1, 1],
+    ];
+
+    const cubeEdges = [
+      [0,1],[1,2],[2,3],[3,0],
+      [4,5],[5,6],[6,7],[7,4],
+      [0,4],[1,5],[2,6],[3,7],
+    ];
+
+    function rotateY(p, a) {
+      const [x,y,z] = p;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      return [
+        x * c - z * s,
+        y,
+        x * s + z * c
+      ];
+    }
+
+    function project(p) {
+      const [x, y, z] = p;
+      const fov = 400;
+      const depth = z || 0.0001;
+
+      return [
+        canvas.width / 2 + (x * fov) / depth,
+        canvas.height / 2 - (y * fov) / depth
+      ];
+    }
+
+    function drawCube(obj, t) {
+      const ox = get(obj, "x");
+      const oy = get(obj, "y");
+      const oz = get(obj, "z");
+      const size = get(obj, "size") || 1;
+
+      const verts = cubeVerts.map(v => {
+        let p = [v[0] * size, v[1] * size, v[2] * size];
+        p = rotateY(p, t);
+        return [p[0] + ox, p[1] + oy, p[2] + oz];
+      });
+
+      ctx.strokeStyle = "#66ccff";
+      ctx.lineWidth = 2;
+
+      for (const [a, b] of cubeEdges) {
+        const pa = project(verts[a]);
+        const pb = project(verts[b]);
+
+        ctx.beginPath();
+        ctx.moveTo(pa[0], pa[1]);
+        ctx.lineTo(pb[0], pb[1]);
+        ctx.stroke();
+      }
+    }
+
+    const code = await fetch("./examples/cube_scene.sim").then(r => r.text());
+    const ast = parse(tokenize(code));
+    const bytecode = compile(ast);
+
+    function frame(time) {
+      const step = run(bytecode, {});
+      const scene = step.result;
+      const objects = get(scene, "objects");
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const obj of objects) {
+        if (get(obj, "type") === "cube") {
+          drawCube(obj, time * 0.001);
+        }
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    frame(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+(begin
+  (list
+    "camera" (list "x" 0 "y" 0 "z" -6)
+    "objects"
+      (list
+        (list
+          "type" "cube"
+          "id" 1
+          "x" 0
+          "y" 0
+          "z" 4
+          "size" 2
+        )
+      )
+  )
+)
