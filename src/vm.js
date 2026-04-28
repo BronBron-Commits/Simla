@@ -1,6 +1,4 @@
-let GLOBAL_STATE = {};
-
-function run(bytecode, globals = {}) {
+function run(bytecode, initialState = {}) {
   const stack = [];
 
   function makeEnv(parent = null) {
@@ -13,12 +11,11 @@ function run(bytecode, globals = {}) {
       if (name in cur.vars) return cur.vars[name];
       cur = cur.parent;
     }
-    return 0; // avoid NaN propagation
+    return 0;
   }
 
   const env = makeEnv();
-  Object.assign(env.vars, GLOBAL_STATE);
-  Object.assign(env.vars, globals);
+  Object.assign(env.vars, initialState);
 
   let ip = 0;
 
@@ -51,27 +48,6 @@ function run(bytecode, globals = {}) {
 
       case "OR": stack.push(stack.pop() || stack.pop()); break;
 
-      case "MIN": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(Math.min(a, b));
-        break;
-      }
-
-      case "MAX": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(Math.max(a, b));
-        break;
-      }
-
-      case "GT": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(a > b ? 1 : 0);
-        break;
-      }
-
       case "LIST": {
         const arr = [];
         for (let i = 0; i < a; i++) arr.unshift(stack.pop());
@@ -84,11 +60,10 @@ function run(bytecode, globals = {}) {
     }
   }
 
-  Object.assign(GLOBAL_STATE, env.vars);
-  return stack.pop();
+  return {
+    result: stack.pop(),
+    state: env.vars
+  };
 }
 
 export { run };
-
-// add this at the bottom if not present
-export { GLOBAL_STATE };

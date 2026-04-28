@@ -1,53 +1,74 @@
 function parse(tokens) {
-  let current = 0;
+  let i = 0;
 
   function walk() {
-    let token = tokens[current];
+    let token = tokens[i++];
 
-    // string literal
-    if (token.startsWith('"') && token.endsWith('"')) {
-      current++;
+    if (token === "(") {
+      // 🔥 EMPTY LIST FIX
+      if (tokens[i] === ")") {
+        i++; // consume ')'
+        return { type: "list", elements: [] };
+      }
+
+      // parse first element
+      const first = walk();
+
+      const args = [];
+      while (tokens[i] !== ")") {
+        args.push(walk());
+      }
+
+      i++; // consume ')'
+
+      // if first is identifier → function call
+      if (first.type === "identifier") {
+        return {
+          type: "call",
+          callee: first,
+          args
+        };
+      }
+
+      // otherwise it's just a list
+      return {
+        type: "list",
+        elements: [first, ...args]
+      };
+    }
+
+    // number
+    if (!isNaN(token)) {
+      return {
+        type: "number",
+        value: Number(token)
+      };
+    }
+
+    // string
+    if (token.startsWith('"')) {
       return {
         type: "string",
         value: token.slice(1, -1)
       };
     }
 
-    if (token === "(") {
-      current++;
-
-      const callee = walk();
-
-      const node = {
-        type: "call",
-        callee,
-        args: []
-      };
-
-      while (tokens[current] !== ")") {
-        node.args.push(walk());
-      }
-
-      current++;
-      return node;
-    }
-
-    if (!isNaN(token)) {
-      current++;
-      return { type: "number", value: Number(token) };
-    }
-
-    current++;
-    return { type: "identifier", name: token };
+    // identifier
+    return {
+      type: "identifier",
+      name: token
+    };
   }
 
-  const program = { type: "program", body: [] };
-
-  while (current < tokens.length) {
-    program.body.push(walk());
+  const body = [];
+  while (i < tokens.length) {
+    body.push(walk());
   }
 
-  return program;
+  return {
+    type: "program",
+    body
+  };
 }
 
 export { parse };
