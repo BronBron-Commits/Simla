@@ -71,8 +71,8 @@ function compile(node, out = []) {
     }
 
     if (name === "map") {
-      compile(node.args[0], out);
-      compile(node.args[1], out);
+      compile(node.args[1], out); // list first
+      compile(node.args[0], out); // function second
       out.push(["MAP"]);
       return out;
     }
