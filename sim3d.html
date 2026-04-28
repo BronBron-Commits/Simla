@@ -4,13 +4,47 @@
   <meta charset="utf-8" />
   <title>Simλ 3D</title>
   <style>
-    body { margin: 0; background: #050505; color: white; font-family: system-ui; }
-    canvas { display: block; background: #111; }
-    #hud { position: fixed; top: 12px; left: 12px; background: #0009; padding: 10px; border-radius: 8px; }
+    body {
+      margin: 0;
+      background: #02030a;
+      color: white;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      background: #02030a;
+    }
+
+    #hud {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      background: rgba(0,0,0,.55);
+      padding: 10px 14px;
+      border-radius: 10px;
+      z-index: 5;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(102,204,255,.25);
+      box-shadow: 0 0 24px rgba(102,204,255,.15);
+    }
+
+    #title {
+      position: fixed;
+      bottom: 22px;
+      right: 28px;
+      font-size: 32px;
+      letter-spacing: 2px;
+      color: rgba(180,230,255,.8);
+      text-shadow: 0 0 18px rgba(102,204,255,.7);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <div id="hud">Simλ 3D Renderer</div>
+  <div id="hud">Simλ cinematic renderer</div>
+  <div id="title">Simλ</div>
   <canvas id="view"></canvas>
 
   <script type="module">
@@ -35,6 +69,7 @@
 
     const canvas = document.getElementById("view");
     const ctx = canvas.getContext("2d");
+    const hud = document.getElementById("hud");
 
     function resize() {
       canvas.width = innerWidth;
@@ -43,6 +78,13 @@
 
     addEventListener("resize", resize);
     resize();
+
+    const stars = Array.from({ length: 180 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      z: Math.random(),
+      s: Math.random() * 1.8 + 0.4
+    }));
 
     const cubeVerts = [
       [-1,-1,-1], [ 1,-1,-1], [ 1, 1,-1], [-1, 1,-1],
@@ -66,15 +108,62 @@
       ];
     }
 
+    function rotateX(p, a) {
+      const [x,y,z] = p;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      return [
+        x,
+        y * c - z * s,
+        y * s + z * c
+      ];
+    }
+
     function project(p) {
       const [x, y, z] = p;
-      const fov = 400;
-      const depth = z || 0.0001;
+      const fov = 520;
+      const depth = Math.max(0.15, z);
 
       return [
         canvas.width / 2 + (x * fov) / depth,
-        canvas.height / 2 - (y * fov) / depth
+        canvas.height / 2 - (y * fov) / depth,
+        depth
       ];
+    }
+
+    function drawBackground(time) {
+      const g = ctx.createRadialGradient(
+        canvas.width * .5,
+        canvas.height * .4,
+        20,
+        canvas.width * .5,
+        canvas.height * .5,
+        canvas.width
+      );
+
+      g.addColorStop(0, "#102033");
+      g.addColorStop(.45, "#050915");
+      g.addColorStop(1, "#010208");
+
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+
+      for (const star of stars) {
+        const drift = time * 0.00002 * (1 + star.z);
+        const x = ((star.x + drift) % 1) * canvas.width;
+        const y = star.y * canvas.height;
+        const r = star.s * (0.5 + star.z);
+
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(160,220,255,${0.25 + star.z * 0.45})`;
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
     }
 
     function drawCube(obj, t) {
@@ -82,28 +171,41 @@
       const oy = get(obj, "y");
       const oz = get(obj, "z");
       const size = get(obj, "size") || 1;
+      const id = get(obj, "id");
 
       const verts = cubeVerts.map(v => {
         let p = [v[0] * size, v[1] * size, v[2] * size];
-        p = rotateY(p, t);
+        p = rotateY(p, t + id * 0.25);
+        p = rotateX(p, Math.sin(t + id) * 0.35);
         return [p[0] + ox, p[1] + oy, p[2] + oz];
       });
-
-      ctx.strokeStyle = "#66ccff";
-      ctx.lineWidth = 2;
 
       for (const [a, b] of cubeEdges) {
         const pa = project(verts[a]);
         const pb = project(verts[b]);
 
+        const depth = (pa[2] + pb[2]) * 0.5;
+        const bright = Math.max(0.25, Math.min(1, 1.4 - depth / 14));
+        const alpha = 0.35 + bright * 0.65;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        ctx.shadowBlur = 18 * bright;
+        ctx.shadowColor = "rgba(100,220,255,.9)";
+        ctx.strokeStyle = `rgba(${80 + bright * 120}, ${180 + bright * 60}, 255, ${alpha})`;
+        ctx.lineWidth = 1.5 + bright * 2.2;
+
         ctx.beginPath();
         ctx.moveTo(pa[0], pa[1]);
         ctx.lineTo(pb[0], pb[1]);
         ctx.stroke();
+
+        ctx.restore();
       }
     }
 
-    const code = await fetch("./examples/cube_scene.sim").then(r => r.text());
+    const code = await fetch("./examples/cube_scene.sim?cb=" + Date.now()).then(r => r.text());
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
@@ -112,13 +214,23 @@
       const scene = step.result;
       const objects = get(scene, "objects");
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(2,3,10,.22)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      drawBackground(time);
+
+      ctx.globalCompositeOperation = "lighter";
 
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
           drawCube(obj, get(obj, "rotY"));
         }
       }
+
+      ctx.globalCompositeOperation = "source-over";
+
+      hud.textContent = `Simλ cinematic renderer — ${objects.length} objects`;
 
       requestAnimationFrame(frame);
     }
