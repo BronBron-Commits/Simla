@@ -15,6 +15,4 @@ const bytecode = compile(ast);
 
 console.log("BYTECODE:", bytecode);
 
-const result = run(bytecode);
-
-console.log("Result:", result);
+run(bytecode);

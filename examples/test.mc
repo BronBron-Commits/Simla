@@ -1,3 +1,4 @@
 (let x 5)
-(let y (add x 3))
-(print y)
+(if (gt x 3)
+    (print 1)
+    (print 2))

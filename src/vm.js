@@ -5,7 +5,7 @@ function run(bytecode) {
   let ip = 0;
 
   while (ip < bytecode.length) {
-    const [op, a, b] = bytecode[ip];
+    const [op, a] = bytecode[ip];
 
     switch (op) {
 
@@ -62,9 +62,11 @@ function run(bytecode) {
         stack.push(stack.pop() === stack.pop());
         break;
 
-      case "PRINT":
-        console.log(stack[stack.length - 1]);
+      case "PRINT": {
+        const val = stack.pop();
+        console.log(val);
         break;
+      }
 
       case "JMP_IF_FALSE":
         if (!stack.pop()) {
