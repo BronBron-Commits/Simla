@@ -183,6 +183,13 @@ if (name === "get") {
       return out;
     }
 
+
+    if (name === "debug") {
+      compile(node.args[0], out);
+      out.push(["DEBUG"]);
+      return out;
+    }
+
 throw new Error("Unknown function: " + name);
   }
 

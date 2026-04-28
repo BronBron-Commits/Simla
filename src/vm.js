@@ -244,6 +244,14 @@ case "LIST": {
         break;
       }
 
+
+      case "DEBUG": {
+        const value = stack.pop();
+        console.log("DEBUG", JSON.stringify(value));
+        stack.push(value);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }
