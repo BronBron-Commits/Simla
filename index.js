@@ -14,8 +14,7 @@ function tokenize(code) {
 let bytecode;
 let ctx;
 
-// 🔥 persistent state (correct way)
-let state = { x: 400, y: 100, vx: 0, vy: 0 };
+let state = {};
 
 const FIXED_DT = 16;
 let accumulator = 0;
@@ -41,15 +40,16 @@ function loop(time) {
   lastTime = time;
   accumulator += dt;
 
+  let result;
+
   while (accumulator >= FIXED_DT) {
-    const { state: nextState } = run(bytecode, state);
-    state = nextState;
+    const step = run(bytecode, state);
+    state = step.state;
+    result = step.result;
     accumulator -= FIXED_DT;
   }
 
-  const commands = [
-    ["circle", state.x, state.y, 20, 255, 0, 0]
-  ];
+  const commands = Array.isArray(result?.[0]) ? result : [result];
 
   render(ctx, commands);
 
