@@ -119,6 +119,8 @@ if (name === "get") {
       min: "MIN",
       max: "MAX",
       or: "OR",
+        sin: "SIN",
+        cos: "COS",
         and: "AND",
         gt: "GT",
         lt: "LT",

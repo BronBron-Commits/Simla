@@ -2,17 +2,17 @@
   (let t tick)
 
   (list
-    "camera" (list "x" 0 "y" 0 "z" -6)
+    "camera" (list "x" 0 "y" 0 "z" -8)
     "objects"
       (list
         (list
           "type" "cube"
           "id" 1
-          "x" 0
-          "y" 0
-          "z" 4
+          "x" (mul (sin (mul t 0.002)) 3)
+          "y" (mul (cos (mul t 0.002)) 2)
+          "z" 6
           "size" 2
-          "rotY" (mul t 0.003)
+          "rotY" (mul t 0.002)
         )
       )
   )

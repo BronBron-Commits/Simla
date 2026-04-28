@@ -252,6 +252,19 @@ case "LIST": {
         break;
       }
 
+
+      case "SIN": {
+        const a = stack.pop();
+        stack.push(Math.sin(a));
+        break;
+      }
+
+      case "COS": {
+        const a = stack.pop();
+        stack.push(Math.cos(a));
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }
