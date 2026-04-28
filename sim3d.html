@@ -77,7 +77,7 @@
       ];
     }
 
-    function drawCube(obj, t) {
+    function drawCube(obj, t, cam) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
       const oz = get(obj, "z");
@@ -93,8 +93,8 @@
       ctx.lineWidth = 2;
 
       for (const [a, b] of cubeEdges) {
-        const pa = project(verts[a]);
-        const pb = project(verts[b]);
+        const pa = project(verts[a], cam);
+        const pb = project(verts[b], cam);
 
         ctx.beginPath();
         ctx.moveTo(pa[0], pa[1]);
@@ -111,12 +111,19 @@
       const step = run(bytecode, { tick: time });
       const scene = step.result;
       const objects = get(scene, "objects");
+      const camObj = get(scene, "camera");
+
+      const cam = {
+        x: get(camObj, "x"),
+        y: get(camObj, "y"),
+        z: get(camObj, "z")
+      };
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
-          drawCube(obj, get(obj, "rotY"));
+          drawCube(obj, get(obj, "rotY"), cam);
         }
       }
 
