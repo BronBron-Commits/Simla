@@ -1,0 +1,1 @@
+(print (add 2 (mul 3 4)))

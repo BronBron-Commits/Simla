@@ -1,0 +1,20 @@
+{
+  "name": "minicompiler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js examples/test.mc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BronBron-Commits/minicompiler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BronBron-Commits/minicompiler/issues"
+  },
+  "homepage": "https://github.com/BronBron-Commits/minicompiler#readme"
+}
