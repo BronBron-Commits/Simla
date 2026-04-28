@@ -68,6 +68,20 @@ function exec(code, env) {
           break;
         }
 
+
+        case "AND": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a && b);
+          break;
+        }
+
+        case "NOT": {
+          const a = stack.pop();
+          stack.push(!a);
+          break;
+        }
+
 case "LIST": {
         const arr = [];
         for (let i = 0; i < a; i++) arr.unshift(stack.pop());

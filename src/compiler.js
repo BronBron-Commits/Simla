@@ -119,6 +119,7 @@ if (name === "get") {
       min: "MIN",
       max: "MAX",
       or: "OR",
+        and: "AND",
         gt: "GT",
         lt: "LT",
         eq: "EQ"
@@ -150,6 +151,12 @@ if (name === "get") {
       compile(node.args[0], out); // list
       compile(node.args[1], out); // item
       out.push(["APPEND"]);
+      return out;
+    }
+
+    if (name === "not") {
+      compile(node.args[0], out);
+      out.push(["NOT"]);
       return out;
     }
 
