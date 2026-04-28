@@ -62,29 +62,16 @@ function run(bytecode) {
 
       case "CALL": {
         const argCount = a;
-
         const args = [];
-        for (let i = 0; i < argCount; i++) {
-          args.unshift(stack.pop());
-        }
-
+        for (let i = 0; i < argCount; i++) args.unshift(stack.pop());
         const fn = stack.pop();
 
-        if (!fn || !fn.code) {
-          throw new Error("Not a function value");
-        }
-
         const newEnv = makeEnv(fn.closure);
-
         for (let i = 0; i < fn.params.length; i++) {
           newEnv.vars[fn.params[i]] = args[i];
         }
 
-        frames.push({
-          code: fn.code,
-          ip: 0,
-          env: newEnv
-        });
+        frames.push({ code: fn.code, ip: 0, env: newEnv });
         break;
       }
 
@@ -95,9 +82,33 @@ function run(bytecode) {
         break;
       }
 
-      case "ADD":
-        stack.push(stack.pop() + stack.pop());
+      case "LIST": {
+        const arr = [];
+        for (let i = 0; i < a; i++) arr.unshift(stack.pop());
+        stack.push(arr);
         break;
+      }
+
+      case "FIRST":
+        stack.push(stack.pop()[0]);
+        break;
+
+      case "REST":
+        stack.push(stack.pop().slice(1));
+        break;
+
+      case "CONS": {
+        const list = stack.pop();
+        const val = stack.pop();
+        stack.push([val, ...list]);
+        break;
+      }
+
+      case "LEN":
+        stack.push(stack.pop().length);
+        break;
+
+      case "ADD": stack.push(stack.pop() + stack.pop()); break;
 
       case "SUB": {
         const b = stack.pop();
@@ -106,9 +117,7 @@ function run(bytecode) {
         break;
       }
 
-      case "MUL":
-        stack.push(stack.pop() * stack.pop());
-        break;
+      case "MUL": stack.push(stack.pop() * stack.pop()); break;
 
       case "DIV": {
         const b = stack.pop();

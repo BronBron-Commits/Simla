@@ -1,7 +1,5 @@
 function getParams(paramsNode) {
-  if (paramsNode.type !== "call") {
-    throw new Error("Invalid parameter list");
-  }
+  if (paramsNode.type !== "call") throw new Error("Invalid parameter list");
   const params = [];
   params.push(paramsNode.callee.name);
   for (const arg of paramsNode.args) params.push(arg.name);
@@ -68,13 +66,10 @@ function compile(node, out = []) {
         return out;
       }
 
-      // 🔥 NEW: begin
       if (name === "begin") {
         for (let i = 0; i < node.args.length; i++) {
           compile(node.args[i], out);
-          if (i < node.args.length - 1) {
-            out.push(["POP"]); // discard intermediate
-          }
+          if (i < node.args.length - 1) out.push(["POP"]);
         }
         return out;
       }
@@ -98,9 +93,24 @@ function compile(node, out = []) {
         return out;
       }
 
+      // 🔥 LIST
+      if (name === "list") {
+        for (const arg of node.args) compile(arg, out);
+        out.push(["LIST", node.args.length]);
+        return out;
+      }
+
+      // math + compare
       if (["add","sub","mul","div","gt","lt","eq"].includes(name)) {
         compile(node.args[0], out);
         compile(node.args[1], out);
+        out.push([name.toUpperCase()]);
+        return out;
+      }
+
+      // list ops
+      if (["first","rest","cons","len"].includes(name)) {
+        for (const arg of node.args) compile(arg, out);
         out.push([name.toUpperCase()]);
         return out;
       }
@@ -112,7 +122,6 @@ function compile(node, out = []) {
       }
     }
 
-    // general call
     compile(callee, out);
     for (const arg of node.args) compile(arg, out);
     out.push(["CALL", node.args.length]);

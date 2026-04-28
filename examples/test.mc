@@ -1,7 +1,7 @@
-(print
-  ((fn (x)
-     (begin
-       (print x)
-       (print (add x 1))
-       (add x 2)))
-   5))
+(begin
+  (let xs (list 1 2 3))
+  (print xs)
+  (print (first xs))
+  (print (rest xs))
+  (print (cons 0 xs))
+  (print (len xs)))
