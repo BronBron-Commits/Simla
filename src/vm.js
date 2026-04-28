@@ -131,7 +131,6 @@ function run(bytecode) {
         frame.ip = a;
         break;
 
-      // 🔥 MAP (already working)
       case "MAP": {
         const list = stack.pop();
         const fn = stack.pop();
@@ -152,7 +151,6 @@ function run(bytecode) {
         break;
       }
 
-      // 🔥 REDUCE (correct placement)
       case "REDUCE": {
         const list = stack.pop();
         const initial = stack.pop();
@@ -189,4 +187,5 @@ function run(bytecode) {
   return stack.pop();
 }
 
-module.exports = { run };
+// 🔥 proper export
+export { run };

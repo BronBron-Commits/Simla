@@ -4,10 +4,18 @@ function parse(tokens) {
   function walk() {
     let token = tokens[current];
 
+    // string literal
+    if (token.startsWith('"') && token.endsWith('"')) {
+      current++;
+      return {
+        type: "string",
+        value: token.slice(1, -1)
+      };
+    }
+
     if (token === "(") {
       current++;
 
-      // 🔥 FIRST element is now ANY expression
       const callee = walk();
 
       const node = {
@@ -20,7 +28,7 @@ function parse(tokens) {
         node.args.push(walk());
       }
 
-      current++; // skip ')'
+      current++;
       return node;
     }
 
@@ -42,4 +50,4 @@ function parse(tokens) {
   return program;
 }
 
-module.exports = { parse };
+export { parse };

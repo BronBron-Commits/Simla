@@ -1,5 +1,5 @@
-(print
-  (reduce
-    (fn (acc x) (add acc x))
-    0
-    (list 1 2 3 4)))
+(begin
+  (list
+    (list "rect" 50 50 100 100)
+    (list "circle" 200 200 40)
+    (list "circle" 300 200 40)))

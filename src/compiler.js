@@ -18,6 +18,12 @@ function compile(node, out = []) {
     return out;
   }
 
+  // 🔥 string support
+  if (node.type === "string") {
+    out.push(["PUSH", node.value]);
+    return out;
+  }
+
   if (node.type === "identifier") {
     out.push(["LOAD", node.name]);
     return out;
@@ -99,7 +105,6 @@ function compile(node, out = []) {
         return out;
       }
 
-      // 🔥 FIXED: correct placement
       if (["first","rest","cons","len","map","reduce"].includes(name)) {
         for (const arg of node.args) compile(arg, out);
         out.push([name.toUpperCase()]);
@@ -130,4 +135,4 @@ function compile(node, out = []) {
   return out;
 }
 
-module.exports = { compile };
+export { compile };
