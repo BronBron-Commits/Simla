@@ -1,3 +1,2 @@
-(let x 5)
-(let y (add x 2))
-(print y)
+(fn addTwo (x) (add x 2))
+(print (addTwo 5))
