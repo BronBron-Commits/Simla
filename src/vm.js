@@ -236,6 +236,14 @@ case "LIST": {
         break;
       }
 
+
+      case "NTH": {
+        const index = stack.pop();
+        const list = stack.pop();
+        stack.push(Array.isArray(list) ? list[index] ?? 0 : 0);
+        break;
+      }
+
 default:
         throw new Error("Unknown op: " + op);
     }

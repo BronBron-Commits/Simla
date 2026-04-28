@@ -175,6 +175,14 @@ if (name === "get") {
       return out;
     }
 
+
+    if (name === "nth") {
+      compile(node.args[0], out); // list
+      compile(node.args[1], out); // index
+      out.push(["NTH"]);
+      return out;
+    }
+
 throw new Error("Unknown function: " + name);
   }
 
