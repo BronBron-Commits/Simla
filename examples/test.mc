@@ -1,7 +1,6 @@
-(fn max (a b)
-  (if (gt a b)
-      a
-      b))
+(fn fact (n)
+  (if (eq n 0)
+      1
+      (mul n (fact (sub n 1)))))
 
-(print (max 10 5))
-(print (max 3 7))
+(print (fact 5))
