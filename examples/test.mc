@@ -1,6 +1,9 @@
-(fn fact (n)
-  (if (eq n 0)
-      1
-      (mul n (fact (sub n 1)))))
+(let x 10)
 
-(print (fact 5))
+(fn makeAdder (n)
+  (fn addInner (y)
+    (add x (add n y))))
+
+(let add5 (makeAdder 5))
+
+(print (add5 3))

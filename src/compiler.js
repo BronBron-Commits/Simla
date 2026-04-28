@@ -24,21 +24,24 @@ function compile(node, out = []) {
       return out;
     }
 
-    // fn  => store function object in env
+    // fn (FIXED: now returns function)
     if (node.name === "fn") {
       const nameNode   = node.args[0];
       const paramsNode = node.args[1];
       const bodyNode   = node.args[2];
 
-      // extract params from (a b c) form
       const params = [paramsNode.name, ...paramsNode.args.map(a => a.name)];
 
-      // compile body into its own chunk
       const bodyCode = [];
       compile(bodyNode, bodyCode);
       bodyCode.push(["RET"]);
 
+      // create function
       out.push(["FUNC", nameNode.name, params, bodyCode]);
+
+      // NEW: push it so fn is an expression
+      out.push(["LOAD", nameNode.name]);
+
       return out;
     }
 

@@ -34,9 +34,11 @@ function run(bytecode) {
         break;
 
       case "FUNC":
+        // capture lexical environment HERE
         frame.env[a] = {
           params: b,
-          code: c
+          code: c,
+          closure: frame.env
         };
         break;
 
@@ -47,8 +49,8 @@ function run(bytecode) {
         const args = [];
         for (let i = 0; i < b; i++) args.unshift(stack.pop());
 
-        // FIX: inherit parent env
-        const newEnv = Object.create(frame.env);
+        // USE captured closure, not caller env
+        const newEnv = Object.create(fn.closure);
 
         for (let i = 0; i < fn.params.length; i++) {
           newEnv[fn.params[i]] = args[i];
