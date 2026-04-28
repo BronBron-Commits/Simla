@@ -1,2 +1,3 @@
 (let x 5)
-(print (add x 3))
+(let y (add x 2))
+(print y)

@@ -1,10 +1,23 @@
-const env = {};
+function createEnv(parent = null) {
+  return {
+    vars: {},
+    parent,
+    get(name) {
+      if (name in this.vars) return this.vars[name];
+      if (this.parent) return this.parent.get(name);
+      throw new Error("Undefined variable: " + name);
+    },
+    set(name, value) {
+      this.vars[name] = value;
+    }
+  };
+}
 
-function evaluate(node) {
+function evaluate(node, env) {
   if (node.type === "program") {
     let result;
     for (const expr of node.body) {
-      result = evaluate(expr);
+      result = evaluate(expr, env);
     }
     return result;
   }
@@ -12,11 +25,11 @@ function evaluate(node) {
   if (node.type === "number") return node.value;
 
   if (node.type === "identifier") {
-    if (node.name in env) return env[node.name];
-    throw new Error("Undefined variable: " + node.name);
+    return env.get(node.name);
   }
 
   if (node.type === "call") {
+    // let binding
     if (node.name === "let") {
       const nameNode = node.args[0];
       const valueNode = node.args[1];
@@ -25,12 +38,12 @@ function evaluate(node) {
         throw new Error("let requires identifier");
       }
 
-      const value = evaluate(valueNode);
-      env[nameNode.name] = value;
+      const value = evaluate(valueNode, env);
+      env.set(nameNode.name, value);
       return value;
     }
 
-    const args = node.args.map(evaluate);
+    const args = node.args.map(arg => evaluate(arg, env));
 
     switch (node.name) {
       case "add": return args[0] + args[1];
@@ -48,4 +61,4 @@ function evaluate(node) {
   throw new Error("Unknown node type");
 }
 
-module.exports = { evaluate };
+module.exports = { evaluate, createEnv };
