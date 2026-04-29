@@ -1,0 +1,22 @@
+(begin
+  (let clampMove
+    (fn (player selected enemy)
+      (if (eq selected enemy)
+        player
+        (if (lt selected (sub player 3))
+          player
+          (if (gt selected (add player 3))
+            player
+            selected
+          )
+        )
+      )
+    )
+  )
+
+  (let player 7)
+  (let enemy 14)
+  (let selected 10)
+
+  (clampMove player selected enemy)
+)
