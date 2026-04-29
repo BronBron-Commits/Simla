@@ -6,6 +6,7 @@
 #define MAX_TOKENS 4096
 #define MAX_TOKEN_LEN 128
 #define MAX_CHILDREN 256
+#define MAX_VARS 256
 
 typedef struct {
     char text[MAX_TOKEN_LEN];
@@ -27,6 +28,96 @@ typedef struct Node {
     struct Node *children[MAX_CHILDREN];
     int child_count;
 } Node;
+
+typedef enum {
+    VAL_INT,
+    VAL_FN
+} ValueType;
+
+typedef struct {
+    char param[MAX_TOKEN_LEN];
+    Node *body;
+} Function;
+
+typedef struct {
+    ValueType type;
+    int number;
+    Function fn;
+} Value;
+
+typedef struct {
+    char name[MAX_TOKEN_LEN];
+    Value value;
+} Var;
+
+static Var vars[MAX_VARS];
+static int var_count = 0;
+
+static Value eval(Node *n);
+
+static Value int_value(int n) {
+    Value v;
+    v.type = VAL_INT;
+    v.number = n;
+    return v;
+}
+
+static Value fn_value(const char *param, Node *body) {
+    Value v;
+    v.type = VAL_FN;
+    snprintf(v.fn.param, MAX_TOKEN_LEN, "%s", param);
+    v.fn.body = body;
+    return v;
+}
+
+static int as_int(Value v) {
+    if (v.type != VAL_INT) {
+        fprintf(stderr, "Expected number\n");
+        exit(1);
+    }
+    return v.number;
+}
+
+static void env_set(const char *name, Value value) {
+    for (int i = 0; i < var_count; i++) {
+        if (strcmp(vars[i].name, name) == 0) {
+            vars[i].value = value;
+            return;
+        }
+    }
+
+    if (var_count >= MAX_VARS) {
+        fprintf(stderr, "Too many variables\n");
+        exit(1);
+    }
+
+    snprintf(vars[var_count].name, MAX_TOKEN_LEN, "%s", name);
+    vars[var_count].value = value;
+    var_count++;
+}
+
+static Value env_get(const char *name) {
+    for (int i = var_count - 1; i >= 0; i--) {
+        if (strcmp(vars[i].name, name) == 0) {
+            return vars[i].value;
+        }
+    }
+
+    fprintf(stderr, "Unknown symbol: %s\n", name);
+    exit(1);
+}
+
+static int is_number(const char *s) {
+    int i = 0;
+    if (s[0] == '-') i = 1;
+    if (!s[i]) return 0;
+
+    for (; s[i]; i++) {
+        if (!isdigit((unsigned char)s[i])) return 0;
+    }
+
+    return 1;
+}
 
 static Node *new_node(NodeType type) {
     Node *n = calloc(1, sizeof(Node));
@@ -59,18 +150,6 @@ static void tokenize(const char *src, TokenList *out) {
             continue;
         }
 
-        if (src[i] == '"') {
-            int j = 0;
-            out->tokens[out->count].text[j++] = src[i++];
-            while (src[i] && src[i] != '"' && j < MAX_TOKEN_LEN - 2) {
-                out->tokens[out->count].text[j++] = src[i++];
-            }
-            if (src[i] == '"') out->tokens[out->count].text[j++] = src[i++];
-            out->tokens[out->count].text[j] = 0;
-            out->count++;
-            continue;
-        }
-
         int j = 0;
         while (
             src[i] &&
@@ -97,14 +176,10 @@ static Node *parse_expr(TokenList *tokens, int *pos) {
 
     if (strcmp(tok, "(") == 0) {
         (*pos)++;
+
         Node *list = new_node(NODE_LIST);
 
         while (*pos < tokens->count && strcmp(tokens->tokens[*pos].text, ")") != 0) {
-            if (list->child_count >= MAX_CHILDREN) {
-                fprintf(stderr, "Too many children in list\n");
-                exit(1);
-            }
-
             list->children[list->child_count++] = parse_expr(tokens, pos);
         }
 
@@ -133,11 +208,6 @@ static Node *parse(TokenList *tokens) {
 
     int pos = 0;
     while (pos < tokens->count) {
-        if (program->child_count >= MAX_CHILDREN) {
-            fprintf(stderr, "Too many top-level expressions\n");
-            exit(1);
-        }
-
         program->children[program->child_count++] = parse_expr(tokens, &pos);
     }
 
@@ -156,6 +226,124 @@ static void print_ast(Node *n, int indent) {
     for (int i = 0; i < n->child_count; i++) {
         print_ast(n->children[i], indent + 1);
     }
+}
+
+static Value call_function(Value fn, Value arg) {
+    if (fn.type != VAL_FN) {
+        fprintf(stderr, "Tried to call non-function\n");
+        exit(1);
+    }
+
+    int saved_count = var_count;
+    env_set(fn.fn.param, arg);
+    Value result = eval(fn.fn.body);
+    var_count = saved_count;
+
+    return result;
+}
+
+static Value eval(Node *n) {
+    if (n->type == NODE_ATOM) {
+        if (is_number(n->atom)) {
+            return int_value(atoi(n->atom));
+        }
+        return env_get(n->atom);
+    }
+
+    if (n->child_count == 0) {
+        fprintf(stderr, "Empty list\n");
+        exit(1);
+    }
+
+    Node *head = n->children[0];
+
+    if (head->type != NODE_ATOM) {
+        fprintf(stderr, "Invalid function call\n");
+        exit(1);
+    }
+
+    const char *op = head->atom;
+
+    if (strcmp(op, "begin") == 0) {
+        Value result = int_value(0);
+        for (int i = 1; i < n->child_count; i++) {
+            result = eval(n->children[i]);
+        }
+        return result;
+    }
+
+    if (strcmp(op, "let") == 0) {
+        if (n->child_count != 3 || n->children[1]->type != NODE_ATOM) {
+            fprintf(stderr, "Invalid let form\n");
+            exit(1);
+        }
+
+        Value value = eval(n->children[2]);
+        env_set(n->children[1]->atom, value);
+        return value;
+    }
+
+    if (strcmp(op, "fn") == 0) {
+        if (
+            n->child_count != 3 ||
+            n->children[1]->type != NODE_LIST ||
+            n->children[1]->child_count != 1 ||
+            n->children[1]->children[0]->type != NODE_ATOM
+        ) {
+            fprintf(stderr, "Invalid fn form\n");
+            exit(1);
+        }
+
+        return fn_value(n->children[1]->children[0]->atom, n->children[2]);
+    }
+
+    if (strcmp(op, "add") == 0) {
+        int sum = 0;
+        for (int i = 1; i < n->child_count; i++) {
+            sum += as_int(eval(n->children[i]));
+        }
+        return int_value(sum);
+    }
+
+    if (strcmp(op, "sub") == 0) {
+        if (n->child_count != 3) {
+            fprintf(stderr, "sub expects 2 args\n");
+            exit(1);
+        }
+        return int_value(as_int(eval(n->children[1])) - as_int(eval(n->children[2])));
+    }
+
+    if (strcmp(op, "mul") == 0) {
+        int product = 1;
+        for (int i = 1; i < n->child_count; i++) {
+            product *= as_int(eval(n->children[i]));
+        }
+        return int_value(product);
+    }
+
+    if (strcmp(op, "div") == 0) {
+        if (n->child_count != 3) {
+            fprintf(stderr, "div expects 2 args\n");
+            exit(1);
+        }
+
+        int b = as_int(eval(n->children[2]));
+        if (b == 0) {
+            fprintf(stderr, "division by zero\n");
+            exit(1);
+        }
+
+        return int_value(as_int(eval(n->children[1])) / b);
+    }
+
+    Value fn = env_get(op);
+
+    if (n->child_count != 2) {
+        fprintf(stderr, "Only single-argument function calls supported for now\n");
+        exit(1);
+    }
+
+    return call_function(fn, eval(n->children[1]));
 }
 
 static void free_ast(Node *n) {
@@ -191,50 +379,6 @@ static char *read_file(const char *path) {
     return buf;
 }
 
-
-static int is_number(const char *s);
-static int eval(Node *n);
-
-#define MAX_VARS 256
-
-typedef struct {
-    char name[MAX_TOKEN_LEN];
-    int value;
-} Var;
-
-static Var vars[MAX_VARS];
-static int var_count = 0;
-
-static void env_set(const char *name, int value) {
-    for (int i = 0; i < var_count; i++) {
-        if (strcmp(vars[i].name, name) == 0) {
-            vars[i].value = value;
-            return;
-        }
-    }
-
-    if (var_count >= MAX_VARS) {
-        fprintf(stderr, "Too many variables\n");
-        exit(1);
-    }
-
-    snprintf(vars[var_count].name, MAX_TOKEN_LEN, "%s", name);
-    vars[var_count].value = value;
-    var_count++;
-}
-
-static int env_get(const char *name) {
-    for (int i = 0; i < var_count; i++) {
-        if (strcmp(vars[i].name, name) == 0) {
-            return vars[i].value;
-        }
-    }
-
-    fprintf(stderr, "Unknown symbol: %s\n", name);
-    exit(1);
-}
-
-
 int main(int argc, char **argv) {
     if (argc < 2) {
         printf("usage: simla <file.sim>\n");
@@ -248,79 +392,21 @@ int main(int argc, char **argv) {
 
     Node *ast = parse(&tokens);
 
-    printf("Simλ C parser OK\n");
+    printf("Simλ C interpreter OK\n");
     printf("tokens: %d\n\n", tokens.count);
-    
     print_ast(ast, 0);
 
     if (ast->child_count > 0) {
-        int result = eval(ast->children[0]);
-        printf("\nResult: %d\n", result);
+        Value result = eval(ast->children[0]);
+
+        if (result.type == VAL_INT) {
+            printf("\nResult: %d\n", result.number);
+        } else {
+            printf("\nResult: <function>\n");
+        }
     }
-    
 
     free_ast(ast);
     free(src);
     return 0;
 }
-
-static int is_number(const char *s) {
-    for (int i = 0; s[i]; i++) {
-        if (!isdigit((unsigned char)s[i]) && s[i] != '-') return 0;
-    }
-    return 1;
-}
-
-static int eval(Node *n) {
-    if (n->type == NODE_ATOM) {
-        if (is_number(n->atom)) {
-            return atoi(n->atom);
-        }
-        return env_get(n->atom);
-    }
-
-    if (n->child_count == 0) {
-        fprintf(stderr, "Empty list\n");
-        exit(1);
-    }
-
-    Node *head = n->children[0];
-
-    if (head->type != NODE_ATOM) {
-        fprintf(stderr, "Invalid function call\n");
-        exit(1);
-    }
-
-    const char *op = head->atom;
-
-    if (strcmp(op, "begin") == 0) {
-        int result = 0;
-        for (int i = 1; i < n->child_count; i++) {
-            result = eval(n->children[i]);
-        }
-        return result;
-    }
-
-    if (strcmp(op, "let") == 0) {
-        if (n->child_count != 3 || n->children[1]->type != NODE_ATOM) {
-            fprintf(stderr, "Invalid let form\n");
-            exit(1);
-        }
-
-        int value = eval(n->children[2]);
-        env_set(n->children[1]->atom, value);
-        return value;
-    }
-
-    if (strcmp(op, "add") == 0) {
-        int sum = 0;
-        for (int i = 1; i < n->child_count; i++) {
-            sum += eval(n->children[i]);
-        }
-        return sum;
-    }
-
-    fprintf(stderr, "Unknown op: %s\n", op);
-    exit(1);
-}
-
