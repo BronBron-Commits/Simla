@@ -83,6 +83,20 @@ static int run_code(
         break;
       }
 
+      case OP_AND: {
+        int b = stack[--sp];
+        int a = stack[--sp];
+        stack[sp++] = (a != 0 && b != 0) ? 1 : 0;
+        break;
+      }
+
+      case OP_OR: {
+        int b = stack[--sp];
+        int a = stack[--sp];
+        stack[sp++] = (a != 0 || b != 0) ? 1 : 0;
+        break;
+      }
+
       case OP_JMP_IF_FALSE: {
         int cond = stack[--sp];
         if (!cond) ip = ins.a - 1;

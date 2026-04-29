@@ -320,7 +320,9 @@ static void compile_expr(Node *n, Program *p) {
   if (
     strcmp(op, "lt") == 0 ||
     strcmp(op, "gt") == 0 ||
-    strcmp(op, "eq") == 0
+    strcmp(op, "eq") == 0 ||
+    strcmp(op, "and") == 0 ||
+    strcmp(op, "or") == 0
   ) {
     if (n->child_count != 3) {
       fprintf(stderr, "%s expects 2 args\n", op);
@@ -333,6 +335,8 @@ static void compile_expr(Node *n, Program *p) {
     if (strcmp(op, "lt") == 0) emit(p, OP_LT, 0);
     else if (strcmp(op, "gt") == 0) emit(p, OP_GT, 0);
     else if (strcmp(op, "eq") == 0) emit(p, OP_EQ, 0);
+    else if (strcmp(op, "and") == 0) emit(p, OP_AND, 0);
+    else if (strcmp(op, "or") == 0) emit(p, OP_OR, 0);
 
     return;
   }

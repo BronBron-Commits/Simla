@@ -499,6 +499,8 @@ static Value eval(Node *n) {
     if (strcmp(op, "lt") == 0) return int_value(as_int(eval(n->children[1])) < as_int(eval(n->children[2])) ? 1 : 0);
     if (strcmp(op, "gt") == 0) return int_value(as_int(eval(n->children[1])) > as_int(eval(n->children[2])) ? 1 : 0);
     if (strcmp(op, "eq") == 0) return int_value(as_int(eval(n->children[1])) == as_int(eval(n->children[2])) ? 1 : 0);
+    if (strcmp(op, "and") == 0) return int_value((as_int(eval(n->children[1])) != 0 && as_int(eval(n->children[2])) != 0) ? 1 : 0);
+    if (strcmp(op, "or") == 0) return int_value((as_int(eval(n->children[1])) != 0 || as_int(eval(n->children[2])) != 0) ? 1 : 0);
 
     return call_function(env_get(op), n);
 }

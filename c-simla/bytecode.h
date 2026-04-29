@@ -17,6 +17,8 @@ typedef enum {
   OP_LT,
   OP_GT,
   OP_EQ,
+  OP_AND,
+  OP_OR,
   OP_JMP_IF_FALSE,
   OP_JMP,
   OP_LIST,
