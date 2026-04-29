@@ -387,6 +387,23 @@ case "LIST": {
         }
 
 
+  
+        case "EMPTY": {
+          const v = stack.pop();
+          stack.push(Array.isArray(v) ? v.length === 0 : !v);
+          break;
+        }
+
+
+  
+        case "SLICE": {
+          const start = stack.pop();
+          const list = stack.pop();
+          stack.push(Array.isArray(list) ? list.slice(start) : []);
+          break;
+        }
+
+
   default:
         throw new Error("Unknown op: " + op);
     }

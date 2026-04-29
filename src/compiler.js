@@ -220,14 +220,26 @@ if (name === "get") {
       return out;
     }
 
-          // user-defined function call
+              if (name === "empty") {
+      compile(node.args[0], out);
+      out.push(["EMPTY"]);
+      return out;
+    }
+
+    if (name === "slice") {
+      compile(node.args[0], out); // list
+      compile(node.args[1], out); // start
+      out.push(["SLICE"]);
+      return out;
+    }
+
+// user-defined function call
     compile(node.callee, out);
     for (const arg of node.args) {
       compile(arg, out);
     }
     out.push(["CALL", node.args.length]);
     return out;
-
 throw new Error("Unknown function: " + name);
   }
 
