@@ -1,0 +1,94 @@
+(begin
+  (let PUSH 1)
+  (let ADD 2)
+  (let MUL 3)
+
+  (let top (fn (xs) (nth xs (sub (len xs) 1))))
+  (let drop2 (fn (xs) (slice xs 0 (sub (len xs) 2))))
+
+  (let compile
+    (fn (node)
+
+      (if
+        (eq (len node) 1)
+
+        (list PUSH (nth node 0))
+
+        (if
+          (eq (nth node 0) "add")
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list ADD)
+          )
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list MUL)
+          )
+        )
+      )
+    )
+  )
+
+  (let exec
+    (fn (code stack ip)
+      (if
+        (eq ip (len code))
+
+        (top stack)
+
+        (if
+          (eq (nth code ip) PUSH)
+
+          (exec code (append stack (nth code (add ip 1))) (add ip 2))
+
+          (if
+            (eq (nth code ip) ADD)
+
+            (exec
+              code
+              (append
+                (drop2 stack)
+                (add
+                  (nth stack (sub (len stack) 2))
+                  (nth stack (sub (len stack) 1))
+                )
+              )
+              (add ip 1)
+            )
+
+            (exec
+              code
+              (append
+                (drop2 stack)
+                (mul
+                  (nth stack (sub (len stack) 2))
+                  (nth stack (sub (len stack) 1))
+                )
+              )
+              (add ip 1)
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (exec
+    (compile
+      (list "mul"
+        (list "add" (list 2) (list 3))
+        (list 4)
+      )
+    )
+    (list)
+    0
+  )
+)

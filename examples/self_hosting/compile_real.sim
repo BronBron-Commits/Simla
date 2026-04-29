@@ -1,0 +1,44 @@
+(begin
+  (let PUSH 1)
+  (let ADD 2)
+  (let MUL 3)
+
+  (let is_number
+    (fn (x)
+      (eq (type x) "number")
+    )
+  )
+
+  (let compile
+    (fn (node)
+
+      (if
+        (is_number node)
+
+        (list PUSH node)
+
+        (if
+          (eq (nth node 0) "add")
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list ADD)
+          )
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list MUL)
+          )
+        )
+      )
+    )
+  )
+
+  (compile (list "mul" (list "add" 2 3) 4))
+)
