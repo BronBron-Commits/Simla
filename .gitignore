@@ -4,3 +4,11 @@ node_modules/
 c-simla/simla
 c-simla/compile_test
 c-simla/vm_test
+
+# Simla local/build outputs
+c-simla/simla
+c-simla/compile_test
+c-simla/vm_test
+hello.sim
+node
+minicompiler@1.0.0
