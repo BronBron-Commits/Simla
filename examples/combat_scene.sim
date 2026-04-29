@@ -23,7 +23,93 @@
     )
   )
 
+  (let playerX (sub (mul playerTile 0.8) 6))
+  (let enemyX (sub (mul enemyTile 0.8) 6))
+  (let selectedX (sub (mul selectedTile 0.8) 6))
+
+  (let player
+    (list
+      "type" "pyramid"
+      "id" 100
+      "x" playerX
+      "y" -0.8
+      "z" 10.8
+      "size" 1
+      "rotY" (mul t 1.5)
+      "r" 120
+      "g" 220
+      "b" 255
+    )
+  )
+
+  (let enemy
+    (list
+      "type" "pyramid"
+      "id" 101
+      "x" enemyX
+      "y" -0.8
+      "z" 13.2
+      "size" 1
+      "rotY" (mul t -1.5)
+      "r" 255
+      "g" 90
+      "b" 90
+    )
+  )
+
+  (let selectedRing
+    (list
+      "type" "ring"
+      "id" 200
+      "x" selectedX
+      "y" -1.1
+      "z" 12
+      "size" 0.55
+      "rotY" (mul t 1.2)
+      "r" 255
+      "g" 240
+      "b" 120
+    )
+  )
+
+  (let playerRing
+    (list
+      "type" "ring"
+      "id" 201
+      "x" playerX
+      "y" -1.0
+      "z" 10.8
+      "size" 1.1
+      "rotY" (mul t 1.8)
+      "r" 120
+      "g" 220
+      "b" 255
+    )
+  )
+
+  (let enemyRing
+    (list
+      "type" "ring"
+      "id" 202
+      "x" enemyX
+      "y" -1.0
+      "z" 13.2
+      "size" 1.1
+      "rotY" (mul t -1.8)
+      "r" 255
+      "g" 90
+      "b" 90
+    )
+  )
+
   (list
+    "state"
+      (list
+        "playerTile" playerTile
+        "enemyTile" enemyTile
+        "selectedTile" selectedTile
+      )
+
     "camera" (list "x" 0 "y" 0 "z" -10)
 
     "render"
@@ -58,6 +144,6 @@
         "b" 255
       )
 
-    "objects" board
+    "objects" (concat board (list player enemy selectedRing playerRing enemyRing))
   )
 )
