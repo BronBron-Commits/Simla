@@ -2,16 +2,20 @@
 #include <stdlib.h>
 #include "bytecode.h"
 
-int run(Program *p) {
+static int run_code(
+  Instruction *code,
+  int count,
+  Program *owner,
+  int vars[256]
+) {
   int stack[STACK_MAX];
-  int vars[256] = {0};
   int lists[256][256] = {{0}};
   int list_counts[256] = {0};
   int list_count = 0;
   int sp = 0;
 
-  for (int ip = 0; ip < p->count; ip++) {
-    Instruction ins = p->code[ip];
+  for (int ip = 0; ip < count; ip++) {
+    Instruction ins = code[ip];
 
     switch (ins.op) {
       case OP_CONST:
@@ -122,7 +126,6 @@ int run(Program *p) {
         break;
       }
 
-
       case OP_RANGE: {
         int end = stack[--sp];
         int start = stack[--sp];
@@ -144,10 +147,41 @@ int run(Program *p) {
         break;
       }
 
+      case OP_MAP: {
+        int handle = stack[--sp];
+        int src_id = -handle - 1;
+
+        if (ins.a < 0 || ins.a >= owner->map_func_count) {
+          fprintf(stderr, "invalid map function id\n");
+          exit(1);
+        }
+
+        MapFunction *fn = &owner->map_funcs[ins.a];
+
+        int out_id = list_count++;
+        list_counts[out_id] = 0;
+
+        for (int i = 0; i < list_counts[src_id]; i++) {
+          int local_vars[256] = {0};
+          local_vars[fn->param_slot] = lists[src_id][i];
+
+          int mapped = run_code(fn->code, fn->count, owner, local_vars);
+          lists[out_id][list_counts[out_id]++] = mapped;
+        }
+
+        stack[sp++] = -out_id - 1;
+        break;
+      }
+
       case OP_RETURN:
         return stack[--sp];
     }
   }
 
-  return 0;
+  return sp > 0 ? stack[sp - 1] : 0;
+}
+
+int run(Program *p) {
+  int vars[256] = {0};
+  return run_code(p->code, p->count, p, vars);
 }

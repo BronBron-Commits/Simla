@@ -4,6 +4,7 @@
 #define MAX_CODE 4096
 #define STACK_MAX 1024
 #define CONST_MAX 1024
+#define MAP_FUNC_MAX 64
 
 typedef enum {
   OP_CONST,
@@ -22,6 +23,7 @@ typedef enum {
   OP_LEN,
   OP_NTH,
   OP_RANGE,
+  OP_MAP,
   OP_RETURN
 } OpCode;
 
@@ -33,6 +35,14 @@ typedef struct {
 typedef struct {
   Instruction code[MAX_CODE];
   int count;
+  int param_slot;
+} MapFunction;
+
+typedef struct {
+  Instruction code[MAX_CODE];
+  int count;
+  MapFunction map_funcs[MAP_FUNC_MAX];
+  int map_func_count;
 } Program;
 
 int run(Program *p);

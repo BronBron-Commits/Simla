@@ -200,6 +200,76 @@ static void emit(Program *p, OpCode op, int a) {
   p->code[p->count++] = (Instruction){op, a};
 }
 
+
+static void compile_expr(Node *n, Program *p);
+
+static int compile_map_function(Program *p, Node *fn_node) {
+  if (p->map_func_count >= MAP_FUNC_MAX) {
+    fprintf(stderr, "too many map functions\n");
+    exit(1);
+  }
+
+  Node *params = NULL;
+  Node *body = NULL;
+
+  if (
+    fn_node->type == NODE_ATOM
+  ) {
+    FnDef *fn = find_fn(fn_node->atom);
+    if (!fn) {
+      fprintf(stderr, "unknown map function: %s\n", fn_node->atom);
+      exit(1);
+    }
+
+    if (fn->param_count != 1) {
+      fprintf(stderr, "map function must take exactly 1 arg\n");
+      exit(1);
+    }
+
+    int id = p->map_func_count++;
+    MapFunction *mf = &p->map_funcs[id];
+    mf->count = 0;
+    mf->param_slot = get_slot(fn->params[0]);
+
+    Program *tmp = (Program *)mf;
+    compile_expr(fn->body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  if (
+    fn_node->type == NODE_LIST &&
+    fn_node->child_count >= 3 &&
+    fn_node->children[0]->type == NODE_ATOM &&
+    strcmp(fn_node->children[0]->atom, "fn") == 0
+  ) {
+    params = fn_node->children[1];
+    body = fn_node->children[2];
+
+    if (
+      params->type != NODE_LIST ||
+      params->child_count != 1 ||
+      params->children[0]->type != NODE_ATOM
+    ) {
+      fprintf(stderr, "inline map fn must take exactly 1 arg\n");
+      exit(1);
+    }
+
+    int id = p->map_func_count++;
+    MapFunction *mf = &p->map_funcs[id];
+    mf->count = 0;
+    mf->param_slot = get_slot(params->children[0]->atom);
+
+    Program *tmp = (Program *)mf;
+    compile_expr(body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  fprintf(stderr, "map expects fn or function name\n");
+  exit(1);
+}
+
 static void compile_expr(Node *n, Program *p) {
   if (n->type == NODE_ATOM) {
     if (is_number(n->atom)) {
@@ -313,6 +383,19 @@ static void compile_expr(Node *n, Program *p) {
     }
 
     emit(p, OP_LIST, n->child_count - 1);
+    return;
+  }
+
+
+  if (strcmp(op, "map") == 0) {
+    if (n->child_count != 3) {
+      fprintf(stderr, "map expects function and list\n");
+      exit(1);
+    }
+
+    int fn_id = compile_map_function(p, n->children[1]);
+    compile_expr(n->children[2], p);
+    emit(p, OP_MAP, fn_id);
     return;
   }
 

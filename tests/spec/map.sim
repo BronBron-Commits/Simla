@@ -1,0 +1,1 @@
+(len (map (fn (x) (mul x 2)) (range 1 5)))
