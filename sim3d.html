@@ -199,7 +199,7 @@ const speedSlider = document.getElementById("speed");
       ctx.restore();
     }
 
-    function drawCube(obj, t) {
+    function drawCube(obj, t, render) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
       const oz = get(obj, "z");
@@ -372,7 +372,7 @@ const speedSlider = document.getElementById("speed");
 
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
-          drawCube(obj, get(obj, "rotY"));
+          drawCube(obj, get(obj, "rotY"), render);
         }
 
         if (get(obj, "type") === "pyramid") {
