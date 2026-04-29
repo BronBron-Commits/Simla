@@ -323,6 +323,44 @@ case "LIST": {
           break;
         }
 
+  
+        case "BATTLE_REPORT": {
+          const initialEnemyHp = stack.pop();
+          const initialPlayerHp = stack.pop();
+          const ticks = stack.pop();
+          const list = stack.pop();
+
+          const get = (e, key) => {
+            for (let i = 0; i < e.length; i += 2) {
+              if (e[i] === key) return e[i + 1];
+            }
+            return 0;
+          };
+
+          const players = Array.isArray(list)
+            ? list.filter(e => get(e, "team") === "player")
+            : [];
+
+          const enemies = Array.isArray(list)
+            ? list.filter(e => get(e, "team") === "enemy")
+            : [];
+
+          const playerHp = players.reduce((sum, e) => sum + get(e, "hp"), 0);
+          const enemyHp = enemies.reduce((sum, e) => sum + get(e, "hp"), 0);
+
+          stack.push([
+            "ticks", ticks,
+            "winner", players.length > 0 ? "players" : "enemies",
+            "playersAlive", players.length,
+            "enemiesAlive", enemies.length,
+            "playerHpRemaining", playerHp,
+            "enemyHpRemaining", enemyHp,
+            "playerDamageTaken", initialPlayerHp - playerHp,
+            "enemyDamageTaken", initialEnemyHp - enemyHp
+          ]);
+          break;
+        }
+
   default:
         throw new Error("Unknown op: " + op);
     }

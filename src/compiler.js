@@ -210,6 +210,16 @@ if (name === "get") {
       return out;
     }
 
+      
+    if (name === "battle_report") {
+      compile(node.args[0], out); // entities
+      compile(node.args[1], out); // ticks
+      compile(node.args[2], out); // initial player hp
+      compile(node.args[3], out); // initial enemy hp
+      out.push(["BATTLE_REPORT"]);
+      return out;
+    }
+
       throw new Error("Unknown function: " + name);
   }
 
