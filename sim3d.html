@@ -363,6 +363,7 @@
 
 
 
+
     function drawHumanoid(obj, t) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
@@ -370,9 +371,13 @@
       const size = get(obj, "size") || 1;
       const col = colorOf(obj, [120, 220, 255]);
 
+      // idle motion
+      const bob = Math.sin(t * 0.004) * 0.08;
+      const sway = Math.sin(t * 0.003) * 0.2;
+
       function P(x, y, z) {
-        let p = [x * size, y * size, z * size];
-        p = rotateY(p, t);
+        let p = [x * size, (y + bob) * size, z * size];
+        p = rotateY(p, sway);
         return project([p[0] + ox, p[1] + oy, p[2] + oz]);
       }
 
@@ -388,29 +393,38 @@
 
       const d = 0.22;
 
-      // front body points
-      const headF = P(0, 1.18, -d);
-      const neckF = P(0, 0.78, -d);
-      const chestF = P(0, 0.38, -d);
-      const hipsF = P(0, -0.28, -d);
-      const lShoulderF = P(-0.42, 0.55, -d);
-      const rShoulderF = P(0.42, 0.55, -d);
-      const lHandF = P(-0.72, -0.05, -d);
-      const rHandF = P(0.72, -0.05, -d);
-      const lFootF = P(-0.28, -1.05, -d);
-      const rFootF = P(0.28, -1.05, -d);
+      // proportions
+      const headY = 1.25;
+      const chestY = 0.45;
+      const hipsY = -0.35;
 
-      // back body points
-      const headB = P(0, 1.18, d);
-      const neckB = P(0, 0.78, d);
-      const chestB = P(0, 0.38, d);
-      const hipsB = P(0, -0.28, d);
-      const lShoulderB = P(-0.42, 0.55, d);
-      const rShoulderB = P(0.42, 0.55, d);
-      const lHandB = P(-0.72, -0.05, d);
-      const rHandB = P(0.72, -0.05, d);
-      const lFootB = P(-0.28, -1.05, d);
-      const rFootB = P(0.28, -1.05, d);
+      const shoulderW = 0.55;
+      const armReach = 0.85;
+      const legSpread = 0.3;
+
+      // front
+      const headF = P(0, headY, -d);
+      const neckF = P(0, 0.85, -d);
+      const chestF = P(0, chestY, -d);
+      const hipsF = P(0, hipsY, -d);
+      const lShoulderF = P(-shoulderW, 0.65, -d);
+      const rShoulderF = P(shoulderW, 0.65, -d);
+      const lHandF = P(-armReach, -0.05, -d);
+      const rHandF = P(armReach, -0.05, -d);
+      const lFootF = P(-legSpread, -1.2, -d);
+      const rFootF = P(legSpread, -1.2, -d);
+
+      // back
+      const headB = P(0, headY, d);
+      const neckB = P(0, 0.85, d);
+      const chestB = P(0, chestY, d);
+      const hipsB = P(0, hipsY, d);
+      const lShoulderB = P(-shoulderW, 0.65, d);
+      const rShoulderB = P(shoulderW, 0.65, d);
+      const lHandB = P(-armReach, -0.05, d);
+      const rHandB = P(armReach, -0.05, d);
+      const lFootB = P(-legSpread, -1.2, d);
+      const rFootB = P(legSpread, -1.2, d);
 
       ctx.save();
       ctx.strokeStyle = col.css;
@@ -418,29 +432,21 @@
       ctx.shadowBlur = 20;
       ctx.shadowColor = col.css;
       ctx.lineCap = "round";
-      ctx.lineJoin = "round";
 
-      // back silhouette, dimmer
-      line(neckB, hipsB, 4, 0.35);
-      line(lShoulderB, rShoulderB, 4, 0.35);
-      line(lShoulderB, lHandB, 3, 0.35);
-      line(rShoulderB, rHandB, 3, 0.35);
-      line(hipsB, lFootB, 3, 0.35);
-      line(hipsB, rFootB, 3, 0.35);
+      // back (dim)
+      line(neckB, hipsB, 4, 0.3);
+      line(lShoulderB, rShoulderB, 4, 0.3);
+      line(lShoulderB, lHandB, 3, 0.3);
+      line(rShoulderB, rHandB, 3, 0.3);
+      line(hipsB, lFootB, 3, 0.3);
+      line(hipsB, rFootB, 3, 0.3);
 
-      // depth connectors
-      line(headF, headB, 2, 0.45);
-      line(neckF, neckB, 2, 0.45);
-      line(chestF, chestB, 2, 0.45);
-      line(hipsF, hipsB, 2, 0.45);
-      line(lShoulderF, lShoulderB, 2, 0.45);
-      line(rShoulderF, rShoulderB, 2, 0.45);
-      line(lHandF, lHandB, 2, 0.35);
-      line(rHandF, rHandB, 2, 0.35);
-      line(lFootF, lFootB, 2, 0.35);
-      line(rFootF, rFootB, 2, 0.35);
+      // connectors (depth)
+      line(headF, headB, 2, 0.4);
+      line(chestF, chestB, 2, 0.4);
+      line(hipsF, hipsB, 2, 0.4);
 
-      // front body, brighter
+      // front (bright)
       line(neckF, chestF, 5, 1);
       line(chestF, hipsF, 5, 1);
       line(lShoulderF, rShoulderF, 5, 1);
@@ -449,8 +455,8 @@
       line(hipsF, lFootF, 4, 1);
       line(hipsF, rFootF, 4, 1);
 
-      // head as double-circle sphere hint
-      ctx.globalAlpha = 0.35;
+      // head (sphere hint)
+      ctx.globalAlpha = 0.3;
       ctx.beginPath();
       ctx.arc(headB[0], headB[1], Math.max(5, 11 * size), 0, Math.PI * 2);
       ctx.stroke();
@@ -460,14 +466,13 @@
       ctx.arc(headF[0], headF[1], Math.max(6, 13 * size), 0, Math.PI * 2);
       ctx.fill();
 
-      // chest core
-      ctx.beginPath();
-      ctx.arc(chestF[0], chestF[1], Math.max(3, 5 * size), 0, Math.PI * 2);
-      ctx.fill();
+      // weapon (simple line from right hand)
+      const weaponTip = P(armReach + 0.6, -0.1, -d);
+      ctx.lineWidth = 4;
+      line(rHandF, weaponTip, 4, 1);
 
       ctx.restore();
     }
-
     function drawRing(obj, t) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
