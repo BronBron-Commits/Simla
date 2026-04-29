@@ -27,7 +27,28 @@ function exec(code, env) {
       case "STORE": env.vars[a] = stack.pop(); break;
       case "POP": stack.pop(); break;
 
-      case "ADD": stack.push(stack.pop() + stack.pop()); break;
+      case "ADD":
+      case "LT": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a < b ? 1 : 0);
+        break;
+      }
+
+      case "GT": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a > b ? 1 : 0);
+        break;
+      }
+
+      case "EQ": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a === b ? 1 : 0);
+        break;
+      }
+ stack.push(stack.pop() + stack.pop()); break;
 
       case "SUB": {
         const y = stack.pop();
