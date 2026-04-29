@@ -66,3 +66,11 @@ Once an operation is stable, changing its behavior requires a spec version bump.
 - OR returns 1 if either operand is non-zero
 - AND returns 1 only if both operands are non-zero
 
+
+## Boolean Semantics
+
+- 0 represents false
+- 1 represents true
+- OR returns 1 if either operand is non-zero
+- AND returns 1 only if both operands are non-zero
+
