@@ -34,6 +34,28 @@
 
   (list
     "camera" (list "x" 0 "y" 0 "z" -10)
+
+    "background"
+      (list
+        "stars" 180
+        "glow" (add 0.5 (mul (sin (mul t 0.5)) 0.3))
+        "r" 8
+        "g" 14
+        "b" 28
+      )
+
+    "grid"
+      (list
+        "enabled" 1
+        "size" 10
+        "y" -2
+        "near" 2
+        "far" 18
+        "r" 80
+        "g" 180
+        "b" 255
+      )
+
     "objects" (concat cubes pyramids)
   )
 )

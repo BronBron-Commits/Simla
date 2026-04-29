@@ -158,7 +158,7 @@ const speedSlider = document.getElementById("speed");
       ];
     }
 
-    function drawBackground(time) {
+    function drawBackground(time, bg) {
       const g = ctx.createRadialGradient(
         canvas.width * .5,
         canvas.height * .4,
@@ -168,8 +168,13 @@ const speedSlider = document.getElementById("speed");
         canvas.width
       );
 
-      g.addColorStop(0, "#102033");
-      g.addColorStop(.45, "#050915");
+      const br = get(bg, "r") || 8;
+      const bgc = get(bg, "g") || 14;
+      const bb = get(bg, "b") || 28;
+      const glow = get(bg, "glow") || 0.5;
+
+      g.addColorStop(0, `rgb(${br * 3},${bgc * 3},${bb * 3})`);
+      g.addColorStop(.45, `rgb(${br},${bgc},${bb})`);
       g.addColorStop(1, "#010208");
 
       ctx.fillStyle = g;
@@ -185,7 +190,7 @@ const speedSlider = document.getElementById("speed");
         const r = star.s * (0.5 + star.z);
 
         ctx.beginPath();
-        ctx.fillStyle = `rgba(160,220,255,${0.25 + star.z * 0.45})`;
+        ctx.fillStyle = `rgba(160,220,255,${(0.15 + star.z * 0.35) * glow})`;
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -263,23 +268,31 @@ const speedSlider = document.getElementById("speed");
       ctx.shadowBlur = 0;
     }
 
-    function drawGrid(time) {
+    function drawGrid(time, grid) {
       ctx.save();
-      ctx.strokeStyle = "rgba(80,180,255,.18)";
+      const gr = get(grid, "r") || 80;
+      const gg = get(grid, "g") || 180;
+      const gb = get(grid, "b") || 255;
+      ctx.strokeStyle = `rgba(${gr},${gg},${gb},.18)`;
       ctx.lineWidth = 1;
 
-      for (let x = -10; x <= 10; x++) {
-        const a = project([x, -2, 2]);
-        const b = project([x, -2, 18]);
+      const size = get(grid, "size") || 10;
+      const gy = get(grid, "y") || -2;
+      const near = get(grid, "near") || 2;
+      const far = get(grid, "far") || 18;
+
+      for (let x = -size; x <= size; x++) {
+        const a = project([x, gy, near]);
+        const b = project([x, gy, far]);
         ctx.beginPath();
         ctx.moveTo(a[0], a[1]);
         ctx.lineTo(b[0], b[1]);
         ctx.stroke();
       }
 
-      for (let z = 2; z <= 18; z++) {
-        const a = project([-10, -2, z]);
-        const b = project([10, -2, z]);
+      for (let z = near; z <= far; z++) {
+        const a = project([-size, gy, z]);
+        const b = project([size, gy, z]);
         ctx.beginPath();
         ctx.moveTo(a[0], a[1]);
         ctx.lineTo(b[0], b[1]);
@@ -303,16 +316,18 @@ const speedSlider = document.getElementById("speed");
       });
       const scene = step.result;
       const objects = get(scene, "objects");
+      const bg = get(scene, "background");
+      const grid = get(scene, "grid");
 
       ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = "rgba(2,3,10,.22)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      drawBackground(time);
+      drawBackground(time, bg);
 
       ctx.globalCompositeOperation = "lighter";
 
-      drawGrid(time);
+      if (get(grid, "enabled")) drawGrid(time, grid);
 
       for (const obj of objects) {
         if (get(obj, "type") === "cube") {
