@@ -21,7 +21,7 @@ typedef struct Node {
     int child_count;
 } Node;
 
-typedef enum { VAL_INT, VAL_FN } ValueType;
+typedef enum { VAL_INT, VAL_FN, VAL_LIST } ValueType;
 
 typedef struct {
     char params[MAX_PARAMS][MAX_TOKEN_LEN];
@@ -31,11 +31,19 @@ typedef struct {
     int closure_count;
 } Function;
 
+typedef struct Value Value;
+
 typedef struct {
+    Value *items[MAX_CHILDREN];
+    int count;
+} ListValue;
+
+struct Value {
     ValueType type;
     int number;
     Function fn;
-} Value;
+    ListValue list;
+};
 
 typedef struct {
     char name[MAX_TOKEN_LEN];
@@ -51,6 +59,14 @@ static Value int_value(int n) {
     Value v;
     v.type = VAL_INT;
     v.number = n;
+    return v;
+}
+
+static Value list_value(void) {
+    Value v;
+    v.type = VAL_LIST;
+    v.number = 0;
+    v.list.count = 0;
     return v;
 }
 
@@ -312,6 +328,56 @@ static Value eval(Node *n) {
         return cond ? eval(n->children[2]) : eval(n->children[3]);
     }
 
+    if (strcmp(op, "list") == 0) {
+        Value v = list_value();
+
+        for (int i = 1; i < n->child_count; i++) {
+            if (v.list.count >= MAX_CHILDREN) {
+                fprintf(stderr, "list too long\n");
+                exit(1);
+            }
+
+            Value *item = malloc(sizeof(Value));
+            if (!item) {
+                fprintf(stderr, "Out of memory\n");
+                exit(1);
+            }
+
+            *item = eval(n->children[i]);
+            v.list.items[v.list.count++] = item;
+        }
+
+        return v;
+    }
+
+    if (strcmp(op, "len") == 0) {
+        Value xs = eval(n->children[1]);
+
+        if (xs.type != VAL_LIST) {
+            fprintf(stderr, "len expects list\n");
+            exit(1);
+        }
+
+        return int_value(xs.list.count);
+    }
+
+    if (strcmp(op, "nth") == 0) {
+        Value xs = eval(n->children[1]);
+        int idx = as_int(eval(n->children[2]));
+
+        if (xs.type != VAL_LIST) {
+            fprintf(stderr, "nth expects list\n");
+            exit(1);
+        }
+
+        if (idx < 0 || idx >= xs.list.count) {
+            fprintf(stderr, "nth index out of bounds\n");
+            exit(1);
+        }
+
+        return *xs.list.items[idx];
+    }
+
     if (strcmp(op, "add") == 0) {
         int sum = 0;
         for (int i = 1; i < n->child_count; i++) sum += as_int(eval(n->children[i]));
@@ -400,7 +466,8 @@ int main(int argc, char **argv) {
         Value result = eval(ast->children[0]);
 
         if (result.type == VAL_INT) printf("Result: %d\n", result.number);
-        else printf("Result: <function>\n");
+        else if (result.type == VAL_FN) printf("Result: <function>\n");
+        else if (result.type == VAL_LIST) printf("Result: <list len=%d>\n", result.list.count);
     }
 
     free_ast(ast);
