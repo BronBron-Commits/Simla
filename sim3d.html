@@ -34,6 +34,17 @@
       width: 100%;
     }
 
+    #endTurnBtn {
+      margin-top: 10px;
+      width: 100%;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(102,204,255,.35);
+      background: rgba(20,40,70,.8);
+      color: white;
+      font-size: 16px;
+    }
+
     #title {
       position: fixed;
       top: 18px;
@@ -93,6 +104,7 @@
   <div id="controls">
     <label>Speed: <span id="speedValue">1.00</span>x</label>
     <input id="speed" type="range" min="0" max="3" step="0.05" value="1">
+    <button id="endTurnBtn">End Turn</button>
   </div>
 
   <script type="module">
@@ -132,6 +144,7 @@
     const ctx = canvas.getContext("2d");
 const speedSlider = document.getElementById("speed");
     const speedValue = document.getElementById("speedValue");
+    const endTurnBtn = document.getElementById("endTurnBtn");
 
     function resize() {
       canvas.width = innerWidth;
@@ -390,85 +403,140 @@ const speedSlider = document.getElementById("speed");
     const bytecode = compile(ast);
 
     let lastObjects = [];
+    let playerTileId = 7;
+    let enemyTileId = 14;
     let selectedTileId = 7;
+    let turn = "player";
 
-    function makeObj(pairs) {
-      return pairs;
+    function combatTiles() {
+      if (!Array.isArray(lastObjects)) return [];
+      return lastObjects.filter(o => get(o, "type") === "cube");
     }
 
-    function getTiles(objects) {
-      if (!Array.isArray(objects)) return [];
-      return objects.filter(o => get(o, "type") === "cube");
+    function tileById(id) {
+      return combatTiles().find(t => get(t, "id") === id);
     }
 
     function tileDistance(a, b) {
+      if (!a || !b) return 999;
       return Math.abs(get(a, "x") - get(b, "x")) + Math.abs(get(a, "z") - get(b, "z"));
     }
 
-    function drawCombatOverlay(objects, time) {
-      const tiles = getTiles(objects);
-      if (!tiles.length) return;
+    function drawCombatRing(tile, time, r, g, b, size) {
+      if (!tile) return;
+      drawRing([
+        "type", "ring",
+        "id", 9000 + get(tile, "id"),
+        "x", get(tile, "x"),
+        "y", get(tile, "y") + 0.9,
+        "z", get(tile, "z"),
+        "size", size,
+        "rotY", time * 0.002,
+        "r", r,
+        "g", g,
+        "b", b
+      ], time * 0.002);
+    }
 
-      let selected = tiles.find(t => get(t, "id") === selectedTileId);
-      if (!selected) selected = tiles[0];
+    function drawCombatUnit(tile, time, color) {
+      if (!tile) return;
+      drawWireObject([
+        "type", "pyramid",
+        "id", 7000 + get(tile, "id"),
+        "x", get(tile, "x"),
+        "y", get(tile, "y") + 1.15,
+        "z", get(tile, "z"),
+        "size", 0.95,
+        "rotY", time * 0.003,
+        "r", color[0],
+        "g", color[1],
+        "b", color[2]
+      ], pyramidVerts, pyramidEdges, time * 0.003, `rgb(${color[0]},${color[1]},${color[2]})`);
+    }
 
-      for (const tile of tiles) {
-        const d = tileDistance(tile, selected);
+    function drawCombatOverlay(time) {
+      const player = tileById(playerTileId);
+      const enemy = tileById(enemyTileId);
+      const selected = tileById(selectedTileId);
 
-        if (d <= 2.5) {
-          drawRing(makeObj([
-            "type", "ring",
-            "id", 8000 + get(tile, "id"),
-            "x", get(tile, "x"),
-            "y", get(tile, "y") + 0.75,
-            "z", get(tile, "z"),
-            "size", 0.42,
-            "rotY", time * 0.002,
-            "r", 80,
-            "g", 255,
-            "b", 160
-          ]), time * 0.002);
+      for (const tile of combatTiles()) {
+        if (tileDistance(player, tile) <= 2.5) {
+          drawCombatRing(tile, time, 80, 255, 160, 0.42);
         }
       }
 
-      drawRing(makeObj([
-        "type", "ring",
-        "id", 9000,
-        "x", get(selected, "x"),
-        "y", get(selected, "y") + 0.95,
-        "z", get(selected, "z"),
-        "size", 0.7,
-        "rotY", time * -0.004,
-        "r", 255,
-        "g", 240,
-        "b", 120
-      ]), time * -0.004);
+      drawCombatRing(selected, time, 255, 240, 120, 0.75);
+      drawCombatRing(player, time, 120, 220, 255, 1.05);
+      drawCombatRing(enemy, time, 255, 90, 90, 1.05);
+
+      drawCombatUnit(player, time, [120, 220, 255]);
+      drawCombatUnit(enemy, time, [255, 90, 90]);
     }
 
-    canvas.addEventListener("pointerup", e => {
-      const tiles = getTiles(lastObjects);
+    function nearestTileFromScreen(x, y) {
       let best = null;
       let bestD = 999999;
 
-      for (const tile of tiles) {
-        const p = project([
-          get(tile, "x"),
-          get(tile, "y") + 0.5,
-          get(tile, "z")
-        ]);
-
-        const d = Math.hypot(e.clientX - p[0], e.clientY - p[1]);
-
+      for (const tile of combatTiles()) {
+        const p = project([get(tile, "x"), get(tile, "y") + 0.9, get(tile, "z")]);
+        const d = Math.hypot(x - p[0], y - p[1]);
         if (d < bestD) {
           bestD = d;
           best = tile;
         }
       }
 
-      if (best && bestD < 80) {
-        selectedTileId = get(best, "id");
+      return bestD < 90 ? best : null;
+    }
+
+    function enemyAct() {
+      const player = tileById(playerTileId);
+      const enemy = tileById(enemyTileId);
+      if (!player || !enemy) return;
+
+      let best = enemy;
+      let bestD = tileDistance(enemy, player);
+
+      for (const tile of combatTiles()) {
+        if (get(tile, "id") === playerTileId) continue;
+        if (tileDistance(tile, enemy) <= 1.0) {
+          const d = tileDistance(tile, player);
+          if (d < bestD) {
+            best = tile;
+            bestD = d;
+          }
+        }
+      }
+
+      enemyTileId = get(best, "id");
+    }
+
+    canvas.addEventListener("pointerup", e => {
+      if (turn !== "player") return;
+
+      const picked = nearestTileFromScreen(e.clientX, e.clientY);
+      if (!picked) return;
+
+      selectedTileId = get(picked, "id");
+
+      const player = tileById(playerTileId);
+      if (tileDistance(player, picked) <= 2.5 && selectedTileId !== enemyTileId) {
+        playerTileId = selectedTileId;
       }
     });
+
+    endTurnBtn.onclick = () => {
+      if (turn !== "player") return;
+
+      turn = "enemy";
+      endTurnBtn.textContent = "Enemy Turn...";
+
+      setTimeout(() => {
+        enemyAct();
+        turn = "player";
+        endTurnBtn.textContent = "End Turn";
+      }, 450);
+    };
 
 
     function frame(time) {
@@ -481,6 +549,7 @@ const speedSlider = document.getElementById("speed");
       });
       const scene = step.result;
       const objects = get(scene, "objects");
+      lastObjects = objects;
       lastObjects = objects;
       let render = get(scene, "render");
       if (!Array.isArray(render)) render = [];
@@ -515,6 +584,8 @@ const speedSlider = document.getElementById("speed");
           drawRing(obj, get(obj, "rotY"));
         }
       }
+
+      drawCombatOverlay(time);
 
       ctx.globalCompositeOperation = "source-over";
 requestAnimationFrame(frame);

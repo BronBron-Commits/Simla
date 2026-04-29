@@ -23,66 +23,6 @@
     )
   )
 
-  (let player
-    (list
-      "type" "pyramid"
-      "id" 100
-      "x" -3
-      "y" -0.8
-      "z" 10
-      "size" 1.2
-      "rotY" (mul t 1.4)
-      "r" 120
-      "g" 220
-      "b" 255
-    )
-  )
-
-  (let enemy
-    (list
-      "type" "pyramid"
-      "id" 101
-      "x" 3
-      "y" -0.8
-      "z" 14
-      "size" 1.2
-      "rotY" (mul t -1.4)
-      "r" 255
-      "g" 90
-      "b" 90
-    )
-  )
-
-  (let rings
-    (list
-      (list
-        "type" "ring"
-        "id" 200
-        "x" -3
-        "y" -0.8
-        "z" 10
-        "size" 1.4
-        "rotY" (mul t 1.8)
-        "r" 120
-        "g" 220
-        "b" 255
-      )
-
-      (list
-        "type" "ring"
-        "id" 201
-        "x" 3
-        "y" -0.8
-        "z" 14
-        "size" 1.4
-        "rotY" (mul t -1.8)
-        "r" 255
-        "g" 90
-        "b" 90
-      )
-    )
-  )
-
   (list
     "camera" (list "x" 0 "y" 0 "z" -10)
 
@@ -118,6 +58,6 @@
         "b" 255
       )
 
-    "objects" (concat board (concat (list player enemy) rings))
+    "objects" board
   )
 )
