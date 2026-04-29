@@ -206,7 +206,7 @@ const speedSlider = document.getElementById("speed");
 
     function project(p) {
       const [x, y, z] = p;
-      const fov = 520;
+      const fov = 520 * cameraZoom;
       const depth = Math.max(0.15, z);
 
       return [
@@ -460,6 +460,7 @@ const speedSlider = document.getElementById("speed");
     let selectedTile = 7;
     let endTurnPulse = 0;
     let lastObjects = [];
+    let cameraZoom = 1;
 
     function combatTiles() {
       if (!Array.isArray(lastObjects)) return [];
@@ -488,6 +489,31 @@ const speedSlider = document.getElementById("speed");
       if (!picked) return;
       selectedTile = get(picked, "id");
     });
+
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+
+    function touchDistance(e) {
+      const a = e.touches[0];
+      const b = e.touches[1];
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    }
+
+    canvas.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) {
+        pinchStartDist = touchDistance(e);
+        pinchStartZoom = cameraZoom;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", e => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const d = touchDistance(e);
+        cameraZoom = Math.max(0.45, Math.min(2.2, pinchStartZoom * (d / pinchStartDist)));
+      }
+    }, { passive: false });
+
 
     endTurnBtn.onclick = () => {
       endTurnPulse = 1;
