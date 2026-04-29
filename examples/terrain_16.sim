@@ -1,0 +1,32 @@
+(begin
+  (let xs (range 0 16))
+  (let ys (range 0 16))
+
+  (let rows
+    (map
+      (fn (y)
+        (map
+          (fn (x)
+            (list
+              "type" "tile"
+              "x" x
+              "y" y
+              "height" (add 1 (mul (sin (add x y)) 0.5))
+              "biome" "grass"
+              "walkable" 1
+            )
+          )
+          xs
+        )
+      )
+      ys
+    )
+  )
+
+  (list
+    "type" "terrain"
+    "width" 16
+    "height" 16
+    "tiles" (flatten rows)
+  )
+)

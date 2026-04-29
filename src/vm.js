@@ -454,6 +454,27 @@ case "LIST": {
         }
 
 
+  
+        case "RANGE": {
+          const end = stack.pop();
+          const start = stack.pop();
+          const out = [];
+          for (let i = start; i < end; i++) out.push(i);
+          stack.push(out);
+          break;
+        }
+
+        case "FLATTEN": {
+          const list = stack.pop();
+          if (!Array.isArray(list)) {
+            stack.push([]);
+            break;
+          }
+          stack.push(list.flat());
+          break;
+        }
+
+
   default:
         throw new Error("Unknown op: " + op);
     }

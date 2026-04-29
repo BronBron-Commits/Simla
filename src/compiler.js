@@ -280,6 +280,19 @@ if (name === "get") {
       return out;
     }
 
+        if (name === "range") {
+      compile(node.args[0], out); // start
+      compile(node.args[1], out); // end
+      out.push(["RANGE"]);
+      return out;
+    }
+
+    if (name === "flatten") {
+      compile(node.args[0], out);
+      out.push(["FLATTEN"]);
+      return out;
+    }
+
     // user-defined function call
     compile(node.callee, out);
     for (const arg of node.args) {
