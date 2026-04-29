@@ -1,0 +1,18 @@
+(begin
+  (let clampMove
+    (fn (player selected enemy moveRange)
+      (if (eq selected enemy)
+        player
+        (if (lt selected (sub player moveRange))
+          player
+          (if (gt selected (add player moveRange))
+            player
+            selected
+          )
+        )
+      )
+    )
+  )
+
+  (clampMove player selected enemy moveRange)
+)

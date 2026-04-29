@@ -511,6 +511,22 @@
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
+    const movementCode = await fetch("./c-simla/movement_rule.sim").then(r => r.text());
+    const movementAst = parse(tokenize(movementCode));
+    const movementBytecode = compile(movementAst);
+
+    function runMovementRule(player, selected, enemy, moveRange) {
+      const step = run(movementBytecode, {
+        player,
+        selected,
+        enemy,
+        moveRange
+      });
+
+      return step.result;
+    }
+
+
     let playerTile = 7;
     let enemyTile = 14;
     let selectedTile = 7;
@@ -544,6 +560,7 @@
       const picked = nearestTileFromScreen(e.clientX, e.clientY);
       if (!picked) return;
       selectedTile = get(picked, "id");
+      playerTile = runMovementRule(playerTile, selectedTile, enemyTile, 3);
     });
 
     let pinchStartDist = 0;
