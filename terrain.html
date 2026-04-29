@@ -73,14 +73,17 @@ const terrain = run(bytecode, {}).result;
 const width = get(terrain, "width");
 const height = get(terrain, "height");
 const tiles = get(terrain, "tiles") || [];
+const spawns = get(terrain, "spawns") || [];
 
 function colorForTile(tile) {
-  const h = get(tile, "height") || 0;
+  const biome = get(tile, "biome");
 
-  if (h < 0.7) return "rgb(40,90,160)";
-  if (h < 1.05) return "rgb(50,150,80)";
-  if (h < 1.35) return "rgb(120,120,80)";
-  return "rgb(190,190,190)";
+  if (biome === "water") return "rgb(40,90,160)";
+  if (biome === "grass") return "rgb(50,150,80)";
+  if (biome === "hill") return "rgb(120,120,80)";
+  if (biome === "mountain") return "rgb(190,190,190)";
+
+  return "rgb(80,80,80)";
 }
 
 function draw() {
@@ -103,7 +106,21 @@ function draw() {
     ctx.fillRect(ox + x * size, oy + y * size, size - 1, size - 1);
   }
 
-  hud.textContent = `Simλ Terrain — ${width}×${height}, ${tiles.length} tiles`;
+  for (const tile of spawns) {
+    const x = get(tile, "x");
+    const y = get(tile, "y");
+
+    ctx.strokeStyle = "rgba(255,255,255,.9)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+      ox + x * size + 3,
+      oy + y * size + 3,
+      size - 7,
+      size - 7
+    );
+  }
+
+  hud.textContent = `Simλ Terrain — ${width}×${height}, ${tiles.length} tiles, ${spawns.length} spawns`;
 }
 
 draw();

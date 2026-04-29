@@ -2,18 +2,41 @@
   (let xs (range 0 16))
   (let ys (range 0 16))
 
+  (let makeBiome
+    (fn (h)
+      (if (lte h 0.7)
+        "water"
+        (if (lte h 1.05)
+          "grass"
+          (if (lte h 1.35)
+            "hill"
+            "mountain"
+          )
+        )
+      )
+    )
+  )
+
   (let rows
     (map
       (fn (y)
         (map
           (fn (x)
+            (let h (add 1 (mul (sin (add x y)) 0.5)))
+            (let biome (makeBiome h))
+
             (list
               "type" "tile"
               "x" x
               "y" y
-              "height" (add 1 (mul (sin (add x y)) 0.5))
-              "biome" "grass"
-              "walkable" 1
+              "height" h
+              "biome" biome
+              "walkable" (not (eq biome "water"))
+              "spawn"
+                (and
+                  (not (eq biome "water"))
+                  (lt x 4)
+                )
             )
           )
           xs
@@ -23,10 +46,13 @@
     )
   )
 
+  (let tiles (flatten rows))
+
   (list
     "type" "terrain"
     "width" 16
     "height" 16
-    "tiles" (flatten rows)
+    "tiles" tiles
+    "spawns" (filter (fn (t) (get t "spawn")) tiles)
   )
 )

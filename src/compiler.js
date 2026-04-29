@@ -122,7 +122,9 @@ if (name === "get") {
         and: "AND",
         gt: "GT",
         lt: "LT",
-        eq: "EQ"
+        eq: "EQ",
+        lte: "LTE",
+        gte: "GTE"
     };
 
     if (ops[name]) {

@@ -475,6 +475,22 @@ case "LIST": {
         }
 
 
+  
+        case "LTE": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a <= b);
+          break;
+        }
+
+        case "GTE": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a >= b);
+          break;
+        }
+
+
   default:
         throw new Error("Unknown op: " + op);
     }
