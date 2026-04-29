@@ -24,6 +24,7 @@
           (fn (x)
             (let h (add 1 (mul (sin (add x y)) 0.5)))
             (let biome (makeBiome h))
+            (let walkable (not (eq biome "water")))
 
             (list
               "type" "tile"
@@ -31,12 +32,9 @@
               "y" y
               "height" h
               "biome" biome
-              "walkable" (not (eq biome "water"))
-              "spawn"
-                (and
-                  (not (eq biome "water"))
-                  (lt x 4)
-                )
+              "walkable" walkable
+              "playerSpawn" (and walkable (lt x 4))
+              "enemySpawn" (and walkable (gt x 11))
             )
           )
           xs
@@ -53,6 +51,7 @@
     "width" 16
     "height" 16
     "tiles" tiles
-    "spawns" (filter (fn (t) (get t "spawn")) tiles)
+    "playerSpawns" (filter (fn (t) (get t "playerSpawn")) tiles)
+    "enemySpawns" (filter (fn (t) (get t "enemySpawn")) tiles)
   )
 )

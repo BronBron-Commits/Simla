@@ -73,7 +73,8 @@ const terrain = run(bytecode, {}).result;
 const width = get(terrain, "width");
 const height = get(terrain, "height");
 const tiles = get(terrain, "tiles") || [];
-const spawns = get(terrain, "spawns") || [];
+const playerSpawns = get(terrain, "playerSpawns") || [];
+const enemySpawns = get(terrain, "enemySpawns") || [];
 
 function colorForTile(tile) {
   const biome = get(tile, "biome");
@@ -106,11 +107,11 @@ function draw() {
     ctx.fillRect(ox + x * size, oy + y * size, size - 1, size - 1);
   }
 
-  for (const tile of spawns) {
+  function drawSpawn(tile, color) {
     const x = get(tile, "x");
     const y = get(tile, "y");
 
-    ctx.strokeStyle = "rgba(255,255,255,.9)";
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.strokeRect(
       ox + x * size + 3,
@@ -120,7 +121,17 @@ function draw() {
     );
   }
 
-  hud.textContent = `Simλ Terrain — ${width}×${height}, ${tiles.length} tiles, ${spawns.length} spawns`;
+  for (const tile of playerSpawns) {
+    drawSpawn(tile, "rgba(120,220,255,.95)");
+  }
+
+  for (const tile of enemySpawns) {
+    drawSpawn(tile, "rgba(255,90,90,.95)");
+  }
+
+  hud.textContent =
+    `Simλ Terrain — ${width}×${height}, ${tiles.length} tiles, ` +
+    `${playerSpawns.length} player spawns, ${enemySpawns.length} enemy spawns`;
 }
 
 draw();
