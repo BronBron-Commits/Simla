@@ -23,5 +23,7 @@ run_test() {
 run_test c-simla/bytecode_test.sim 14
 run_test c-simla/bytecode_vars.sim 5
 run_test c-simla/bytecode_if.sim 1
+run_test c-simla/bytecode_list.sim 40
+run_test c-simla/bytecode_len.sim 4
 
 echo "All C Simλ bytecode tests passed"

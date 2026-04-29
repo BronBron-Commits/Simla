@@ -236,6 +236,39 @@ static void compile_expr(Node *n, Program *p) {
     return;
   }
 
+
+  if (strcmp(op, "list") == 0) {
+    for (int i = 1; i < n->child_count; i++) {
+      compile_expr(n->children[i], p);
+    }
+
+    emit(p, OP_LIST, n->child_count - 1);
+    return;
+  }
+
+  if (strcmp(op, "len") == 0) {
+    if (n->child_count != 2) {
+      fprintf(stderr, "len expects 1 arg\n");
+      exit(1);
+    }
+
+    compile_expr(n->children[1], p);
+    emit(p, OP_LEN, 0);
+    return;
+  }
+
+  if (strcmp(op, "nth") == 0) {
+    if (n->child_count != 3) {
+      fprintf(stderr, "nth expects 2 args\n");
+      exit(1);
+    }
+
+    compile_expr(n->children[1], p);
+    compile_expr(n->children[2], p);
+    emit(p, OP_NTH, 0);
+    return;
+  }
+
   if (
     strcmp(op, "add") == 0 ||
     strcmp(op, "sub") == 0 ||

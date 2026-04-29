@@ -18,6 +18,9 @@ typedef enum {
   OP_EQ,
   OP_JMP_IF_FALSE,
   OP_JMP,
+  OP_LIST,
+  OP_LEN,
+  OP_NTH,
   OP_RETURN
 } OpCode;
 
