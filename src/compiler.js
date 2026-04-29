@@ -202,7 +202,15 @@ if (name === "get") {
       return out;
     }
 
-throw new Error("Unknown function: " + name);
+
+    if (name === "damage_all") {
+      compile(node.args[0], out); // list
+      compile(node.args[1], out); // tick
+      out.push(["DAMAGE_ALL"]);
+      return out;
+    }
+
+      throw new Error("Unknown function: " + name);
   }
 
   return out;

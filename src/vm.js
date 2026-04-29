@@ -265,7 +265,65 @@ case "LIST": {
         break;
       }
 
-default:
+
+        case "DAMAGE_ALL": {
+          const tick = stack.pop() | 0;
+          const list = stack.pop();
+
+          if (!Array.isArray(list)) {
+            stack.push(list);
+            break;
+          }
+
+          const get = (e, key) => {
+            for (let i = 0; i < e.length; i += 2) {
+              if (e[i] === key) return e[i + 1];
+            }
+            return 0;
+          };
+
+          const set = (e, key, value) => {
+            const out = [...e];
+            for (let i = 0; i < out.length; i += 2) {
+              if (out[i] === key) { out[i + 1] = value; return out; }
+            }
+            out.push(key, value);
+            return out;
+          };
+
+          const next = list.map(e => [...e]);
+
+          for (const attacker of list) {
+            if (get(attacker, "hp") <= 0) continue;
+
+            const team = get(attacker, "team");
+            const id = get(attacker, "id");
+            const atk = get(attacker, "attack") || 1;
+
+            const targets = [];
+            for (let i = 0; i < next.length; i++) {
+              const t = next[i];
+              if (get(t, "team") !== team && get(t, "hp") > 0) {
+                targets.push(i);
+              }
+            }
+
+            if (targets.length === 0) continue;
+
+            const pick = (id * 31 + tick * 17) % targets.length;
+            const ti = targets[pick];
+
+            const tgt = next[ti];
+            const newHp = get(tgt, "hp") - atk;
+            next[ti] = set(tgt, "hp", newHp);
+          }
+
+          const alive = next.filter(e => get(e, "hp") > 0);
+          stack.push(alive);
+          break;
+        }
+
+  default:
         throw new Error("Unknown op: " + op);
     }
   }
