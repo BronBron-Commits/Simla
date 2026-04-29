@@ -1,0 +1,29 @@
+(begin
+  (list
+    "type" "page"
+
+    "sections"
+      (list
+        (list
+          "type" "hero"
+          "title" "Simλ"
+          "subtitle" "A deterministic functional language for simulation and procedural worlds."
+        )
+
+        (list
+          "type" "cards"
+          "items"
+            (list
+              (list "title" "Deterministic" "body" "Same input, same output.")
+              (list "title" "Functional" "body" "map, filter, reduce, recursion.")
+              (list "title" "Visual" "body" "Scenes, combat, animation, and rendering.")
+            )
+        )
+
+        (list
+          "type" "code"
+          "body" "map fn x mul x 2 list 1 2 3"
+        )
+      )
+  )
+)

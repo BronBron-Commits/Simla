@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simλ Page</title>
+
+<style>
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(80,180,255,.25), transparent 35%),
+    #050812;
+  color: #e6f3ff;
+  font-family: system-ui;
+}
+
+.hero {
+  text-align: center;
+  padding: 90px 20px 50px;
+}
+
+.hero h1 {
+  font-size: clamp(72px, 18vw, 180px);
+  margin: 0;
+  text-shadow: 0 0 50px #66ccff;
+}
+
+.hero p {
+  max-width: 720px;
+  margin: 16px auto;
+  font-size: 22px;
+  opacity: .85;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  justify-content: center;
+}
+
+.card {
+  background: rgba(255,255,255,0.06);
+  padding: 20px;
+  border-radius: 16px;
+  width: 240px;
+  border: 1px solid rgba(102,204,255,.22);
+  box-shadow: 0 0 30px rgba(102,204,255,.08);
+}
+
+.card h3 {
+  color: #9fe4ff;
+}
+
+pre {
+  margin: 30px auto;
+  max-width: 760px;
+  padding: 18px;
+  background: #0e1422;
+  border: 1px solid rgba(102,204,255,.22);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+</style>
+</head>
+
+<body>
+<div id="app">Loading...</div>
+
+<script type="module">
+import { parse } from "./src/parser.js";
+import { compile } from "./src/compiler.js";
+import { run } from "./src/vm.js";
+
+function tokenize(code) {
+  return code
+    .replace(/;;.*$/gm, "")
+    .replace(/\(/g, " ( ")
+    .replace(/\)/g, " ) ")
+    .match(/"[^"]*"|\S+/g);
+}
+
+function get(list, key) {
+  if (!Array.isArray(list)) return null;
+  for (let i = 0; i < list.length; i += 2) {
+    if (list[i] === key) return list[i + 1];
+  }
+  return null;
+}
+
+function renderSection(sec) {
+  const type = get(sec, "type");
+
+  if (type === "hero") {
+    return `
+      <section class="hero">
+        <h1>${get(sec, "title")}</h1>
+        <p>${get(sec, "subtitle")}</p>
+      </section>
+    `;
+  }
+
+  if (type === "cards") {
+    const items = get(sec, "items") || [];
+    return `
+      <section class="cards">
+        ${items.map(i => `
+          <div class="card">
+            <h3>${get(i, "title")}</h3>
+            <p>${get(i, "body")}</p>
+          </div>
+        `).join("")}
+      </section>
+    `;
+  }
+
+  if (type === "code") {
+    return `<pre>${get(sec, "body")}</pre>`;
+  }
+
+  return "";
+}
+
+async function main() {
+  try {
+    const code = await fetch("./examples/homepage.sim").then(r => r.text());
+
+    const ast = parse(tokenize(code));
+    const bytecode = compile(ast);
+    const page = run(bytecode, {}).result;
+
+    const sections = get(page, "sections") || [];
+    const html = sections.map(renderSection).join("");
+
+    document.getElementById("app").innerHTML =
+      html || `<pre>PAGE DATA:\n${JSON.stringify(page, null, 2)}</pre>`;
+  } catch (err) {
+    document.getElementById("app").innerHTML =
+      `<pre>ERROR:\n${err.stack || err.message}</pre>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
