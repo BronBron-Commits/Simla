@@ -1,0 +1,123 @@
+(begin
+  (let t (mul (mul tick 0.001) speed))
+
+  (let boardIds (list 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+
+  (let board
+    (map
+      (fn (i)
+        (list
+          "type" "cube"
+          "id" i
+          "x" (sub (mul i 0.8) 6)
+          "y" -2
+          "z" 12
+          "size" 0.35
+          "rotY" 0
+          "r" 35
+          "g" 140
+          "b" 190
+        )
+      )
+      boardIds
+    )
+  )
+
+  (let player
+    (list
+      "type" "pyramid"
+      "id" 100
+      "x" -3
+      "y" -0.8
+      "z" 10
+      "size" 1.2
+      "rotY" (mul t 1.4)
+      "r" 120
+      "g" 220
+      "b" 255
+    )
+  )
+
+  (let enemy
+    (list
+      "type" "pyramid"
+      "id" 101
+      "x" 3
+      "y" -0.8
+      "z" 14
+      "size" 1.2
+      "rotY" (mul t -1.4)
+      "r" 255
+      "g" 90
+      "b" 90
+    )
+  )
+
+  (let rings
+    (list
+      (list
+        "type" "ring"
+        "id" 200
+        "x" -3
+        "y" -0.8
+        "z" 10
+        "size" 1.4
+        "rotY" (mul t 1.8)
+        "r" 120
+        "g" 220
+        "b" 255
+      )
+
+      (list
+        "type" "ring"
+        "id" 201
+        "x" 3
+        "y" -0.8
+        "z" 14
+        "size" 1.4
+        "rotY" (mul t -1.8)
+        "r" 255
+        "g" 90
+        "b" 90
+      )
+    )
+  )
+
+  (list
+    "camera" (list "x" 0 "y" 0 "z" -10)
+
+    "render"
+      (list
+        "trail" 0.18
+        "lineWidth" 2
+        "glow" 18
+        "starSpeed" 0.00002
+        "drawGrid" 1
+        "drawRings" 1
+        "drawObjects" 1
+      )
+
+    "background"
+      (list
+        "stars" 180
+        "glow" 0.7
+        "r" 5
+        "g" 8
+        "b" 24
+      )
+
+    "grid"
+      (list
+        "enabled" 1
+        "size" 8
+        "y" -2
+        "near" 6
+        "far" 18
+        "r" 80
+        "g" 180
+        "b" 255
+      )
+
+    "objects" (concat board (concat (list player enemy) rings))
+  )
+)
