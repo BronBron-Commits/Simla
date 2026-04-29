@@ -1,6 +1,52 @@
 (begin
   (let t (mul (mul tick 0.001) speed))
 
+  ;; Inputs from JS:
+  ;; playerTile
+  ;; enemyTile
+  ;; selectedTile
+  ;; endTurn
+
+  (let moveLeftLimit (sub playerTile 3))
+  (let moveRightLimit (add playerTile 3))
+
+  (let selectedTooFarLeft (lt selectedTile moveLeftLimit))
+  (let selectedTooFarRight (gt selectedTile moveRightLimit))
+  (let selectedIsEnemy (eq selectedTile enemyTile))
+
+  (let canMove
+    (if selectedTooFarLeft
+      0
+      (if selectedTooFarRight
+        0
+        (if selectedIsEnemy
+          0
+          1
+        )
+      )
+    )
+  )
+
+  (let nextPlayerTile
+    (if canMove
+      selectedTile
+      playerTile
+    )
+  )
+
+  (let nextEnemyTile
+    (if (eq endTurn 1)
+      (if (lt enemyTile nextPlayerTile)
+        (add enemyTile 1)
+        (if (gt enemyTile nextPlayerTile)
+          (sub enemyTile 1)
+          enemyTile
+        )
+      )
+      enemyTile
+    )
+  )
+
   (let boardIds (list 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
 
   (let board
@@ -23,8 +69,8 @@
     )
   )
 
-  (let playerX (sub (mul playerTile 0.8) 6))
-  (let enemyX (sub (mul enemyTile 0.8) 6))
+  (let playerX (sub (mul nextPlayerTile 0.8) 6))
+  (let enemyX (sub (mul nextEnemyTile 0.8) 6))
   (let selectedX (sub (mul selectedTile 0.8) 6))
 
   (let player
@@ -105,9 +151,10 @@
   (list
     "state"
       (list
-        "playerTile" playerTile
-        "enemyTile" enemyTile
+        "playerTile" nextPlayerTile
+        "enemyTile" nextEnemyTile
         "selectedTile" selectedTile
+        "canMove" canMove
       )
 
     "camera" (list "x" 0 "y" 0 "z" -10)

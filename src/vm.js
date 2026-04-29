@@ -28,26 +28,6 @@ function exec(code, env) {
       case "POP": stack.pop(); break;
 
       case "ADD":
-      case "LT": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(a < b ? 1 : 0);
-        break;
-      }
-
-      case "GT": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(a > b ? 1 : 0);
-        break;
-      }
-
-      case "EQ": {
-        const b = stack.pop();
-        const a = stack.pop();
-        stack.push(a === b ? 1 : 0);
-        break;
-      }
  stack.push(stack.pop() + stack.pop()); break;
 
       case "SUB": {
@@ -72,20 +52,6 @@ function exec(code, env) {
           const b = stack.pop();
           const a = stack.pop();
           stack.push(a > b);
-          break;
-        }
-
-        case "LT": {
-          const b = stack.pop();
-          const a = stack.pop();
-          stack.push(a < b);
-          break;
-        }
-
-        case "EQ": {
-          const b = stack.pop();
-          const a = stack.pop();
-          stack.push(a === b);
           break;
         }
 
@@ -383,6 +349,28 @@ case "LIST": {
         }
 
   
+
+        case "LT": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a < b ? 1 : 0);
+          break;
+        }
+
+        case "GT": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a > b ? 1 : 0);
+          break;
+        }
+
+        case "EQ": {
+          const b = stack.pop();
+          const a = stack.pop();
+          stack.push(a === b ? 1 : 0);
+          break;
+        }
+
         case "CALL": {
           const argCount = a;
           const args = [];
