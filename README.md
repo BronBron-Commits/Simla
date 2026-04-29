@@ -31,3 +31,13 @@ Simλ is a deterministic, functional language for evolving entity-based world st
 - Deterministic simulations
 - Entity systems
 - Replayable state machines
+
+
+## Simλ Language Spec
+
+The current Simλ language specification is documented here:
+
+- [Simλ Language Specification v0.1](docs/SIMLA_SPEC.md)
+
+The spec tracks supported forms, runtime compatibility, and known gaps across the JavaScript VM, C interpreter, and C bytecode VM.
+
