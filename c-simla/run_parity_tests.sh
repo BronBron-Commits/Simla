@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+python3 c-simla/generate_combat_cases.py
+
 cc -Wall -Wextra -std=c11 -o c-simla/simla c-simla/simla.c
 cc -Wall -Wextra -std=c11 c-simla/vm.c c-simla/compile_test.c -o c-simla/compile_test
 
-run_case() {
-  file="$1"
-  expected="$2"
+while read -r file expected; do
+  [ -z "$file" ] && continue
 
   interp="$(./c-simla/simla "$file" | grep "Result:" | tail -1)"
   bytecode="$(./c-simla/compile_test "$file" | grep "Result:" | tail -1)"
@@ -33,11 +34,6 @@ run_case() {
   fi
 
   echo "  OK"
-}
-
-run_case c-simla/combat_rule.sim 10
-run_case c-simla/combat_rule_blocked_enemy.sim 7
-run_case c-simla/combat_rule_too_far_left.sim 7
-run_case c-simla/combat_rule_too_far_right.sim 7
+done < c-simla/combat_cases.txt
 
 echo "Full runtime parity matrix OK"
