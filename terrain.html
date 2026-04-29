@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simλ Terrain</title>
+<style>
+body {
+  margin: 0;
+  background: #050812;
+  color: #e6f3ff;
+  font-family: system-ui;
+  overflow: hidden;
+}
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  background: rgba(0,0,0,.6);
+  border: 1px solid rgba(102,204,255,.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+canvas {
+  display: block;
+}
+</style>
+</head>
+<body>
+<div id="hud">Simλ Terrain</div>
+<canvas id="view"></canvas>
+
+<script type="module">
+import { parse } from "./src/parser.js";
+import { compile } from "./src/compiler.js";
+import { run } from "./src/vm.js";
+
+function tokenize(code) {
+  return code
+    .replace(/;;.*$/gm, "")
+    .replace(/\(/g, " ( ")
+    .replace(/\)/g, " ) ")
+    .match(/"[^"]*"|\S+/g);
+}
+
+function get(list, key) {
+  if (!Array.isArray(list)) return null;
+  for (let i = 0; i < list.length; i += 2) {
+    if (list[i] === key) return list[i + 1];
+  }
+  return null;
+}
+
+const canvas = document.getElementById("view");
+const ctx = canvas.getContext("2d");
+const hud = document.getElementById("hud");
+
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+
+addEventListener("resize", resize);
+resize();
+
+const code = await fetch("./examples/terrain_16.sim").then(r => r.text());
+const ast = parse(tokenize(code));
+const bytecode = compile(ast);
+const terrain = run(bytecode, {}).result;
+
+const width = get(terrain, "width");
+const height = get(terrain, "height");
+const tiles = get(terrain, "tiles") || [];
+
+function colorForTile(tile) {
+  const h = get(tile, "height") || 0;
+
+  if (h < 0.7) return "rgb(40,90,160)";
+  if (h < 1.05) return "rgb(50,150,80)";
+  if (h < 1.35) return "rgb(120,120,80)";
+  return "rgb(190,190,190)";
+}
+
+function draw() {
+  ctx.fillStyle = "#050812";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const size = Math.floor(Math.min(canvas.width, canvas.height) / 22);
+  const ox = (canvas.width - width * size) / 2;
+  const oy = (canvas.height - height * size) / 2;
+
+  for (const tile of tiles) {
+    const x = get(tile, "x");
+    const y = get(tile, "y");
+    const h = get(tile, "height") || 1;
+
+    ctx.fillStyle = colorForTile(tile);
+    ctx.fillRect(ox + x * size, oy + y * size, size - 1, size - 1);
+
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0, Math.min(.35, (h - .8) * .4))})`;
+    ctx.fillRect(ox + x * size, oy + y * size, size - 1, size - 1);
+  }
+
+  hud.textContent = `Simλ Terrain — ${width}×${height}, ${tiles.length} tiles`;
+}
+
+draw();
+</script>
+</body>
+</html>
