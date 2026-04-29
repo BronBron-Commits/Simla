@@ -21,9 +21,12 @@ bytecode:
 parity:
 	cd .. && ./c-simla/run_parity_tests.sh
 
-check: test bytecode parity
+errors:
+	cd .. && ./c-simla/run_error_tests.sh
+
+check: test bytecode parity errors
 
 clean:
 	rm -f $(SIMLA) $(COMPILE_TEST) vm_test
 
-.PHONY: all test bytecode parity check clean
+.PHONY: all test bytecode parity errors check clean
