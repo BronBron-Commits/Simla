@@ -302,6 +302,41 @@ const speedSlider = document.getElementById("speed");
       ctx.restore();
     }
 
+
+    function drawRing(obj, t) {
+      const ox = get(obj, "x");
+      const oy = get(obj, "y");
+      const oz = get(obj, "z");
+      const size = get(obj, "size") || 1;
+      const col = colorOf(obj, [100, 220, 255]);
+
+      ctx.save();
+      ctx.strokeStyle = col.css;
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 22;
+      ctx.shadowColor = col.css;
+
+      const points = [];
+      const segments = 64;
+
+      for (let i = 0; i <= segments; i++) {
+        const a = (i / segments) * Math.PI * 2;
+        let p = [Math.cos(a) * size, Math.sin(a) * size, 0];
+        p = rotateY(p, t);
+        points.push(project([p[0] + ox, p[1] + oy, p[2] + oz]));
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i][0], points[i][1]);
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const code = await fetch("./examples/cube_scene.sim").then(r => r.text());
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
@@ -336,6 +371,10 @@ const speedSlider = document.getElementById("speed");
 
         if (get(obj, "type") === "pyramid") {
           drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), colorOf(obj, [255, 204, 102]).css);
+        }
+
+        if (get(obj, "type") === "ring") {
+          drawRing(obj, get(obj, "rotY"));
         }
       }
 

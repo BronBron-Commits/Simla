@@ -32,6 +32,15 @@
     )
   )
 
+  (let rings
+    (list
+      (list "type" "ring" "id" 200 "x" 0 "y" 0 "z" 8 "size" 6 "rotY" (mul t 0.6)
+        "r" 80 "g" 220 "b" 255)
+      (list "type" "ring" "id" 201 "x" 0 "y" 0 "z" 8 "size" 4 "rotY" (mul t -0.9)
+        "r" 255 "g" 120 "b" 220)
+    )
+  )
+
   (list
     "camera" (list "x" 0 "y" 0 "z" -10)
 
@@ -56,6 +65,6 @@
         "b" 255
       )
 
-    "objects" (concat cubes pyramids)
+    "objects" (concat (concat cubes pyramids) rings)
   )
 )
