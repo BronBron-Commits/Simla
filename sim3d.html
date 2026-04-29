@@ -526,6 +526,19 @@
       return step.result;
     }
 
+    const enemyCode = await fetch("./c-simla/enemy_rule.sim").then(r => r.text());
+    const enemyAst = parse(tokenize(enemyCode));
+    const enemyBytecode = compile(enemyAst);
+
+    function runEnemyRule(enemy, player) {
+      const step = run(enemyBytecode, {
+        enemy,
+        player
+      });
+
+      return step.result;
+    }
+
 
     let playerTile = 7;
     let enemyTile = 14;
@@ -592,6 +605,7 @@
       endTurnPulse = 1;
       endTurnBtn.textContent = "Enemy Turn...";
       setTimeout(() => {
+        enemyTile = runEnemyRule(enemyTile, playerTile);
         endTurnBtn.textContent = "End Turn";
       }, 350);
     };

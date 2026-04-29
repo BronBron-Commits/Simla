@@ -1,0 +1,15 @@
+(begin
+  (let stepToward
+    (fn (enemy player)
+      (if (lt enemy player)
+        (add enemy 1)
+        (if (gt enemy player)
+          (sub enemy 1)
+          enemy
+        )
+      )
+    )
+  )
+
+  (stepToward enemy player)
+)
