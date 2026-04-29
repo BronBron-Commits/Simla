@@ -1,5 +1,3 @@
-import { run } from "../src/vm.js";
-
 function makeEntity(id, team, hp, attack) {
   return ["id", id, "team", team, "hp", hp, "attack", attack];
 }
@@ -39,18 +37,33 @@ function countTeam(list, team) {
   return list.filter(e => get(e, "team") === team && get(e, "hp") > 0).length;
 }
 
-function combatTick(list) {
+function chooseTarget(next, attacker, tick) {
+  const attackerTeam = get(attacker, "team");
+  const attackerId = get(attacker, "id");
+
+  const targets = next
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) =>
+      get(e, "team") !== attackerTeam &&
+      get(e, "hp") > 0
+    );
+
+  if (targets.length === 0) return -1;
+
+  // Deterministic pseudo-random spread.
+  // Same input battle always produces same target choices.
+  const pick = (attackerId * 31 + tick * 17) % targets.length;
+
+  return targets[pick].i;
+}
+
+function combatTick(list, tick) {
   let next = list.map(e => [...e]);
 
   for (const attacker of list) {
     if (get(attacker, "hp") <= 0) continue;
 
-    const attackerTeam = get(attacker, "team");
-    const targetIndex = next.findIndex(target =>
-      get(target, "team") !== attackerTeam &&
-      get(target, "hp") > 0
-    );
-
+    const targetIndex = chooseTarget(next, attacker, tick);
     if (targetIndex === -1) continue;
 
     const target = next[targetIndex];
@@ -63,8 +76,6 @@ function combatTick(list) {
 
 const start = performance.now();
 
-let step = run([["LOAD", "entities"]], { entities });
-
 let state = entities;
 let ticks = 0;
 
@@ -73,7 +84,7 @@ while (
   countTeam(state, "enemy") > 0 &&
   ticks < 1000
 ) {
-  state = combatTick(state);
+  state = combatTick(state, ticks);
   ticks++;
 }
 
@@ -97,4 +108,12 @@ if (players <= 0) {
 
 if (enemies !== 0) {
   throw new Error("Expected enemies defeated");
+}
+
+const playerHpTotal = state
+  .filter(e => get(e, "team") === "player")
+  .reduce((sum, e) => sum + get(e, "hp"), 0);
+
+if (playerHpTotal >= 2000) {
+  throw new Error("Expected players to take damage");
 }
