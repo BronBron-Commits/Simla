@@ -220,7 +220,15 @@ if (name === "get") {
       return out;
     }
 
-      throw new Error("Unknown function: " + name);
+          // user-defined function call
+    compile(node.callee, out);
+    for (const arg of node.args) {
+      compile(arg, out);
+    }
+    out.push(["CALL", node.args.length]);
+    return out;
+
+throw new Error("Unknown function: " + name);
   }
 
   return out;

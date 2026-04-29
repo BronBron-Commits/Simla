@@ -361,6 +361,32 @@ case "LIST": {
           break;
         }
 
+  
+        case "CALL": {
+          const argCount = a;
+          const args = [];
+
+          for (let i = 0; i < argCount; i++) {
+            args.unshift(stack.pop());
+          }
+
+          const fn = stack.pop();
+
+          if (!fn || !Array.isArray(fn.params)) {
+            throw new Error("Tried to call non-function");
+          }
+
+          const newEnv = makeEnv(fn.closure);
+
+          for (let i = 0; i < fn.params.length; i++) {
+            newEnv.vars[fn.params[i]] = args[i];
+          }
+
+          stack.push(exec(fn.body, newEnv));
+          break;
+        }
+
+
   default:
         throw new Error("Unknown op: " + op);
     }
