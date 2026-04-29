@@ -76,6 +76,12 @@
       return 0;
     }
 
+    function num(obj, key, fallback) {
+      if (!Array.isArray(obj)) return fallback;
+      const v = get(obj, key);
+      return Number.isFinite(Number(v)) ? Number(v) : fallback;
+    }
+
     function colorOf(obj, fallback = [102, 204, 255]) {
       const r = Math.max(0, Math.min(255, get(obj, "r") || fallback[0]));
       const g = Math.max(0, Math.min(255, get(obj, "g") || fallback[1]));
@@ -184,7 +190,7 @@ const speedSlider = document.getElementById("speed");
       ctx.globalAlpha = 0.75;
 
       for (const star of stars) {
-        const starSpeed = get(render, "starSpeed") || 0.00002;
+        const starSpeed = num(render, "starSpeed", 0.00002);
         const drift = time * starSpeed * (1 + star.z);
         const x = ((star.x + drift) % 1) * canvas.width;
         const y = star.y * canvas.height;
@@ -224,8 +230,8 @@ const speedSlider = document.getElementById("speed");
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        const glow = get(render, "glow") || 18;
-        const lineWidth = get(render, "lineWidth") || 2;
+        const glow = num(render, "glow", 18);
+        const lineWidth = num(render, "lineWidth", 2);
         ctx.shadowBlur = glow * bright;
         const col = colorOf(obj);
         ctx.shadowColor = `rgba(${col.r},${col.g},${col.b},.9)`;
@@ -360,7 +366,7 @@ const speedSlider = document.getElementById("speed");
       const grid = get(scene, "grid");
 
       ctx.globalCompositeOperation = "source-over";
-      const trail = get(render, "trail") || 0.22;
+      const trail = num(render, "trail", 0.22);
       ctx.fillStyle = `rgba(2,3,10,${trail})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
