@@ -1,6 +1,4 @@
----
-
-# Simλ (Simla)
+Simλ (Simla)
 
 A deterministic simulation language for games and systems.
 
@@ -8,7 +6,7 @@ Simla lets you write logic once and run it across multiple runtimes with identic
 
 ---
 
-## What is Simla?
+What is Simla?
 
 Simla is a small functional DSL designed for:
 
@@ -16,7 +14,7 @@ Simla is a small functional DSL designed for:
 - Simulation systems
 - Deterministic rule execution
 
-It guarantees that the same `.sim` program produces the same result across:
+It guarantees that the same .sim program produces the same result across:
 
 - JavaScript VM
 - Native C Interpreter
@@ -24,7 +22,7 @@ It guarantees that the same `.sim` program produces the same result across:
 
 ---
 
-## Why Simla?
+Why Simla?
 
 Game and simulation logic is usually:
 
@@ -42,7 +40,7 @@ Simla solves this by making logic:
 
 ---
 
-## Features
+Features
 
 - Deterministic execution
 - Functional style (no side effects)
@@ -53,12 +51,11 @@ Simla solves this by making logic:
 
 ---
 
-## Example
+Example
 
-```lisp
 (if (and (gt 6 3) (lt 2 5))
-  10
-  7)
+10
+7)
 
 Run it:
 
@@ -68,13 +65,11 @@ Output:
 
 10
 
-
 ---
 
 CLI
 
 ./simla.sh file.sim
-
 
 ---
 
@@ -86,26 +81,21 @@ Run full validation:
 
 This runs:
 
-conformance tests (spec correctness)
-
-error tests (invalid program handling)
-
-C build verification
-
-
+- conformance tests (spec correctness)
+- error tests (invalid program handling)
+- C build verification
 
 ---
 
 Architecture
 
 .sim source
-   ↓
+↓
 Parser / AST
-   ↓
+↓
 JS VM ──────┐
 C Interpreter │ → identical result
 C Bytecode VM┘
-
 
 ---
 
@@ -118,7 +108,6 @@ tests/      → conformance + error tests
 tools/      → test runners
 examples/   → usage examples
 
-
 ---
 
 Version
@@ -127,13 +116,9 @@ Current version: 0.1.0
 
 Core guarantees:
 
-deterministic execution
-
-cross-runtime parity
-
-stable core primitives
-
-
+- deterministic execution
+- cross-runtime parity
+- stable core primitives
 
 ---
 
@@ -143,25 +128,17 @@ Simla is not trying to be a general-purpose language.
 
 It is a deterministic logic layer:
 
-define rules
-
-simulate outcomes
-
-keep results consistent across systems
-
-
+- define rules
+- simulate outcomes
+- keep results consistent across systems
 
 ---
 
 Next Direction
 
-integrate with game engine (Three.js / WebXR)
-
-expand standard library (not core language)
-
-build higher-level simulation systems
-
-
+- integrate with game engine (Three.js / WebXR)
+- expand standard library (not core language)
+- build higher-level simulation systems
 
 ---
 
