@@ -1,0 +1,5 @@
+(begin
+  (let isBig (fn (x) (gt x 2)))
+  (let xs (list 1 2 3 4))
+  (len (filter isBig xs))
+)
