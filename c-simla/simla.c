@@ -23,15 +23,9 @@ typedef struct Node {
 
 typedef enum { VAL_INT, VAL_FN, VAL_LIST } ValueType;
 
-typedef struct {
-    char params[MAX_PARAMS][MAX_TOKEN_LEN];
-    int param_count;
-    Node *body;
-    int closure_start;
-    int closure_count;
-} Function;
-
 typedef struct Value Value;
+typedef struct Function Function;
+typedef struct Var Var;
 
 typedef struct {
     Value *items[MAX_CHILDREN];
@@ -41,14 +35,22 @@ typedef struct {
 struct Value {
     ValueType type;
     int number;
-    Function fn;
+    Function *fn;
     ListValue list;
 };
 
-typedef struct {
+struct Var {
     char name[MAX_TOKEN_LEN];
     Value value;
-} Var;
+};
+
+struct Function {
+    char params[MAX_PARAMS][MAX_TOKEN_LEN];
+    int param_count;
+    Node *body;
+    Var *closure;
+    int closure_count;
+};
 
 static Var vars[MAX_VARS];
 static int var_count = 0;
@@ -59,6 +61,8 @@ static Value int_value(int n) {
     Value v;
     v.type = VAL_INT;
     v.number = n;
+    v.fn = NULL;
+    v.list.count = 0;
     return v;
 }
 
@@ -66,6 +70,7 @@ static Value list_value(void) {
     Value v;
     v.type = VAL_LIST;
     v.number = 0;
+    v.fn = NULL;
     v.list.count = 0;
     return v;
 }
@@ -74,13 +79,25 @@ static Value fn_value(Node *params, Node *body) {
     Value v;
     v.type = VAL_FN;
     v.number = 0;
-    v.fn.param_count = params->child_count;
-    v.fn.body = body;
-    v.fn.closure_start = 0;
-    v.fn.closure_count = var_count;
+    v.list.count = 0;
+    v.fn = calloc(1, sizeof(Function));
+    if (!v.fn) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
 
     if (params->child_count > MAX_PARAMS) {
         fprintf(stderr, "Too many function params\n");
+        exit(1);
+    }
+
+    v.fn->param_count = params->child_count;
+    v.fn->body = body;
+    v.fn->closure_count = var_count;
+    v.fn->closure = calloc(var_count ? var_count : 1, sizeof(Var));
+
+    if (!v.fn->closure) {
+        fprintf(stderr, "Out of memory\n");
         exit(1);
     }
 
@@ -89,7 +106,11 @@ static Value fn_value(Node *params, Node *body) {
             fprintf(stderr, "Function params must be symbols\n");
             exit(1);
         }
-        snprintf(v.fn.params[i], MAX_TOKEN_LEN, "%s", params->children[i]->atom);
+        snprintf(v.fn->params[i], MAX_TOKEN_LEN, "%s", params->children[i]->atom);
+    }
+
+    for (int i = 0; i < var_count; i++) {
+        v.fn->closure[i] = vars[i];
     }
 
     return v;
@@ -155,7 +176,10 @@ static void tokenize(const char *src, TokenList *out) {
     int i = 0;
 
     while (src[i]) {
-        if (isspace((unsigned char)src[i])) { i++; continue; }
+        if (isspace((unsigned char)src[i])) {
+            i++;
+            continue;
+        }
 
         if (src[i] == ';' && src[i + 1] == ';') {
             while (src[i] && src[i] != '\n') i++;
@@ -235,41 +259,37 @@ static Node *parse(TokenList *tokens) {
     return program;
 }
 
-static void print_ast(Node *n, int indent) {
-    for (int i = 0; i < indent; i++) printf("  ");
-
-    if (n->type == NODE_ATOM) {
-        printf("ATOM %s\n", n->atom);
-        return;
-    }
-
-    printf("LIST\n");
-    for (int i = 0; i < n->child_count; i++) {
-        print_ast(n->children[i], indent + 1);
-    }
-}
-
 static Value call_function(Value fn, Node *call) {
-    if (fn.type != VAL_FN) {
+    if (fn.type != VAL_FN || !fn.fn) {
         fprintf(stderr, "Tried to call non-function\n");
         exit(1);
     }
 
     int arg_count = call->child_count - 1;
-    if (arg_count != fn.fn.param_count) {
-        fprintf(stderr, "Wrong arg count: expected %d got %d\n", fn.fn.param_count, arg_count);
+    if (arg_count != fn.fn->param_count) {
+        fprintf(stderr, "Wrong arg count: expected %d got %d\n", fn.fn->param_count, arg_count);
         exit(1);
     }
 
-    int saved_count = var_count;
-
+    Value args[MAX_PARAMS];
     for (int i = 0; i < arg_count; i++) {
-        Value arg = eval(call->children[i + 1]);
-        env_set(fn.fn.params[i], arg);
+        args[i] = eval(call->children[i + 1]);
     }
 
-    Value result = eval(fn.fn.body);
+    Var saved[MAX_VARS];
+    int saved_count = var_count;
+    for (int i = 0; i < var_count; i++) saved[i] = vars[i];
+
+    for (int i = 0; i < fn.fn->closure_count; i++) vars[i] = fn.fn->closure[i];
+    var_count = fn.fn->closure_count;
+
+    for (int i = 0; i < arg_count; i++) env_set(fn.fn->params[i], args[i]);
+
+    Value result = eval(fn.fn->body);
+
+    for (int i = 0; i < saved_count; i++) vars[i] = saved[i];
     var_count = saved_count;
+
     return result;
 }
 
@@ -303,7 +323,6 @@ static Value eval(Node *n) {
             fprintf(stderr, "Invalid let form\n");
             exit(1);
         }
-
         Value value = eval(n->children[2]);
         env_set(n->children[1]->atom, value);
         return value;
@@ -314,7 +333,6 @@ static Value eval(Node *n) {
             fprintf(stderr, "Invalid fn form\n");
             exit(1);
         }
-
         return fn_value(n->children[1], n->children[2]);
     }
 
@@ -323,138 +341,98 @@ static Value eval(Node *n) {
             fprintf(stderr, "if expects condition, then, else\n");
             exit(1);
         }
-
-        int cond = as_int(eval(n->children[1]));
-        return cond ? eval(n->children[2]) : eval(n->children[3]);
+        return as_int(eval(n->children[1])) ? eval(n->children[2]) : eval(n->children[3]);
     }
 
     if (strcmp(op, "list") == 0) {
         Value v = list_value();
-
         for (int i = 1; i < n->child_count; i++) {
-            if (v.list.count >= MAX_CHILDREN) {
-                fprintf(stderr, "list too long\n");
-                exit(1);
-            }
-
             Value *item = malloc(sizeof(Value));
             if (!item) {
                 fprintf(stderr, "Out of memory\n");
                 exit(1);
             }
-
             *item = eval(n->children[i]);
             v.list.items[v.list.count++] = item;
         }
-
         return v;
     }
 
     if (strcmp(op, "len") == 0) {
         Value xs = eval(n->children[1]);
-
         if (xs.type != VAL_LIST) {
             fprintf(stderr, "len expects list\n");
             exit(1);
         }
-
         return int_value(xs.list.count);
     }
 
     if (strcmp(op, "nth") == 0) {
         Value xs = eval(n->children[1]);
         int idx = as_int(eval(n->children[2]));
-
-        if (xs.type != VAL_LIST) {
-            fprintf(stderr, "nth expects list\n");
+        if (xs.type != VAL_LIST || idx < 0 || idx >= xs.list.count) {
+            fprintf(stderr, "invalid nth\n");
             exit(1);
         }
-
-        if (idx < 0 || idx >= xs.list.count) {
-            fprintf(stderr, "nth index out of bounds\n");
-            exit(1);
-        }
-
         return *xs.list.items[idx];
     }
 
     if (strcmp(op, "map") == 0) {
         Value fn = eval(n->children[1]);
         Value xs = eval(n->children[2]);
-
         if (xs.type != VAL_LIST) {
             fprintf(stderr, "map expects list\n");
             exit(1);
         }
 
         Value out = list_value();
-
         for (int i = 0; i < xs.list.count; i++) {
-            Value *arg = xs.list.items[i];
+            Node fake = {0};
+            fake.type = NODE_LIST;
+            fake.child_count = 2;
+            fake.children[1] = new_node(NODE_ATOM);
+            snprintf(fake.children[1]->atom, MAX_TOKEN_LEN, "__arg");
 
-            if (fn.type != VAL_FN || fn.fn.param_count != 1) {
-                fprintf(stderr, "map expects single-arg function\n");
-                exit(1);
-            }
-
-            int saved = var_count;
-            env_set(fn.fn.params[0], *arg);
-            Value result = eval(fn.fn.body);
-            var_count = saved;
+            int saved_count = var_count;
+            env_set("__arg", *xs.list.items[i]);
+            Value arg_fn = fn;
+            Value result = call_function(arg_fn, &fake);
+            var_count = saved_count;
 
             Value *copy = malloc(sizeof(Value));
-            if (!copy) {
-                fprintf(stderr, "Out of memory\n");
-                exit(1);
-            }
-
             *copy = result;
             out.list.items[out.list.count++] = copy;
         }
-
         return out;
     }
 
     if (strcmp(op, "filter") == 0) {
         Value fn = eval(n->children[1]);
         Value xs = eval(n->children[2]);
-
         if (xs.type != VAL_LIST) {
             fprintf(stderr, "filter expects list\n");
             exit(1);
         }
 
-        if (fn.type != VAL_FN || fn.fn.param_count != 1) {
-            fprintf(stderr, "filter expects single-arg function\n");
-            exit(1);
-        }
-
         Value out = list_value();
-
         for (int i = 0; i < xs.list.count; i++) {
-            Value *arg = xs.list.items[i];
+            Node fake = {0};
+            fake.type = NODE_LIST;
+            fake.child_count = 2;
+            fake.children[1] = new_node(NODE_ATOM);
+            snprintf(fake.children[1]->atom, MAX_TOKEN_LEN, "__arg");
 
-            int saved = var_count;
-            env_set(fn.fn.params[0], *arg);
-            Value keep = eval(fn.fn.body);
-            var_count = saved;
+            int saved_count = var_count;
+            env_set("__arg", *xs.list.items[i]);
+            Value keep = call_function(fn, &fake);
+            var_count = saved_count;
 
-            if (keep.type != VAL_INT) {
-                fprintf(stderr, "filter predicate must return number\n");
-                exit(1);
-            }
-
-            if (keep.number != 0) {
+            if (as_int(keep)) {
                 Value *copy = malloc(sizeof(Value));
-                if (!copy) {
-                    fprintf(stderr, "Out of memory\n");
-                    exit(1);
-                }
-                *copy = *arg;
+                *copy = *xs.list.items[i];
                 out.list.items[out.list.count++] = copy;
             }
         }
-
         return out;
     }
 
@@ -462,28 +440,26 @@ static Value eval(Node *n) {
         Value fn = eval(n->children[1]);
         Value acc = eval(n->children[2]);
         Value xs = eval(n->children[3]);
-
         if (xs.type != VAL_LIST) {
             fprintf(stderr, "reduce expects list\n");
             exit(1);
         }
 
-        if (fn.type != VAL_FN || fn.fn.param_count != 2) {
-            fprintf(stderr, "reduce expects two-arg function\n");
-            exit(1);
-        }
-
         for (int i = 0; i < xs.list.count; i++) {
-            int saved = var_count;
+            Node fake = {0};
+            fake.type = NODE_LIST;
+            fake.child_count = 3;
+            fake.children[1] = new_node(NODE_ATOM);
+            fake.children[2] = new_node(NODE_ATOM);
+            snprintf(fake.children[1]->atom, MAX_TOKEN_LEN, "__acc");
+            snprintf(fake.children[2]->atom, MAX_TOKEN_LEN, "__item");
 
-            env_set(fn.fn.params[0], acc);
-            env_set(fn.fn.params[1], *xs.list.items[i]);
-
-            acc = eval(fn.fn.body);
-
-            var_count = saved;
+            int saved_count = var_count;
+            env_set("__acc", acc);
+            env_set("__item", *xs.list.items[i]);
+            acc = call_function(fn, &fake);
+            var_count = saved_count;
         }
-
         return acc;
     }
 
@@ -493,38 +469,14 @@ static Value eval(Node *n) {
         return int_value(sum);
     }
 
-    if (strcmp(op, "sub") == 0) {
-        if (n->child_count != 3) { fprintf(stderr, "sub expects 2 args\n"); exit(1); }
-        return int_value(as_int(eval(n->children[1])) - as_int(eval(n->children[2])));
-    }
+    if (strcmp(op, "sub") == 0) return int_value(as_int(eval(n->children[1])) - as_int(eval(n->children[2])));
+    if (strcmp(op, "mul") == 0) return int_value(as_int(eval(n->children[1])) * as_int(eval(n->children[2])));
+    if (strcmp(op, "div") == 0) return int_value(as_int(eval(n->children[1])) / as_int(eval(n->children[2])));
+    if (strcmp(op, "lt") == 0) return int_value(as_int(eval(n->children[1])) < as_int(eval(n->children[2])) ? 1 : 0);
+    if (strcmp(op, "gt") == 0) return int_value(as_int(eval(n->children[1])) > as_int(eval(n->children[2])) ? 1 : 0);
+    if (strcmp(op, "eq") == 0) return int_value(as_int(eval(n->children[1])) == as_int(eval(n->children[2])) ? 1 : 0);
 
-    if (strcmp(op, "mul") == 0) {
-        int product = 1;
-        for (int i = 1; i < n->child_count; i++) product *= as_int(eval(n->children[i]));
-        return int_value(product);
-    }
-
-    if (strcmp(op, "div") == 0) {
-        if (n->child_count != 3) { fprintf(stderr, "div expects 2 args\n"); exit(1); }
-        int b = as_int(eval(n->children[2]));
-        if (b == 0) { fprintf(stderr, "division by zero\n"); exit(1); }
-        return int_value(as_int(eval(n->children[1])) / b);
-    }
-
-    if (strcmp(op, "lt") == 0) {
-        return int_value(as_int(eval(n->children[1])) < as_int(eval(n->children[2])) ? 1 : 0);
-    }
-
-    if (strcmp(op, "gt") == 0) {
-        return int_value(as_int(eval(n->children[1])) > as_int(eval(n->children[2])) ? 1 : 0);
-    }
-
-    if (strcmp(op, "eq") == 0) {
-        return int_value(as_int(eval(n->children[1])) == as_int(eval(n->children[2])) ? 1 : 0);
-    }
-
-    Value fn = env_get(op);
-    return call_function(fn, n);
+    return call_function(env_get(op), n);
 }
 
 static void free_ast(Node *n) {
@@ -545,11 +497,6 @@ static char *read_file(const char *path) {
     rewind(f);
 
     char *buf = malloc(size + 1);
-    if (!buf) {
-        fprintf(stderr, "Out of memory\n");
-        exit(1);
-    }
-
     fread(buf, 1, size, f);
     buf[size] = 0;
     fclose(f);
@@ -573,7 +520,6 @@ int main(int argc, char **argv) {
 
     if (ast->child_count > 0) {
         Value result = eval(ast->children[0]);
-
         if (result.type == VAL_INT) printf("Result: %d\n", result.number);
         else if (result.type == VAL_FN) printf("Result: <function>\n");
         else if (result.type == VAL_LIST) printf("Result: <list len=%d>\n", result.list.count);

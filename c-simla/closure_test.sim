@@ -1,0 +1,7 @@
+(begin
+  (let makeAdder (fn (n)
+    (fn (x) (add x n))
+  ))
+  (let add5 (makeAdder 5))
+  (add5 3)
+)
