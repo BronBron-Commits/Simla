@@ -31,6 +31,56 @@ static int get_slot(const char *name) {
   return name_count++;
 }
 
+typedef struct {
+  char name[64];
+  char params[16][64];
+  int param_count;
+  Node *body;
+} FnDef;
+
+static FnDef fns[128];
+static int fn_count = 0;
+
+static FnDef *find_fn(const char *name) {
+  for (int i = 0; i < fn_count; i++) {
+    if (strcmp(fns[i].name, name) == 0) return &fns[i];
+  }
+  return NULL;
+}
+
+static void define_fn(const char *name, Node *fn_node) {
+  if (fn_count >= 128) {
+    fprintf(stderr, "too many functions\n");
+    exit(1);
+  }
+
+  if (
+    fn_node->type != NODE_LIST ||
+    fn_node->child_count != 3 ||
+    fn_node->children[0]->type != NODE_ATOM ||
+    strcmp(fn_node->children[0]->atom, "fn") != 0 ||
+    fn_node->children[1]->type != NODE_LIST
+  ) {
+    fprintf(stderr, "invalid fn definition\n");
+    exit(1);
+  }
+
+  FnDef *f = &fns[fn_count++];
+  snprintf(f->name, 64, "%s", name);
+  f->param_count = fn_node->children[1]->child_count;
+  f->body = fn_node->children[2];
+
+  for (int i = 0; i < f->param_count; i++) {
+    Node *param = fn_node->children[1]->children[i];
+    if (param->type != NODE_ATOM) {
+      fprintf(stderr, "function params must be symbols\n");
+      exit(1);
+    }
+    snprintf(f->params[i], 64, "%s", param->atom);
+  }
+}
+
+
 static Node *new_node(NodeType type) {
   Node *n = calloc(1, sizeof(Node));
   if (!n) { fprintf(stderr, "out of memory\n"); exit(1); }
@@ -231,7 +281,19 @@ static void compile_expr(Node *n, Program *p) {
       exit(1);
     }
 
-    compile_expr(n->children[2], p);
+    Node *value = n->children[2];
+
+    if (
+      value->type == NODE_LIST &&
+      value->child_count > 0 &&
+      value->children[0]->type == NODE_ATOM &&
+      strcmp(value->children[0]->atom, "fn") == 0
+    ) {
+      define_fn(n->children[1]->atom, value);
+      return;
+    }
+
+    compile_expr(value, p);
     emit(p, OP_STORE, get_slot(n->children[1]->atom));
     return;
   }
@@ -288,6 +350,27 @@ static void compile_expr(Node *n, Program *p) {
     else if (strcmp(op, "mul") == 0) emit(p, OP_MUL, 0);
     else if (strcmp(op, "div") == 0) emit(p, OP_DIV, 0);
 
+    return;
+  }
+
+  FnDef *fn = find_fn(op);
+  if (fn) {
+    int arg_count = n->child_count - 1;
+
+    if (arg_count != fn->param_count) {
+      fprintf(stderr, "wrong arg count for %s: expected %d got %d\n", op, fn->param_count, arg_count);
+      exit(1);
+    }
+
+    for (int i = 0; i < arg_count; i++) {
+      compile_expr(n->children[i + 1], p);
+    }
+
+    for (int i = arg_count - 1; i >= 0; i--) {
+      emit(p, OP_STORE, get_slot(fn->params[i]));
+    }
+
+    compile_expr(fn->body, p);
     return;
   }
 
