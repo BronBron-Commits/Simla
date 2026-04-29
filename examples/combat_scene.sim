@@ -75,12 +75,12 @@
 
   (let player
     (list
-      "type" "pyramid"
+      "type" "humanoid"
       "id" 100
       "x" playerX
       "y" -0.8
       "z" 10.8
-      "size" 1
+      "size" 0.75
       "rotY" (mul t 1.5)
       "r" 120
       "g" 220
@@ -90,12 +90,12 @@
 
   (let enemy
     (list
-      "type" "pyramid"
+      "type" "humanoid"
       "id" 101
       "x" enemyX
       "y" -0.8
       "z" 13.2
-      "size" 1
+      "size" 0.75
       "rotY" (mul t -1.5)
       "r" 255
       "g" 90

@@ -364,6 +364,59 @@ const speedSlider = document.getElementById("speed");
     }
 
 
+
+    function drawHumanoid(obj, t) {
+      const ox = get(obj, "x");
+      const oy = get(obj, "y");
+      const oz = get(obj, "z");
+      const size = get(obj, "size") || 1;
+      const col = colorOf(obj, [120, 220, 255]);
+
+      function P(x, y, z) {
+        let p = [x * size, y * size, z * size];
+        p = rotateY(p, t);
+        return project([p[0] + ox, p[1] + oy, p[2] + oz]);
+      }
+
+      const head = P(0, 1.15, 0);
+      const neck = P(0, 0.75, 0);
+      const hips = P(0, -0.25, 0);
+      const lShoulder = P(-0.45, 0.55, 0);
+      const rShoulder = P(0.45, 0.55, 0);
+      const lHand = P(-0.75, 0.0, 0);
+      const rHand = P(0.75, 0.0, 0);
+      const lFoot = P(-0.35, -1.05, 0);
+      const rFoot = P(0.35, -1.05, 0);
+
+      ctx.save();
+      ctx.strokeStyle = col.css;
+      ctx.fillStyle = col.css;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = col.css;
+
+      function line(a, b) {
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
+
+      line(neck, hips);
+      line(lShoulder, rShoulder);
+      line(lShoulder, lHand);
+      line(rShoulder, rHand);
+      line(hips, lFoot);
+      line(hips, rFoot);
+
+      ctx.beginPath();
+      ctx.arc(head[0], head[1], Math.max(5, 12 * size), 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+
     function drawRing(obj, t) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
@@ -498,6 +551,10 @@ const speedSlider = document.getElementById("speed");
 
         if (num(render, "drawObjects", 1) && type === "pyramid") {
           drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), colorOf(obj, [255, 204, 102]).css);
+        }
+
+        if (num(render, "drawObjects", 1) && type === "humanoid") {
+          drawHumanoid(obj, get(obj, "rotY"));
         }
 
         if (num(render, "drawRings", 1) && type === "ring") {
