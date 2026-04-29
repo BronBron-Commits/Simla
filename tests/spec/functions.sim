@@ -1,0 +1,4 @@
+(begin
+  (let add3 (fn (x) (add x 3)))
+  (add3 7)
+)
