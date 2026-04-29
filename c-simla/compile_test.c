@@ -20,12 +20,20 @@ typedef struct Node {
   int child_count;
 } Node;
 
+static char names[256][64];
+static int name_count = 0;
+
+static int get_slot(const char *name) {
+  for (int i = 0; i < name_count; i++) {
+    if (strcmp(names[i], name) == 0) return i;
+  }
+  snprintf(names[name_count], 64, "%s", name);
+  return name_count++;
+}
+
 static Node *new_node(NodeType type) {
   Node *n = calloc(1, sizeof(Node));
-  if (!n) {
-    fprintf(stderr, "out of memory\n");
-    exit(1);
-  }
+  if (!n) { fprintf(stderr, "out of memory\n"); exit(1); }
   n->type = type;
   return n;
 }
@@ -34,9 +42,7 @@ static int is_number(const char *s) {
   int i = 0;
   if (s[0] == '-') i = 1;
   if (!s[i]) return 0;
-  for (; s[i]; i++) {
-    if (!isdigit((unsigned char)s[i])) return 0;
-  }
+  for (; s[i]; i++) if (!isdigit((unsigned char)s[i])) return 0;
   return 1;
 }
 
@@ -45,10 +51,7 @@ static void tokenize(const char *src, TokenList *out) {
   int i = 0;
 
   while (src[i]) {
-    if (isspace((unsigned char)src[i])) {
-      i++;
-      continue;
-    }
+    if (isspace((unsigned char)src[i])) { i++; continue; }
 
     if (src[i] == ';' && src[i + 1] == ';') {
       while (src[i] && src[i] != '\n') i++;
@@ -79,7 +82,7 @@ static void tokenize(const char *src, TokenList *out) {
 
 static Node *parse_expr(TokenList *tokens, int *pos) {
   if (*pos >= tokens->count) {
-    fprintf(stderr, "unexpected end of input\n");
+    fprintf(stderr, "unexpected end\n");
     exit(1);
   }
 
@@ -94,7 +97,7 @@ static Node *parse_expr(TokenList *tokens, int *pos) {
     }
 
     if (*pos >= tokens->count) {
-      fprintf(stderr, "missing closing paren\n");
+      fprintf(stderr, "missing )\n");
       exit(1);
     }
 
@@ -103,7 +106,7 @@ static Node *parse_expr(TokenList *tokens, int *pos) {
   }
 
   if (strcmp(tok, ")") == 0) {
-    fprintf(stderr, "unexpected closing paren\n");
+    fprintf(stderr, "unexpected )\n");
     exit(1);
   }
 
@@ -126,21 +129,13 @@ static Node *parse(TokenList *tokens) {
 
 static char *read_file(const char *path) {
   FILE *f = fopen(path, "rb");
-  if (!f) {
-    fprintf(stderr, "could not open file: %s\n", path);
-    exit(1);
-  }
+  if (!f) { fprintf(stderr, "could not open %s\n", path); exit(1); }
 
   fseek(f, 0, SEEK_END);
   long size = ftell(f);
   rewind(f);
 
   char *buf = malloc(size + 1);
-  if (!buf) {
-    fprintf(stderr, "out of memory\n");
-    exit(1);
-  }
-
   fread(buf, 1, size, f);
   buf[size] = 0;
   fclose(f);
@@ -152,18 +147,17 @@ static void emit(Program *p, OpCode op, int a) {
     fprintf(stderr, "program too large\n");
     exit(1);
   }
-
   p->code[p->count++] = (Instruction){op, a};
 }
 
 static void compile_expr(Node *n, Program *p) {
   if (n->type == NODE_ATOM) {
-    if (!is_number(n->atom)) {
-      fprintf(stderr, "compiler only supports numeric atoms for now: %s\n", n->atom);
-      exit(1);
+    if (is_number(n->atom)) {
+      emit(p, OP_CONST, atoi(n->atom));
+      return;
     }
 
-    emit(p, OP_CONST, atoi(n->atom));
+    emit(p, OP_LOAD, get_slot(n->atom));
     return;
   }
 
@@ -173,13 +167,30 @@ static void compile_expr(Node *n, Program *p) {
   }
 
   Node *head = n->children[0];
-
   if (head->type != NODE_ATOM) {
     fprintf(stderr, "invalid call\n");
     exit(1);
   }
 
   const char *op = head->atom;
+
+  if (strcmp(op, "begin") == 0) {
+    for (int i = 1; i < n->child_count; i++) {
+      compile_expr(n->children[i], p);
+    }
+    return;
+  }
+
+  if (strcmp(op, "let") == 0) {
+    if (n->child_count != 3 || n->children[1]->type != NODE_ATOM) {
+      fprintf(stderr, "invalid let\n");
+      exit(1);
+    }
+
+    compile_expr(n->children[2], p);
+    emit(p, OP_STORE, get_slot(n->children[1]->atom));
+    return;
+  }
 
   if (
     strcmp(op, "add") == 0 ||
@@ -188,7 +199,7 @@ static void compile_expr(Node *n, Program *p) {
     strcmp(op, "div") == 0
   ) {
     if (n->child_count != 3) {
-      fprintf(stderr, "%s expects exactly 2 args in bytecode compiler for now\n", op);
+      fprintf(stderr, "%s expects 2 args\n", op);
       exit(1);
     }
 
@@ -236,8 +247,8 @@ int main(int argc, char **argv) {
   tokenize(src, &tokens);
 
   Node *ast = parse(&tokens);
-
   Program p = {0};
+
   compile_program(ast, &p);
 
   printf("Compiled bytecode:\n");

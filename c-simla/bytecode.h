@@ -11,6 +11,8 @@ typedef enum {
   OP_SUB,
   OP_MUL,
   OP_DIV,
+  OP_LOAD,
+  OP_STORE,
   OP_RETURN
 } OpCode;
 

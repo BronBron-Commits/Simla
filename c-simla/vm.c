@@ -4,6 +4,7 @@
 
 int run(Program *p) {
   int stack[STACK_MAX];
+  int vars[256] = {0};
   int sp = 0;
 
   for (int ip = 0; ip < p->count; ip++) {
@@ -45,6 +46,14 @@ int run(Program *p) {
         stack[sp++] = a / b;
         break;
       }
+
+      case OP_LOAD:
+        stack[sp++] = vars[ins.a];
+        break;
+
+      case OP_STORE:
+        vars[ins.a] = stack[--sp];
+        break;
 
       case OP_RETURN:
         return stack[--sp];
