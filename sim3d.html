@@ -46,9 +46,48 @@
       pointer-events: none;
       z-index: 10;
     }
-  </style>
+  
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(10,30,55,.95), rgba(1,2,8,.98));
+      pointer-events: none;
+      animation: introFade 7s ease forwards;
+    }
+
+    #introText {
+      font-size: clamp(72px, 18vw, 220px);
+      letter-spacing: 10px;
+      color: rgba(190,235,255,.96);
+      text-shadow:
+        0 0 20px rgba(102,204,255,.9),
+        0 0 70px rgba(102,204,255,.55),
+        0 0 140px rgba(102,204,255,.35);
+      animation: titleMove 7s ease forwards;
+    }
+
+    @keyframes introFade {
+      0%   { opacity: 1; }
+      55%  { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    @keyframes titleMove {
+      0%   { transform: scale(.82); opacity: 0; }
+      18%  { transform: scale(1); opacity: 1; }
+      55%  { transform: scale(1); opacity: 1; }
+      100% { transform: scale(.35) translateY(-95vh); opacity: 0; }
+    }
+</style>
 </head>
 <body>
+  <div id="intro">
+    <div id="introText">Simλ</div>
+  </div>
 <div id="title">Simλ</div>
   <canvas id="view"></canvas>
   <div id="controls">
@@ -374,18 +413,20 @@ const speedSlider = document.getElementById("speed");
 
       ctx.globalCompositeOperation = "lighter";
 
-      if (get(grid, "enabled")) drawGrid(time, grid);
+      if (num(render, "drawGrid", 1) && get(grid, "enabled")) drawGrid(time, grid);
 
       for (const obj of objects) {
-        if (get(obj, "type") === "cube") {
+        const type = get(obj, "type");
+
+        if (num(render, "drawObjects", 1) && type === "cube") {
           drawCube(obj, get(obj, "rotY"), render);
         }
 
-        if (get(obj, "type") === "pyramid") {
+        if (num(render, "drawObjects", 1) && type === "pyramid") {
           drawWireObject(obj, pyramidVerts, pyramidEdges, get(obj, "rotY"), colorOf(obj, [255, 204, 102]).css);
         }
 
-        if (get(obj, "type") === "ring") {
+        if (num(render, "drawRings", 1) && type === "ring") {
           drawRing(obj, get(obj, "rotY"));
         }
       }

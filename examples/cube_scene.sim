@@ -50,6 +50,9 @@
         "lineWidth" 2
         "glow" 18
         "starSpeed" 0.00002
+        "drawGrid" 1
+        "drawRings" 1
+        "drawObjects" 1
       )
 
     "background"
