@@ -458,6 +458,35 @@ static Value eval(Node *n) {
         return out;
     }
 
+    if (strcmp(op, "reduce") == 0) {
+        Value fn = eval(n->children[1]);
+        Value acc = eval(n->children[2]);
+        Value xs = eval(n->children[3]);
+
+        if (xs.type != VAL_LIST) {
+            fprintf(stderr, "reduce expects list\n");
+            exit(1);
+        }
+
+        if (fn.type != VAL_FN || fn.fn.param_count != 2) {
+            fprintf(stderr, "reduce expects two-arg function\n");
+            exit(1);
+        }
+
+        for (int i = 0; i < xs.list.count; i++) {
+            int saved = var_count;
+
+            env_set(fn.fn.params[0], acc);
+            env_set(fn.fn.params[1], *xs.list.items[i]);
+
+            acc = eval(fn.fn.body);
+
+            var_count = saved;
+        }
+
+        return acc;
+    }
+
     if (strcmp(op, "add") == 0) {
         int sum = 0;
         for (int i = 1; i < n->child_count; i++) sum += as_int(eval(n->children[i]));

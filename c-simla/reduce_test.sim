@@ -1,0 +1,5 @@
+(begin
+  (let sum (fn (acc x) (add acc x)))
+  (let xs (list 1 2 3 4))
+  (reduce sum 0 xs)
+)
