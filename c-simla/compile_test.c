@@ -173,6 +173,50 @@ static void compile_expr(Node *n, Program *p) {
   }
 
   const char *op = head->atom;
+  if (strcmp(op, "if") == 0) {
+    if (n->child_count != 4) {
+      fprintf(stderr, "if expects condition, then, else\n");
+      exit(1);
+    }
+
+    compile_expr(n->children[1], p);
+
+    int jmp_false_at = p->count;
+    emit(p, OP_JMP_IF_FALSE, 0);
+
+    compile_expr(n->children[2], p);
+
+    int jmp_end_at = p->count;
+    emit(p, OP_JMP, 0);
+
+    p->code[jmp_false_at].a = p->count;
+
+    compile_expr(n->children[3], p);
+
+    p->code[jmp_end_at].a = p->count;
+    return;
+  }
+
+  if (
+    strcmp(op, "lt") == 0 ||
+    strcmp(op, "gt") == 0 ||
+    strcmp(op, "eq") == 0
+  ) {
+    if (n->child_count != 3) {
+      fprintf(stderr, "%s expects 2 args\n", op);
+      exit(1);
+    }
+
+    compile_expr(n->children[1], p);
+    compile_expr(n->children[2], p);
+
+    if (strcmp(op, "lt") == 0) emit(p, OP_LT, 0);
+    else if (strcmp(op, "gt") == 0) emit(p, OP_GT, 0);
+    else if (strcmp(op, "eq") == 0) emit(p, OP_EQ, 0);
+
+    return;
+  }
+
 
   if (strcmp(op, "begin") == 0) {
     for (int i = 1; i < n->child_count; i++) {

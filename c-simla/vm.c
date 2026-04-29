@@ -55,6 +55,37 @@ int run(Program *p) {
         vars[ins.a] = stack[--sp];
         break;
 
+      case OP_LT: {
+        int b = stack[--sp];
+        int a = stack[--sp];
+        stack[sp++] = a < b ? 1 : 0;
+        break;
+      }
+
+      case OP_GT: {
+        int b = stack[--sp];
+        int a = stack[--sp];
+        stack[sp++] = a > b ? 1 : 0;
+        break;
+      }
+
+      case OP_EQ: {
+        int b = stack[--sp];
+        int a = stack[--sp];
+        stack[sp++] = a == b ? 1 : 0;
+        break;
+      }
+
+      case OP_JMP_IF_FALSE: {
+        int cond = stack[--sp];
+        if (!cond) ip = ins.a - 1;
+        break;
+      }
+
+      case OP_JMP:
+        ip = ins.a - 1;
+        break;
+
       case OP_RETURN:
         return stack[--sp];
     }

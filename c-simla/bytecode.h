@@ -13,6 +13,11 @@ typedef enum {
   OP_DIV,
   OP_LOAD,
   OP_STORE,
+  OP_LT,
+  OP_GT,
+  OP_EQ,
+  OP_JMP_IF_FALSE,
+  OP_JMP,
   OP_RETURN
 } OpCode;
 
