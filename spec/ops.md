@@ -49,3 +49,12 @@ IF selects between two branches based on a boolean condition.
 ## Stability Rule
 
 Once an operation is stable, changing its behavior requires a spec version bump.
+
+## Semantics (locked)
+
+- Booleans are represented as: 0 (false), 1 (true)
+- RANGE is exclusive of the upper bound
+  (range 0 4) => [0,1,2,3]
+- IF treats 0 as false, non-zero as true
+- MAP preserves input order
+
