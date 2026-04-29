@@ -218,5 +218,3 @@ It is now:
 a portable deterministic simulation runtime
 
 ---
-
-This version keeps all the original formatting and structure while removing every backtick. It should render cleanly in most markdown viewers and plain text contexts. Let me know if you'd like any further adjustments!
