@@ -389,6 +389,88 @@ const speedSlider = document.getElementById("speed");
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
+    let lastObjects = [];
+    let selectedTileId = 7;
+
+    function makeObj(pairs) {
+      return pairs;
+    }
+
+    function getTiles(objects) {
+      if (!Array.isArray(objects)) return [];
+      return objects.filter(o => get(o, "type") === "cube");
+    }
+
+    function tileDistance(a, b) {
+      return Math.abs(get(a, "x") - get(b, "x")) + Math.abs(get(a, "z") - get(b, "z"));
+    }
+
+    function drawCombatOverlay(objects, time) {
+      const tiles = getTiles(objects);
+      if (!tiles.length) return;
+
+      let selected = tiles.find(t => get(t, "id") === selectedTileId);
+      if (!selected) selected = tiles[0];
+
+      for (const tile of tiles) {
+        const d = tileDistance(tile, selected);
+
+        if (d <= 2.5) {
+          drawRing(makeObj([
+            "type", "ring",
+            "id", 8000 + get(tile, "id"),
+            "x", get(tile, "x"),
+            "y", get(tile, "y") + 0.75,
+            "z", get(tile, "z"),
+            "size", 0.42,
+            "rotY", time * 0.002,
+            "r", 80,
+            "g", 255,
+            "b", 160
+          ]), time * 0.002);
+        }
+      }
+
+      drawRing(makeObj([
+        "type", "ring",
+        "id", 9000,
+        "x", get(selected, "x"),
+        "y", get(selected, "y") + 0.95,
+        "z", get(selected, "z"),
+        "size", 0.7,
+        "rotY", time * -0.004,
+        "r", 255,
+        "g", 240,
+        "b", 120
+      ]), time * -0.004);
+    }
+
+    canvas.addEventListener("pointerup", e => {
+      const tiles = getTiles(lastObjects);
+      let best = null;
+      let bestD = 999999;
+
+      for (const tile of tiles) {
+        const p = project([
+          get(tile, "x"),
+          get(tile, "y") + 0.5,
+          get(tile, "z")
+        ]);
+
+        const d = Math.hypot(e.clientX - p[0], e.clientY - p[1]);
+
+        if (d < bestD) {
+          bestD = d;
+          best = tile;
+        }
+      }
+
+      if (best && bestD < 80) {
+        selectedTileId = get(best, "id");
+      }
+    });
+
+
     function frame(time) {
       const speed = Number(speedSlider.value);
       speedValue.textContent = speed.toFixed(2);
@@ -399,6 +481,7 @@ const speedSlider = document.getElementById("speed");
       });
       const scene = step.result;
       const objects = get(scene, "objects");
+      lastObjects = objects;
       let render = get(scene, "render");
       if (!Array.isArray(render)) render = [];
       const bg = get(scene, "background");
@@ -414,6 +497,8 @@ const speedSlider = document.getElementById("speed");
       ctx.globalCompositeOperation = "lighter";
 
       if (num(render, "drawGrid", 1) && get(grid, "enabled")) drawGrid(time, grid);
+
+      drawCombatOverlay(objects, time);
 
       for (const obj of objects) {
         const type = get(obj, "type");
