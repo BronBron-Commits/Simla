@@ -46,8 +46,16 @@ def main():
         print(f"wrote {path} expected={expected}")
 
     runner = OUT / "combat_cases.txt"
+    extra = [
+        ("c-simla/spec/core.sim", 10),
+        ("c-simla/spec/functions.sim", 10),
+        ("c-simla/spec/lists.sim", 5),
+        ("c-simla/spec/conditionals.sim", 1),
+    ]
+
     runner.write_text(
-        "\n".join(f"c-simla/{name} {expected}" for name, *_rest, expected in CASES) + "\n"
+        "\n".join(f"c-simla/{name} {expected}" for name, *_rest, expected in CASES) + "\n" +
+        "\n".join(f"{path} {expected}" for path, expected in extra) + "\n"
     )
     print(f"wrote {runner}")
 

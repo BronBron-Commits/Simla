@@ -2,3 +2,7 @@ c-simla/combat_rule.sim 10
 c-simla/combat_rule_blocked_enemy.sim 7
 c-simla/combat_rule_too_far_left.sim 7
 c-simla/combat_rule_too_far_right.sim 7
+c-simla/spec/core.sim 10
+c-simla/spec/functions.sim 10
+c-simla/spec/lists.sim 5
+c-simla/spec/conditionals.sim 1

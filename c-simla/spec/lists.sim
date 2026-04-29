@@ -1,0 +1,4 @@
+(begin
+  (let xs (list 2 4 6))
+  (add (nth xs 0) (len xs))
+)
