@@ -299,6 +299,14 @@ static void compile_expr(Node *n, Program *p) {
   }
 
 
+
+  if (strcmp(op, "range") == 0) {
+    compile_expr(n->children[1], p);
+    compile_expr(n->children[2], p);
+    emit(p, OP_RANGE, 0);
+    return;
+  }
+
   if (strcmp(op, "list") == 0) {
     for (int i = 1; i < n->child_count; i++) {
       compile_expr(n->children[i], p);

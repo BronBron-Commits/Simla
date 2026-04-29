@@ -122,6 +122,28 @@ int run(Program *p) {
         break;
       }
 
+
+      case OP_RANGE: {
+        int end = stack[--sp];
+        int start = stack[--sp];
+
+        int id = list_count++;
+        list_counts[id] = 0;
+
+        if (end >= start) {
+          for (int v = start; v < end; v++) {
+            lists[id][list_counts[id]++] = v;
+          }
+        } else {
+          for (int v = start; v > end; v--) {
+            lists[id][list_counts[id]++] = v;
+          }
+        }
+
+        stack[sp++] = -id - 1;
+        break;
+      }
+
       case OP_RETURN:
         return stack[--sp];
     }

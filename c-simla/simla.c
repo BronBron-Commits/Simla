@@ -377,6 +377,30 @@ static Value eval(Node *n) {
         return *xs.list.items[idx];
     }
 
+
+    if (strcmp(op, "range") == 0) {
+        int start = as_int(eval(n->children[1]));
+        int end = as_int(eval(n->children[2]));
+
+        Value out = list_value();
+
+        if (end >= start) {
+            for (int i = start; i < end; i++) {
+                Value *item = malloc(sizeof(Value));
+                *item = int_value(i);
+                out.list.items[out.list.count++] = item;
+            }
+        } else {
+            for (int i = start; i > end; i--) {
+                Value *item = malloc(sizeof(Value));
+                *item = int_value(i);
+                out.list.items[out.list.count++] = item;
+            }
+        }
+
+        return out;
+    }
+
     if (strcmp(op, "map") == 0) {
         Value fn = eval(n->children[1]);
         Value xs = eval(n->children[2]);
@@ -501,6 +525,29 @@ static char *read_file(const char *path) {
     buf[size] = 0;
     fclose(f);
     return buf;
+}
+
+
+static void print_value(Value v) {
+    if (v.type == VAL_INT) {
+        printf("%d", v.number);
+        return;
+    }
+
+    if (v.type == VAL_LIST) {
+        printf("[");
+        for (int i = 0; i < v.list.count; i++) {
+            if (i) printf(",");
+            print_value(*v.list.items[i]);
+        }
+        printf("]");
+        return;
+    }
+
+    if (v.type == VAL_FN) {
+        printf("<fn>");
+        return;
+    }
 }
 
 int main(int argc, char **argv) {

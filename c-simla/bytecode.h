@@ -21,6 +21,7 @@ typedef enum {
   OP_LIST,
   OP_LEN,
   OP_NTH,
+  OP_RANGE,
   OP_RETURN
 } OpCode;
 
