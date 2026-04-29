@@ -233,7 +233,54 @@ if (name === "get") {
       return out;
     }
 
-// user-defined function call
+    // Simλ UI primitives
+    if (name === "hero") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["HERO"]);
+      return out;
+    }
+
+    if (name === "card") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["CARD"]);
+      return out;
+    }
+
+    if (name === "cards") {
+      compile(node.args[0], out);
+      out.push(["CARDS"]);
+      return out;
+    }
+
+    if (name === "code") {
+      compile(node.args[0], out);
+      out.push(["CODE"]);
+      return out;
+    }
+
+    if (name === "page") {
+      compile(node.args[0], out);
+      out.push(["PAGE"]);
+      return out;
+    }
+
+    if (name === "button") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["BUTTON"]);
+      return out;
+    }
+
+    if (name === "theme") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["THEME"]);
+      return out;
+    }
+
+    // user-defined function call
     compile(node.callee, out);
     for (const arg of node.args) {
       compile(arg, out);

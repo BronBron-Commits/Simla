@@ -1,29 +1,26 @@
 (begin
-  (list
-    "type" "page"
+  (page
+    (list
+      (theme "dark" "cyan")
 
-    "sections"
-      (list
-        (list
-          "type" "hero"
-          "title" "Simλ"
-          "subtitle" "A deterministic functional language for simulation and procedural worlds."
-        )
+      (hero
+        "Simλ"
+        "A deterministic functional language for simulation and procedural worlds."
+      )
 
-        (list
-          "type" "cards"
-          "items"
-            (list
-              (list "title" "Deterministic" "body" "Same input, same output.")
-              (list "title" "Functional" "body" "map, filter, reduce, recursion.")
-              (list "title" "Visual" "body" "Scenes, combat, animation, and rendering.")
-            )
-        )
+      (button "Read the Spec" "docs.html")
 
+      (cards
         (list
-          "type" "code"
-          "body" "map fn x mul x 2 list 1 2 3"
+          (card "Deterministic" "Same input, same output.")
+          (card "Functional" "map, filter, reduce, recursion.")
+          (card "Visual" "Scenes, combat, animation, and rendering.")
         )
       )
+
+      (code
+        "map fn x mul x 2 list 1 2 3"
+      )
+    )
   )
 )

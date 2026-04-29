@@ -8,30 +8,14 @@
 <style>
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(80,180,255,.25), transparent 35%),
-    #050812;
+  background: radial-gradient(circle at 50% 0%, rgba(80,180,255,.25), transparent 35%), #050812;
   color: #e6f3ff;
   font-family: system-ui;
 }
 
-.hero {
-  text-align: center;
-  padding: 90px 20px 50px;
-}
-
-.hero h1 {
-  font-size: clamp(72px, 18vw, 180px);
-  margin: 0;
-  text-shadow: 0 0 50px #66ccff;
-}
-
-.hero p {
-  max-width: 720px;
-  margin: 16px auto;
-  font-size: 22px;
-  opacity: .85;
-}
+.hero { text-align: center; padding: 90px 20px 50px; }
+.hero h1 { font-size: clamp(72px,18vw,180px); margin: 0; text-shadow: 0 0 50px #66ccff; }
+.hero p { max-width: 720px; margin: 16px auto; font-size: 22px; opacity: .85; }
 
 .cards {
   display: flex;
@@ -50,13 +34,10 @@ body {
   box-shadow: 0 0 30px rgba(102,204,255,.08);
 }
 
-.card h3 {
-  color: #9fe4ff;
-}
+.card h3 { color: #9fe4ff; }
 
 pre {
-  margin: 30px auto;
-  max-width: 760px;
+  margin: 24px;
   padding: 18px;
   background: #0e1422;
   border: 1px solid rgba(102,204,255,.22);
@@ -67,7 +48,7 @@ pre {
 </head>
 
 <body>
-<div id="app">Loading...</div>
+<div id="app"></div>
 
 <script type="module">
 import { parse } from "./src/parser.js";
@@ -94,52 +75,59 @@ function renderSection(sec) {
   const type = get(sec, "type");
 
   if (type === "hero") {
-    return `
-      <section class="hero">
-        <h1>${get(sec, "title")}</h1>
-        <p>${get(sec, "subtitle")}</p>
-      </section>
-    `;
+    return `<section class="hero">
+      <h1>${get(sec,"title")}</h1>
+      <p>${get(sec,"subtitle")}</p>
+    </section>`;
+  }
+
+  if (type === "button") {
+    return `<div style="text-align:center;margin:10px 0 34px;">
+      <a href="${get(sec,"href")}" style="
+        display:inline-block;
+        padding:12px 18px;
+        border-radius:999px;
+        color:#06111a;
+        background:#66ccff;
+        text-decoration:none;
+        font-weight:700;
+        box-shadow:0 0 28px rgba(102,204,255,.45);
+      ">${get(sec,"label")}</a>
+    </div>`;
   }
 
   if (type === "cards") {
-    const items = get(sec, "items") || [];
-    return `
-      <section class="cards">
-        ${items.map(i => `
-          <div class="card">
-            <h3>${get(i, "title")}</h3>
-            <p>${get(i, "body")}</p>
-          </div>
-        `).join("")}
-      </section>
-    `;
+    const items = get(sec,"items") || [];
+    return `<section class="cards">
+      ${items.map(i => `
+        <div class="card">
+          <h3>${get(i,"title")}</h3>
+          <p>${get(i,"body")}</p>
+        </div>
+      `).join("")}
+    </section>`;
   }
 
   if (type === "code") {
-    return `<pre>${get(sec, "body")}</pre>`;
+    return `<pre>${get(sec,"body")}</pre>`;
+  }
+
+  if (type === "theme") {
+    return "";
   }
 
   return "";
 }
 
 async function main() {
-  try {
-    const code = await fetch("./examples/homepage.sim").then(r => r.text());
+  const code = await fetch("./examples/homepage.sim").then(r => r.text());
+  const ast = parse(tokenize(code));
+  const bytecode = compile(ast);
+  const page = run(bytecode, {}).result;
 
-    const ast = parse(tokenize(code));
-    const bytecode = compile(ast);
-    const page = run(bytecode, {}).result;
-
-    const sections = get(page, "sections") || [];
-    const html = sections.map(renderSection).join("");
-
-    document.getElementById("app").innerHTML =
-      html || `<pre>PAGE DATA:\n${JSON.stringify(page, null, 2)}</pre>`;
-  } catch (err) {
-    document.getElementById("app").innerHTML =
-      `<pre>ERROR:\n${err.stack || err.message}</pre>`;
-  }
+  const sections = get(page,"sections") || [];
+  document.getElementById("app").innerHTML =
+    sections.map(renderSection).join("");
 }
 
 main();

@@ -404,6 +404,56 @@ case "LIST": {
         }
 
 
+  
+        case "HERO": {
+          const subtitle = stack.pop();
+          const title = stack.pop();
+          stack.push(["type", "hero", "title", title, "subtitle", subtitle]);
+          break;
+        }
+
+        case "CARD": {
+          const body = stack.pop();
+          const title = stack.pop();
+          stack.push(["title", title, "body", body]);
+          break;
+        }
+
+        case "CARDS": {
+          const items = stack.pop();
+          stack.push(["type", "cards", "items", items]);
+          break;
+        }
+
+        case "CODE": {
+          const body = stack.pop();
+          stack.push(["type", "code", "body", body]);
+          break;
+        }
+
+        case "PAGE": {
+          const sections = stack.pop();
+          stack.push(["type", "page", "sections", sections]);
+          break;
+        }
+
+
+  
+        case "BUTTON": {
+          const href = stack.pop();
+          const label = stack.pop();
+          stack.push(["type", "button", "label", label, "href", href]);
+          break;
+        }
+
+        case "THEME": {
+          const accent = stack.pop();
+          const mode = stack.pop();
+          stack.push(["type", "theme", "mode", mode, "accent", accent]);
+          break;
+        }
+
+
   default:
         throw new Error("Unknown op: " + op);
     }
