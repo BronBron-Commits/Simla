@@ -158,7 +158,7 @@ const speedSlider = document.getElementById("speed");
       ];
     }
 
-    function drawBackground(time, bg) {
+    function drawBackground(time, bg, render) {
       const g = ctx.createRadialGradient(
         canvas.width * .5,
         canvas.height * .4,
@@ -184,7 +184,8 @@ const speedSlider = document.getElementById("speed");
       ctx.globalAlpha = 0.75;
 
       for (const star of stars) {
-        const drift = time * 0.00002 * (1 + star.z);
+        const starSpeed = get(render, "starSpeed") || 0.00002;
+        const drift = time * starSpeed * (1 + star.z);
         const x = ((star.x + drift) % 1) * canvas.width;
         const y = star.y * canvas.height;
         const r = star.s * (0.5 + star.z);
@@ -223,11 +224,13 @@ const speedSlider = document.getElementById("speed");
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        ctx.shadowBlur = 18 * bright;
+        const glow = get(render, "glow") || 18;
+        const lineWidth = get(render, "lineWidth") || 2;
+        ctx.shadowBlur = glow * bright;
         const col = colorOf(obj);
         ctx.shadowColor = `rgba(${col.r},${col.g},${col.b},.9)`;
         ctx.strokeStyle = `rgba(${col.r}, ${col.g}, ${col.b}, ${alpha})`;
-        ctx.lineWidth = 1.5 + bright * 2.2;
+        ctx.lineWidth = lineWidth + bright * 2.2;
 
         ctx.beginPath();
         ctx.moveTo(pa[0], pa[1]);
@@ -351,14 +354,17 @@ const speedSlider = document.getElementById("speed");
       });
       const scene = step.result;
       const objects = get(scene, "objects");
+      let render = get(scene, "render");
+      if (!Array.isArray(render)) render = [];
       const bg = get(scene, "background");
       const grid = get(scene, "grid");
 
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(2,3,10,.22)";
+      const trail = get(render, "trail") || 0.22;
+      ctx.fillStyle = `rgba(2,3,10,${trail})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      drawBackground(time, bg);
+      drawBackground(time, bg, render);
 
       ctx.globalCompositeOperation = "lighter";
 

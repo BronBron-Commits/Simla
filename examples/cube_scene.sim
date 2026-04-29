@@ -44,6 +44,14 @@
   (list
     "camera" (list "x" 0 "y" 0 "z" -10)
 
+    "render"
+      (list
+        "trail" 0.22
+        "lineWidth" 2
+        "glow" 18
+        "starSpeed" 0.00002
+      )
+
     "background"
       (list
         "stars" 180
