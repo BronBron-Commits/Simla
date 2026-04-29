@@ -1,7 +1,3 @@
-Here's your rewritten version with all backticks removed:
-
----
-
 # Simλ (Simla)
 
 A portable, deterministic simulation language for games and systems.
