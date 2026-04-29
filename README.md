@@ -1,220 +1,170 @@
+---
+
 # Simλ (Simla)
 
-A portable, deterministic simulation language for games and systems.
+A deterministic simulation language for games and systems.
 
-Simλ is a small, functional DSL designed to run the same logic across multiple runtimes with identical results:
+Simla lets you write logic once and run it across multiple runtimes with identical results.
 
-- Browser (JavaScript VM)
+---
+
+## What is Simla?
+
+Simla is a small functional DSL designed for:
+
+- Game logic
+- Simulation systems
+- Deterministic rule execution
+
+It guarantees that the same `.sim` program produces the same result across:
+
+- JavaScript VM
 - Native C Interpreter
 - Native C Bytecode VM
 
 ---
 
-## Why Simλ?
+## Why Simla?
 
-Most game logic is:
+Game and simulation logic is usually:
 
 - duplicated across client/server
-- hardcoded into engines
-- difficult to test deterministically
+- tightly coupled to engine code
+- hard to test deterministically
 
-Simλ solves this by making game logic data-driven and portable.
+Simla solves this by making logic:
+
+- portable
+- testable
+- runtime-independent
 
 .sim file → same result everywhere
 
 ---
 
-## Key Features
+## Features
 
 - Deterministic execution
 - Functional style (no side effects)
 - Cross-runtime parity (JS + C)
-- Bytecode compilation (performance path)
-- Executable spec + test suite
+- Bytecode compilation path
 - Built-in list + functional primitives
+- Conformance + error test suites
 
 ---
 
 ## Example
 
-(begin
-  (let clampMove
-    (fn (player selected enemy moveRange)
-      (if (eq selected enemy)
-        player
-        (if (lt selected (sub player moveRange))
-          player
-          (if (gt selected (add player moveRange))
-            player
-            selected
-          )
-        )
-      )
-    )
-  )
+```lisp
+(if (and (gt 6 3) (lt 2 5))
+  10
+  7)
 
-  (clampMove 7 10 14 3)
-)
+Run it:
 
-Result:
+./simla.sh example.sim
+
+Output:
 
 10
 
----
-
-## Architecture
-
-Simλ Source (.sim)
-        ↓
-   Parser / AST
-        ↓
- ┌───────────────┬───────────────┬───────────────┐
- │ JS VM         │ C Interpreter │ C Bytecode VM │
- └───────────────┴───────────────┴───────────────┘
-        ↓
-   Identical Output
 
 ---
 
-## Project Structure
+CLI
 
-c-simla/
-  simla.c                → C interpreter
-  vm.c                   → bytecode VM
-  compile_test.c         → compiler
-  spec/                  → executable spec tests
-  spec/errors/           → error semantics tests
-  run_tests.sh           → interpreter tests
-  run_bytecode_tests.sh  → bytecode tests
-  run_parity_tests.sh    → JS/C parity
-  run_error_tests.sh     → error validation
-  Makefile               → build + test workflow
+./simla.sh file.sim
 
-docs/
-  SIMLA_SPEC.md          → language spec
 
 ---
 
-## Running
+Development Checks
 
-cd c-simla
-make check
+Run full validation:
 
-Runs:
+./tools/check_all.sh
 
-- interpreter tests
-- bytecode tests
-- cross-runtime parity
-- error semantics tests
+This runs:
 
----
+conformance tests (spec correctness)
 
-## Language Overview
+error tests (invalid program handling)
 
-### Core
+C build verification
 
-(begin ...)
-(let x 5)
-(fn (x) ...)
-(if cond then else)
 
-### Math
-
-(add a b)
-(sub a b)
-(mul a b)
-(div a b)
-
-### Comparison
-
-(lt a b)
-(gt a b)
-(eq a b)
-
-### Lists
-
-(list 1 2 3)
-(len xs)
-(nth xs i)
-
-### Higher Order
-
-(map fn xs)
-(filter fn xs)
-(reduce fn init xs)
 
 ---
 
-## Determinism
+Architecture
 
-Simλ guarantees:
+.sim source
+   ↓
+Parser / AST
+   ↓
+JS VM ──────┐
+C Interpreter │ → identical result
+C Bytecode VM┘
 
-- same input → same output
-- across all runtimes
-
-No:
-
-- randomness
-- time-based behavior
-- hidden state
 
 ---
 
-## Current Status
+Project Structure
 
-✔ Stable core language  
-✔ Cross-runtime parity (JS + C + bytecode)  
-✔ Executable specification  
-✔ CI pipeline validation  
-✔ Browser integration for game rules
+c-simla/    → C interpreter + bytecode VM
+src/        → JS VM + compiler
+spec/       → language definition
+tests/      → conformance + error tests
+tools/      → test runners
+examples/   → usage examples
 
----
-
-## Known Gaps
-
-- Bytecode closures
-- Bytecode map/filter/reduce
-- Module/import system
-- Symbol validation in bytecode compiler
 
 ---
 
-## Vision
+Version
 
-Simλ is designed to power:
+Current version: 0.1.0
 
-- deterministic multiplayer game logic
-- AI behaviors
-- simulation systems
-- replayable game states
-- moddable rule systems
+Core guarantees:
 
-Engine = rendering + input  
-Simλ = rules + logic
+deterministic execution
 
----
+cross-runtime parity
 
-## Development
+stable core primitives
 
-make test  
-make bytecode  
-make parity  
-make check
+
 
 ---
 
-## License
+Philosophy
+
+Simla is not trying to be a general-purpose language.
+
+It is a deterministic logic layer:
+
+define rules
+
+simulate outcomes
+
+keep results consistent across systems
+
+
+
+---
+
+Next Direction
+
+integrate with game engine (Three.js / WebXR)
+
+expand standard library (not core language)
+
+build higher-level simulation systems
+
+
+
+---
+
+License
 
 MIT
-
----
-
-## Final Note
-
-Simλ started as a “mini compiler”.
-
-It is now:
-
-a portable deterministic simulation runtime
-
----
