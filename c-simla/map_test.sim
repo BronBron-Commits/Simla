@@ -1,0 +1,5 @@
+(begin
+  (let inc (fn (x) (add x 1)))
+  (let xs (list 1 2 3 4))
+  (nth (map inc xs) 3)
+)

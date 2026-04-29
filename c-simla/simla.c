@@ -378,6 +378,43 @@ static Value eval(Node *n) {
         return *xs.list.items[idx];
     }
 
+    if (strcmp(op, "map") == 0) {
+        Value fn = eval(n->children[1]);
+        Value xs = eval(n->children[2]);
+
+        if (xs.type != VAL_LIST) {
+            fprintf(stderr, "map expects list\n");
+            exit(1);
+        }
+
+        Value out = list_value();
+
+        for (int i = 0; i < xs.list.count; i++) {
+            Value *arg = xs.list.items[i];
+
+            if (fn.type != VAL_FN || fn.fn.param_count != 1) {
+                fprintf(stderr, "map expects single-arg function\n");
+                exit(1);
+            }
+
+            int saved = var_count;
+            env_set(fn.fn.params[0], *arg);
+            Value result = eval(fn.fn.body);
+            var_count = saved;
+
+            Value *copy = malloc(sizeof(Value));
+            if (!copy) {
+                fprintf(stderr, "Out of memory\n");
+                exit(1);
+            }
+
+            *copy = result;
+            out.list.items[out.list.count++] = copy;
+        }
+
+        return out;
+    }
+
     if (strcmp(op, "add") == 0) {
         int sum = 0;
         for (int i = 1; i < n->child_count; i++) sum += as_int(eval(n->children[i]));
