@@ -1,0 +1,47 @@
+(begin
+  (let PUSH 1)
+  (let ADD 2)
+  (let MUL 3)
+
+  (let NUMBER 0)
+  (let ADD_NODE 1)
+  (let MUL_NODE 2)
+
+  (let compile
+    (fn (node)
+      (if
+        (eq (nth node 0) NUMBER)
+
+        (list PUSH (nth node 1))
+
+        (if
+          (eq (nth node 0) ADD_NODE)
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list ADD)
+          )
+
+          (concat
+            (concat
+              (compile (nth node 1))
+              (compile (nth node 2))
+            )
+            (list MUL)
+          )
+        )
+      )
+    )
+  )
+
+  (compile
+    (list
+      MUL_NODE
+      (list ADD_NODE (list NUMBER 2) (list NUMBER 3))
+      (list NUMBER 4)
+    )
+  )
+)
