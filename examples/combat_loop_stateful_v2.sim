@@ -1,0 +1,253 @@
+(begin
+  ;; Headless Simλ combat loop v1
+  ;; Host inputs expected:
+  ;; actionType: "move" | "attack" | "end"
+  ;; actionTile: target tile for move
+  ;;
+  ;; Combat state is injected as one list:
+  ;; state = ("playerHp" 20 "enemyHp" 15 "playerTile" 7 "enemyTile" 10)
+
+  (let playerHp (get state "playerHp"))
+  (let enemyHp (get state "enemyHp"))
+  (let playerTile (get state "playerTile"))
+  (let enemyTile (get state "enemyTile"))
+
+  (let playerAttack 4)
+  (let enemyAttack 3)
+  (let playerMoveRange 3)
+  (let attackRange 1)
+
+  ;; Board tile format:
+  ;; (id blocked danger moveCost)
+  (let board
+    (list
+      (list 0 0 0 1)
+      (list 1 0 0 1)
+      (list 2 0 0 1)
+      (list 3 0 1 1)
+      (list 4 0 0 1)
+      (list 5 1 0 99)
+      (list 6 0 0 1)
+      (list 7 0 0 1)
+      (list 8 0 0 1)
+      (list 9 0 1 1)
+      (list 10 0 0 1)
+      (list 11 0 0 1)
+      (list 12 0 0 1)
+      (list 13 0 0 1)
+      (list 14 0 0 1)
+      (list 15 0 0 1)
+    )
+  )
+
+  ;; Helpers inlined for now.
+
+  (let selectedTile actionTile)
+  (let selectedData (nth board selectedTile))
+  (let selectedBlocked (nth selectedData 1))
+
+  (let moveLeftLimit (sub playerTile playerMoveRange))
+  (let moveRightLimit (add playerTile playerMoveRange))
+
+  (let selectedTooFarLeft (lt selectedTile moveLeftLimit))
+  (let selectedTooFarRight (gt selectedTile moveRightLimit))
+  (let selectedIsEnemy (eq selectedTile enemyTile))
+
+  (let distA (sub playerTile enemyTile))
+  (let distB (sub enemyTile playerTile))
+  (let distance (if (lt distA 0) distB distA))
+  (let adjacent (if (gt distance attackRange) 0 1))
+
+  (let isMove (eq actionType "move"))
+  (let isAttack (eq actionType "attack"))
+  (let isEnd (eq actionType "end"))
+
+  ;; Player action resolution.
+
+  (let canMove
+    (if isMove
+      (if selectedTooFarLeft
+        0
+        (if selectedTooFarRight
+          0
+          (if selectedIsEnemy
+            0
+            (if selectedBlocked
+              0
+              1
+            )
+          )
+        )
+      )
+      0
+    )
+  )
+
+  (let nextPlayerTile
+    (if canMove
+      selectedTile
+      playerTile
+    )
+  )
+
+  (let playerCanAttack
+    (if isAttack
+      adjacent
+      0
+    )
+  )
+
+  (let enemyHpAfterPlayer
+    (if playerCanAttack
+      (sub enemyHp playerAttack)
+      enemyHp
+    )
+  )
+
+  (let enemyDead (if (gt enemyHpAfterPlayer 0) 0 1))
+
+  ;; Enemy response only after end action for now.
+
+  (let enemyDistA (sub nextPlayerTile enemyTile))
+  (let enemyDistB (sub enemyTile nextPlayerTile))
+  (let enemyDistance (if (lt enemyDistA 0) enemyDistB enemyDistA))
+  (let enemyAdjacent (if (gt enemyDistance attackRange) 0 1))
+
+  (let enemyActs
+    (if isEnd
+      (if enemyDead 0 1)
+      0
+    )
+  )
+
+  (let enemyAttacks
+    (if enemyActs
+      enemyAdjacent
+      0
+    )
+  )
+
+  (let playerHpAfterEnemy
+    (if enemyAttacks
+      (sub playerHp enemyAttack)
+      playerHp
+    )
+  )
+
+  (let playerDead (if (gt playerHpAfterEnemy 0) 0 1))
+
+  (let enemyStepToward
+    (if (lt enemyTile nextPlayerTile)
+      (add enemyTile 1)
+      (if (gt enemyTile nextPlayerTile)
+        (sub enemyTile 1)
+        enemyTile
+      )
+    )
+  )
+
+  (let enemyStepData (nth board enemyStepToward))
+  (let enemyStepBlocked (nth enemyStepData 1))
+
+  (let nextEnemyTile
+    (if enemyActs
+      (if enemyAttacks
+        enemyTile
+        (if enemyStepBlocked
+          enemyTile
+          enemyStepToward
+        )
+      )
+      enemyTile
+    )
+  )
+
+  ;; Events/log.
+
+  (let moveEvent
+    (if canMove
+      (list (list "move" "player" playerTile nextPlayerTile))
+      (list)
+    )
+  )
+
+  (let attackEvent
+    (if playerCanAttack
+      (list (list "attack" "player" "enemy" playerAttack))
+      (list)
+    )
+  )
+
+  (let enemyAttackEvent
+    (if enemyAttacks
+      (list (list "attack" "enemy" "player" enemyAttack))
+      (list)
+    )
+  )
+
+  (let enemyMoveEvent
+    (if enemyActs
+      (if enemyAttacks
+        (list)
+        (list (list "move" "enemy" enemyTile nextEnemyTile))
+      )
+      (list)
+    )
+  )
+
+  (let deathEvent
+    (if enemyDead
+      (list (list "death" "enemy"))
+      (if playerDead
+        (list (list "death" "player"))
+        (list)
+      )
+    )
+  )
+
+  (let events
+    (concat
+      moveEvent
+      (concat
+        attackEvent
+        (concat
+          enemyAttackEvent
+          (concat enemyMoveEvent deathEvent)
+        )
+      )
+    )
+  )
+
+  (list
+    "state"
+      (list
+        "playerHp" playerHpAfterEnemy
+        "enemyHp" enemyHpAfterPlayer
+        "playerTile" nextPlayerTile
+        "enemyTile" nextEnemyTile
+        "playerDead" playerDead
+        "enemyDead" enemyDead
+      )
+
+    "result"
+      (if playerDead
+        "defeat"
+        (if enemyDead
+          "victory"
+          "ongoing"
+        )
+      )
+
+    "events" events
+
+    "debug"
+      (list
+        "actionType" actionType
+        "actionTile" actionTile
+        "canMove" canMove
+        "playerCanAttack" playerCanAttack
+        "enemyActs" enemyActs
+        "enemyAttacks" enemyAttacks
+      )
+  )
+)
