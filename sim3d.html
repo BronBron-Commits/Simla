@@ -536,7 +536,7 @@
       ctx.restore();
     }
 
-    const code = await fetch("./examples/combat_scene.sim").then(r => r.text());
+    const code = await fetch("./examples/tactical_arena.sim").then(r => r.text());
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
@@ -602,7 +602,7 @@
       const picked = nearestTileFromScreen(e.clientX, e.clientY);
       if (!picked) return;
       selectedTile = get(picked, "id");
-      playerTile = runMovementRule(playerTile, selectedTile, enemyTile, 3);
+      // Simλ owns movement now
     });
 
     let pinchStartDist = 0;
@@ -634,7 +634,7 @@
       endTurnPulse = 1;
       endTurnBtn.textContent = "Enemy Turn...";
       setTimeout(() => {
-        enemyTile = runEnemyRule(enemyTile, playerTile);
+        // Simλ owns enemy movement now
         endTurnBtn.textContent = "End Turn";
       }, 350);
     };

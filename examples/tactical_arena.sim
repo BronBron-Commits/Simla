@@ -1,0 +1,284 @@
+(begin
+  (let t (mul (mul tick 0.001) speed))
+
+  ;; Simλ Tactical Arena
+  ;; JS only sends:
+  ;; tick, speed, playerTile, enemyTile, selectedTile, endTurn
+
+  ;; Tile data format:
+  ;; (id blocked danger moveCost)
+  (let boardData
+    (list
+      (list 0 0 0 1)
+      (list 1 0 0 1)
+      (list 2 0 0 1)
+      (list 3 0 1 1)
+      (list 4 0 0 1)
+      (list 5 1 0 99)
+      (list 6 0 0 1)
+      (list 7 0 0 1)
+      (list 8 0 0 1)
+      (list 9 0 1 1)
+      (list 10 1 0 99)
+      (list 11 0 0 1)
+      (list 12 0 0 1)
+      (list 13 0 0 1)
+      (list 14 0 0 1)
+      (list 15 0 0 1)
+    )
+  )
+
+  (let selectedData (nth boardData selectedTile))
+  (let selectedBlocked (nth selectedData 1))
+  (let selectedDanger (nth selectedData 2))
+
+  (let moveLeftLimit (sub playerTile 3))
+  (let moveRightLimit (add playerTile 3))
+
+  (let selectedTooFarLeft (lt selectedTile moveLeftLimit))
+  (let selectedTooFarRight (gt selectedTile moveRightLimit))
+  (let selectedIsEnemy (eq selectedTile enemyTile))
+
+  (let canMove
+    (if selectedTooFarLeft
+      0
+      (if selectedTooFarRight
+        0
+        (if selectedIsEnemy
+          0
+          (if selectedBlocked
+            0
+            1
+          )
+        )
+      )
+    )
+  )
+
+  (let nextPlayerTile
+    (if canMove
+      selectedTile
+      playerTile
+    )
+  )
+
+  (let enemyStepToward
+    (if (lt enemyTile nextPlayerTile)
+      (add enemyTile 1)
+      (if (gt enemyTile nextPlayerTile)
+        (sub enemyTile 1)
+        enemyTile
+      )
+    )
+  )
+
+  (let enemyStepData (nth boardData enemyStepToward))
+  (let enemyStepBlocked (nth enemyStepData 1))
+
+  (let nextEnemyTile
+    (if (eq endTurn 1)
+      (if enemyStepBlocked
+        enemyTile
+        enemyStepToward
+      )
+      enemyTile
+    )
+  )
+
+  (let board
+    (map
+      (fn (tile)
+        (let id (nth tile 0))
+        (let blocked (nth tile 1))
+        (let danger (nth tile 2))
+
+        (list
+          "type" "cube"
+          "id" id
+          "blocked" blocked
+          "danger" danger
+          "x" (sub (mul id 0.8) 6)
+          "y" -2
+          "z" 12
+          "size" 0.35
+          "rotY" 0
+          "r" (if blocked 210 (if danger 190 35))
+          "g" (if blocked 80 (if danger 40 140))
+          "b" (if blocked 65 (if danger 60 190))
+        )
+      )
+      boardData
+    )
+  )
+
+  (let playerX (sub (mul nextPlayerTile 0.8) 6))
+  (let enemyX (sub (mul nextEnemyTile 0.8) 6))
+  (let selectedX (sub (mul selectedTile 0.8) 6))
+  (let previewLeftX (sub (mul moveLeftLimit 0.8) 6))
+  (let previewRightX (sub (mul moveRightLimit 0.8) 6))
+
+  (let player
+    (list
+      "type" "humanoid"
+      "id" 100
+      "x" playerX
+      "y" -0.8
+      "z" 10.8
+      "size" 0.75
+      "rotY" (mul t 1.5)
+      "r" 120
+      "g" 220
+      "b" 255
+    )
+  )
+
+  (let enemy
+    (list
+      "type" "humanoid"
+      "id" 101
+      "x" enemyX
+      "y" -0.8
+      "z" 13.2
+      "size" 0.75
+      "rotY" (mul t -1.5)
+      "r" 255
+      "g" 90
+      "b" 90
+    )
+  )
+
+  (let selectedRing
+    (list
+      "type" "ring"
+      "id" 200
+      "x" selectedX
+      "y" -1.1
+      "z" 12
+      "size" 0.58
+      "rotY" (mul t 1.2)
+      "r" (if canMove 255 255)
+      "g" (if canMove 240 60)
+      "b" (if canMove 120 60)
+    )
+  )
+
+  (let playerRing
+    (list
+      "type" "ring"
+      "id" 201
+      "x" playerX
+      "y" -1.0
+      "z" 10.8
+      "size" 1.1
+      "rotY" (mul t 1.8)
+      "r" 120
+      "g" 220
+      "b" 255
+    )
+  )
+
+  (let enemyRing
+    (list
+      "type" "ring"
+      "id" 202
+      "x" enemyX
+      "y" -1.0
+      "z" 13.2
+      "size" 1.1
+      "rotY" (mul t -1.8)
+      "r" 255
+      "g" 90
+      "b" 90
+    )
+  )
+
+  (let moveLeftRing
+    (list
+      "type" "ring"
+      "id" 203
+      "x" previewLeftX
+      "y" -1.25
+      "z" 12
+      "size" 0.7
+      "rotY" (mul t 0.9)
+      "r" 80
+      "g" 255
+      "b" 140
+    )
+  )
+
+  (let moveRightRing
+    (list
+      "type" "ring"
+      "id" 204
+      "x" previewRightX
+      "y" -1.25
+      "z" 12
+      "size" 0.7
+      "rotY" (mul t -0.9)
+      "r" 80
+      "g" 255
+      "b" 140
+    )
+  )
+
+  (list
+    "state"
+      (list
+        "playerTile" nextPlayerTile
+        "enemyTile" nextEnemyTile
+        "selectedTile" selectedTile
+        "canMove" canMove
+        "selectedBlocked" selectedBlocked
+        "selectedDanger" selectedDanger
+      )
+
+    "camera" (list "x" 0 "y" 0 "z" -10)
+
+    "render"
+      (list
+        "trail" 0.16
+        "lineWidth" 2
+        "glow" 22
+        "starSpeed" 0.000025
+        "drawGrid" 1
+        "drawRings" 1
+        "drawObjects" 1
+      )
+
+    "background"
+      (list
+        "stars" 220
+        "glow" 0.85
+        "r" 4
+        "g" 6
+        "b" 22
+      )
+
+    "grid"
+      (list
+        "enabled" 1
+        "size" 8
+        "y" -2
+        "near" 6
+        "far" 18
+        "r" 80
+        "g" 180
+        "b" 255
+      )
+
+    "objects"
+      (concat
+        board
+        (list
+          player
+          enemy
+          selectedRing
+          playerRing
+          enemyRing
+          moveLeftRing
+          moveRightRing
+        )
+      )
+  )
+)
