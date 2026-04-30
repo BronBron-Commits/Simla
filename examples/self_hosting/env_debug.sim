@@ -1,0 +1,31 @@
+(begin
+  (let env_set
+    (fn (env name value)
+      (append env (list name value))
+    )
+  )
+
+  (let env_get_at
+    (fn (env name i)
+      (if
+        (lt i 0)
+        0
+        (if
+          (eq (nth (nth env i) 0) name)
+          (nth (nth env i) 1)
+          (env_get_at env name (sub i 1))
+        )
+      )
+    )
+  )
+
+  (let env_get
+    (fn (env name)
+      (env_get_at env name (sub (len env) 1))
+    )
+  )
+
+  (let env (env_set (list) "x" 5))
+
+  (list env (env_get env "x"))
+)
