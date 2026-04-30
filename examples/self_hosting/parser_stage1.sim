@@ -1,0 +1,72 @@
+(begin
+  ;; Parser stage 1:
+  ;; token list -> AST
+  ;;
+  ;; Input tokens:
+  ;; (add 2 3)
+  ;; becomes:
+  ;; (list "(" "add" 2 3 ")")
+  ;;
+  ;; Output AST:
+  ;; (list "add" 2 3)
+
+  (let parse_expr
+    (fn (tokens pos)
+      (if
+        (eq (nth tokens pos) "(")
+
+        (parse_list tokens (add pos 1))
+
+        (list (nth tokens pos) (add pos 1))
+      )
+    )
+  )
+
+  (let parse_list_items
+    (fn (tokens pos items)
+      (if
+        (eq (nth tokens pos) ")")
+
+        (list items (add pos 1))
+
+        (begin
+          (let parsed (parse_expr tokens pos))
+          (let node (nth parsed 0))
+          (let next_pos (nth parsed 1))
+
+          (parse_list_items
+            tokens
+            next_pos
+            (concat items (list node))
+          )
+        )
+      )
+    )
+  )
+
+  (let parse_list
+    (fn (tokens pos)
+      (parse_list_items tokens pos (slice (list 1) 1 1))
+    )
+  )
+
+  (let parse
+    (fn (tokens)
+      (nth (parse_expr tokens 0) 0)
+    )
+  )
+
+  (list
+    (parse (list "(" "add" 2 3 ")"))
+
+    (parse
+      (list
+        "(" "let" "inc"
+          "(" "fn" "(" "x" ")"
+            "(" "add" "x" 1 ")"
+          ")"
+        ")"
+      )
+    )
+  )
+)
