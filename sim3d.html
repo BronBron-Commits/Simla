@@ -540,35 +540,6 @@
     const ast = parse(tokenize(code));
     const bytecode = compile(ast);
 
-    const movementCode = await fetch("./c-simla/movement_rule.sim").then(r => r.text());
-    const movementAst = parse(tokenize(movementCode));
-    const movementBytecode = compile(movementAst);
-
-    function runMovementRule(player, selected, enemy, moveRange) {
-      const step = run(movementBytecode, {
-        player,
-        selected,
-        enemy,
-        moveRange
-      });
-
-      return step.result;
-    }
-
-    const enemyCode = await fetch("./c-simla/enemy_rule.sim").then(r => r.text());
-    const enemyAst = parse(tokenize(enemyCode));
-    const enemyBytecode = compile(enemyAst);
-
-    function runEnemyRule(enemy, player) {
-      const step = run(enemyBytecode, {
-        enemy,
-        player
-      });
-
-      return step.result;
-    }
-
-
     let playerTile = 7;
     let enemyTile = 14;
     let selectedTile = 7;
@@ -660,11 +631,8 @@
       }
       endTurnPulse = 0;
 
-      const objects = get(scene, "objects");
-      lastObjects = objects;
-      lastObjects = objects;
-      lastObjects = objects;
-      lastObjects = objects;
+      let objects = get(scene, "objects");
+      if (!Array.isArray(objects)) objects = [];
       lastObjects = objects;
       let render = get(scene, "render");
       if (!Array.isArray(render)) render = [];
@@ -704,7 +672,7 @@
       }
 
       ctx.globalCompositeOperation = "source-over";
-requestAnimationFrame(frame);
+      requestAnimationFrame(frame);
     }
 
     frame(0);
