@@ -163,6 +163,12 @@ if (name === "get") {
     }
 
 
+    if (name === "type") {
+      compile(node.args[0], out);
+      out.push(["TYPE"]);
+      return out;
+    }
+
     if (name === "len") {
       compile(node.args[0], out);
       out.push(["LEN"]);

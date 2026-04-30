@@ -207,6 +207,24 @@ case "LIST": {
       }
 
 
+      case "TYPE": {
+        const value = stack.pop();
+
+        if (Array.isArray(value)) {
+          stack.push("list");
+        } else if (typeof value === "number") {
+          stack.push("number");
+        } else if (typeof value === "string") {
+          stack.push("string");
+        } else if (value && Array.isArray(value.params)) {
+          stack.push("function");
+        } else {
+          stack.push("unknown");
+        }
+
+        break;
+      }
+
       case "LEN": {
         const v = stack.pop();
         stack.push(Array.isArray(v) ? v.length : 0);

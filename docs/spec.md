@@ -113,3 +113,23 @@ Function:
 
 Result:
   returns x * 2
+
+---
+
+## 7. Function Return Semantics
+
+- A function returns the top value on the stack after execution
+- The stack must contain at least one value at function exit
+- All other intermediate values should be consumed
+
+Example:
+
+Function:
+  params: ["x"]
+  body:
+    LOAD x
+    PUSH 2
+    MUL
+
+Result:
+  returns x * 2
