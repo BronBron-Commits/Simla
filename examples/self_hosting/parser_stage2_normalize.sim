@@ -1,0 +1,207 @@
+(begin
+  (let empty (slice (list 1) 1 1))
+
+  (let is_special
+    (fn (x)
+      (if
+        (eq x "add")
+        1
+        (if
+          (eq x "mul")
+          1
+          (if
+            (eq x "let")
+            1
+            (if
+              (eq x "fn")
+              1
+              (if
+                (eq x "if")
+                1
+                (if
+                  (eq x "begin")
+                  1
+                  0
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (let parse_expr
+    (fn (tokens pos)
+      (if
+        (eq (nth tokens pos) "(")
+        (parse_list tokens (add pos 1))
+        (list (nth tokens pos) (add pos 1))
+      )
+    )
+  )
+
+  (let parse_list_items
+    (fn (tokens pos items)
+      (if
+        (eq (nth tokens pos) ")")
+        (list items (add pos 1))
+
+        (begin
+          (let parsed (parse_expr tokens pos))
+          (let node (nth parsed 0))
+          (let next_pos (nth parsed 1))
+
+          (parse_list_items
+            tokens
+            next_pos
+            (concat items (list node))
+          )
+        )
+      )
+    )
+  )
+
+  (let parse_list
+    (fn (tokens pos)
+      (parse_list_items tokens pos empty)
+    )
+  )
+
+  (let parse
+    (fn (tokens)
+      (nth (parse_expr tokens 0) 0)
+    )
+  )
+
+  (let normalize_items
+    (fn (xs i out)
+      (if
+        (eq i (len xs))
+        out
+        (normalize_items xs (add i 1) (concat out (list (normalize (nth xs i)))))
+      )
+    )
+  )
+
+  (let normalize_call_args
+    (fn (xs i out)
+      (if
+        (eq i (len xs))
+        out
+        (normalize_call_args xs (add i 1) (concat out (list (normalize (nth xs i)))))
+      )
+    )
+  )
+
+  (let normalize_fn_params
+    (fn (params i out)
+      (if
+        (eq i (len params))
+        out
+        (normalize_fn_params params (add i 1) (concat out (list (nth params i))))
+      )
+    )
+  )
+
+  (let normalize
+    (fn (node)
+      (if
+        (eq (type node) "number")
+        node
+
+        (if
+          (eq (type node) "string")
+
+          (if
+            (is_special node)
+            node
+            (list "var" node)
+          )
+
+          (if
+            (eq (nth node 0) "let")
+            (list
+              "let"
+              (nth node 1)
+              (normalize (nth node 2))
+            )
+
+            (if
+              (eq (nth node 0) "fn")
+              (list
+                "fn"
+                (normalize_fn_params (nth node 1) 0 empty)
+                (normalize (nth node 2))
+              )
+
+              (if
+                (eq (nth node 0) "if")
+                (list
+                  "if"
+                  (normalize (nth node 1))
+                  (normalize (nth node 2))
+                  (normalize (nth node 3))
+                )
+
+                (if
+                  (eq (nth node 0) "begin")
+                  (concat
+                    (list "begin")
+                    (normalize_call_args node 1 empty)
+                  )
+
+                  (if
+                    (eq (nth node 0) "add")
+                    (list "add" (normalize (nth node 1)) (normalize (nth node 2)))
+
+                    (if
+                      (eq (nth node 0) "mul")
+                      (list "mul" (normalize (nth node 1)) (normalize (nth node 2)))
+
+                      (concat
+                        (list (nth node 0))
+                        (normalize_call_args node 1 empty)
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (list
+    (normalize (parse (list "(" "add" "x" 1 ")")))
+
+    (normalize
+      (parse
+        (list
+          "(" "let" "inc"
+            "(" "fn" "(" "x" ")"
+              "(" "add" "x" 1 ")"
+            ")"
+          ")"
+        )
+      )
+    )
+
+    (normalize
+      (parse
+        (list
+          "(" "begin"
+            "(" "let" "inc"
+              "(" "fn" "(" "x" ")"
+                "(" "add" "x" 1 ")"
+              ")"
+            ")"
+            "(" "inc" 9 ")"
+          ")"
+        )
+      )
+    )
+  )
+)
