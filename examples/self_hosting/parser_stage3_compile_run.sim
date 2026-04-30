@@ -1,0 +1,410 @@
+(begin
+(let top (fn (xs) (nth xs (sub (len xs) 1))))
+  (let drop2 (fn (xs) (slice xs 0 (sub (len xs) 2))))
+
+  ;; env is list of pairs: [ [name, value], ... ]
+  (let env_get_at
+    (fn (env name i)
+      (if
+        (lt i 0)
+        0
+        (if
+          (eq (nth (nth env i) 0) name)
+          (nth (nth env i) 1)
+          (env_get_at env name (sub i 1))
+        )
+      )
+    )
+  )
+  (let env_get (fn (env name) (env_get_at env name (sub (len env) 1))))
+  (let env_set (fn (env name value) (append env (list name value))))
+
+  (let bind_params
+    (fn (env params args i)
+      (if
+        (eq i (len params))
+        env
+        (bind_params
+          (env_set env (nth params i) (nth args i))
+          params
+          args
+          (add i 1)
+        )
+      )
+    )
+  )
+
+  ;; -------- compiler --------
+  (let compile_seq
+    (fn (nodes i)
+      (if
+        (eq i (len nodes))
+        (list)
+        (concat (compile (nth nodes i)) (compile_seq nodes (add i 1)))
+      )
+    )
+  )
+
+  (let compile_args
+    (fn (nodes i)
+      (if
+        (eq i (len nodes))
+        (list)
+        (concat (compile (nth nodes i)) (compile_args nodes (add i 1)))
+      )
+    )
+  )
+
+  (let compile_call
+    (fn (node)
+      (concat
+        (if
+          (eq (type (nth node 0)) "list")
+          (compile (nth node 0))
+          (compile (list "var" (nth node 0)))
+        )
+        (concat
+          (compile_args node 1)
+          (list "CALL" (sub (len node) 1))
+        )
+      )
+    )
+  )
+
+  (let compile
+    (fn (node)
+      (if
+        (eq (type node) "number")
+        (list "PUSH" node)
+
+        (if
+          (eq (nth node 0) "var")
+          (list "LOAD" (nth node 1))
+
+          (if
+            (eq (nth node 0) "begin")
+            (compile_seq node 1)
+
+            (if
+              (eq (nth node 0) "let")
+              (concat (compile (nth node 2)) (list "STORE" (nth node 1)))
+
+              (if
+                (eq (nth node 0) "if")
+                (list "IF" (compile (nth node 1)) (compile (nth node 2)) (compile (nth node 3)))
+
+                (if
+                  (eq (nth node 0) "fn")
+                  (list "FN" (nth node 1) (compile (nth node 2)))
+
+                  (if
+                    (eq (nth node 0) "add")
+                    (concat (concat (compile (nth node 1)) (compile (nth node 2))) (list "ADD"))
+
+                    (if
+                      (eq (nth node 0) "mul")
+                      (concat (concat (compile (nth node 1)) (compile (nth node 2))) (list "MUL"))
+
+                      (compile_call node)
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  ;; -------- runtime --------
+  (let exec
+    (fn (code stack env ip)
+      (if
+        (eq ip (len code))
+        (list (top stack) env)
+
+        (if
+          (eq (nth code ip) 0)
+          (exec code stack env (add ip 1))
+
+          (if
+            (eq (nth code ip) "PUSH")
+            (exec code (append stack (nth code (add ip 1))) env (add ip 2))
+
+            (if
+              (eq (nth code ip) "LOAD")
+              (exec code (append stack (env_get env (nth code (add ip 1)))) env (add ip 2))
+
+              (if
+                (eq (nth code ip) "STORE")
+                (exec code (slice stack 0 (sub (len stack) 1)) (env_set env (nth code (add ip 1)) (top stack)) (add ip 2))
+
+                (if
+                  (eq (nth code ip) "FN")
+                  (exec code (concat stack (list (list "closure" (nth code (add ip 1)) (nth code (add ip 2)) env))) env (add ip 3))
+
+                  (if
+                    (eq (nth code ip) "CALL")
+                    (begin
+                      (let argc (nth code (add ip 1)))
+                      (let fn_index (sub (len stack) (add argc 1)))
+                      (let fn_val (nth stack fn_index))
+                      (let args (slice stack (sub (len stack) argc) (len stack)))
+
+                      (let params (nth fn_val 1))
+                      (let body (nth fn_val 2))
+                      (let base_env (nth fn_val 3))
+
+                      (let new_env (bind_params base_env params args 0))
+                      (let result (exec body (list) new_env 0))
+
+                      (exec
+                        code
+                        (concat (slice stack 0 fn_index) (list (nth result 0)))
+                        env
+                        (add ip 2)
+                      )
+                    )
+
+                    (if
+                      (eq (nth code ip) "ADD")
+                      (exec code (concat (drop2 stack) (list (add (nth stack (sub (len stack) 2)) (nth stack (sub (len stack) 1))))) env (add ip 1))
+
+                      (if
+                        (eq (nth code ip) "MUL")
+                        (exec code (concat (drop2 stack) (list (mul (nth stack (sub (len stack) 2)) (nth stack (sub (len stack) 1))))) env (add ip 1))
+
+                        (if
+                          (eq (nth code ip) "IF")
+                          (if
+                            (nth (exec (nth code (add ip 1)) (list) env 0) 0)
+
+                            (begin
+                              (let then_result (exec (nth code (add ip 2)) (list) env 0))
+                              (exec code (concat stack (list (nth then_result 0))) (nth then_result 1) (add ip 4))
+                            )
+
+                            (begin
+                              (let else_result (exec (nth code (add ip 3)) (list) env 0))
+                              (exec code (concat stack (list (nth else_result 0))) (nth else_result 1) (add ip 4))
+                            )
+                          )
+
+                          0
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (let run (fn (ast) (nth (exec (compile ast) (list) (list) 0) 0)))
+
+(let empty (slice (list 1) 1 1))
+
+  (let is_special
+    (fn (x)
+      (if
+        (eq x "add")
+        1
+        (if
+          (eq x "mul")
+          1
+          (if
+            (eq x "let")
+            1
+            (if
+              (eq x "fn")
+              1
+              (if
+                (eq x "if")
+                1
+                (if
+                  (eq x "begin")
+                  1
+                  0
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (let parse_expr
+    (fn (tokens pos)
+      (if
+        (eq (nth tokens pos) "(")
+        (parse_list tokens (add pos 1))
+        (list (nth tokens pos) (add pos 1))
+      )
+    )
+  )
+
+  (let parse_list_items
+    (fn (tokens pos items)
+      (if
+        (eq (nth tokens pos) ")")
+        (list items (add pos 1))
+
+        (begin
+          (let parsed (parse_expr tokens pos))
+          (let node (nth parsed 0))
+          (let next_pos (nth parsed 1))
+
+          (parse_list_items
+            tokens
+            next_pos
+            (concat items (list node))
+          )
+        )
+      )
+    )
+  )
+
+  (let parse_list
+    (fn (tokens pos)
+      (parse_list_items tokens pos empty)
+    )
+  )
+
+  (let parse
+    (fn (tokens)
+      (nth (parse_expr tokens 0) 0)
+    )
+  )
+
+  (let normalize_items
+    (fn (xs i out)
+      (if
+        (eq i (len xs))
+        out
+        (normalize_items xs (add i 1) (concat out (list (normalize (nth xs i)))))
+      )
+    )
+  )
+
+  (let normalize_call_args
+    (fn (xs i out)
+      (if
+        (eq i (len xs))
+        out
+        (normalize_call_args xs (add i 1) (concat out (list (normalize (nth xs i)))))
+      )
+    )
+  )
+
+  (let normalize_fn_params
+    (fn (params i out)
+      (if
+        (eq i (len params))
+        out
+        (normalize_fn_params params (add i 1) (concat out (list (nth params i))))
+      )
+    )
+  )
+
+  (let normalize
+    (fn (node)
+      (if
+        (eq (type node) "number")
+        node
+
+        (if
+          (eq (type node) "string")
+
+          (if
+            (is_special node)
+            node
+            (list "var" node)
+          )
+
+          (if
+            (eq (nth node 0) "let")
+            (list
+              "let"
+              (nth node 1)
+              (normalize (nth node 2))
+            )
+
+            (if
+              (eq (nth node 0) "fn")
+              (list
+                "fn"
+                (normalize_fn_params (nth node 1) 0 empty)
+                (normalize (nth node 2))
+              )
+
+              (if
+                (eq (nth node 0) "if")
+                (list
+                  "if"
+                  (normalize (nth node 1))
+                  (normalize (nth node 2))
+                  (normalize (nth node 3))
+                )
+
+                (if
+                  (eq (nth node 0) "begin")
+                  (concat
+                    (list "begin")
+                    (normalize_call_args node 1 empty)
+                  )
+
+                  (if
+                    (eq (nth node 0) "add")
+                    (list "add" (normalize (nth node 1)) (normalize (nth node 2)))
+
+                    (if
+                      (eq (nth node 0) "mul")
+                      (list "mul" (normalize (nth node 1)) (normalize (nth node 2)))
+
+                      (concat
+                        (list (nth node 0))
+                        (normalize_call_args node 1 empty)
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (let run_tokens
+    (fn (tokens)
+      (run (normalize (parse tokens)))
+    )
+  )
+
+  (list
+    (run_tokens (list "(" "add" 2 3 ")"))
+
+    (run_tokens
+      (list
+        "(" "begin"
+          "(" "let" "inc"
+            "(" "fn" "(" "x" ")"
+              "(" "add" "x" 1 ")"
+            ")"
+          ")"
+          "(" "inc" 9 ")"
+        ")"
+      )
+    )
+
+    (run_tokens (list "(" "if" 1 10 20 ")"))
+    (run_tokens (list "(" "if" 0 10 20 ")"))
+  )
+)
