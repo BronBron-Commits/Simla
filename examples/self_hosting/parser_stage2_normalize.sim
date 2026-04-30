@@ -1,40 +1,62 @@
 (begin
   (let empty (slice (list 1) 1 1))
+  (let LPAREN (charat "(x" 1))
+  (let RPAREN (charat ")x" 1))
+
+  (let is_digit
+    (fn (ch)
+      (if (eq ch "0") 1
+      (if (eq ch "1") 1
+      (if (eq ch "2") 1
+      (if (eq ch "3") 1
+      (if (eq ch "4") 1
+      (if (eq ch "5") 1
+      (if (eq ch "6") 1
+      (if (eq ch "7") 1
+      (if (eq ch "8") 1
+      (if (eq ch "9") 1 0))))))))))
+    )
+  )
+
+  (let is_number_string_at
+    (fn (s i)
+      (if
+        (eq i (strlen s))
+        1
+        (if
+          (is_digit (charat s i))
+          (is_number_string_at s (add i 1))
+          0
+        )
+      )
+    )
+  )
+
+  (let is_number_string
+    (fn (s)
+      (if
+        (eq (strlen s) 0)
+        0
+        (is_number_string_at s 0)
+      )
+    )
+  )
 
   (let is_special
     (fn (x)
-      (if
-        (eq x "add")
-        1
-        (if
-          (eq x "mul")
-          1
-          (if
-            (eq x "let")
-            1
-            (if
-              (eq x "fn")
-              1
-              (if
-                (eq x "if")
-                1
-                (if
-                  (eq x "begin")
-                  1
-                  0
-                )
-              )
-            )
-          )
-        )
-      )
+      (if (eq x "add") 1
+      (if (eq x "mul") 1
+      (if (eq x "let") 1
+      (if (eq x "fn") 1
+      (if (eq x "if") 1
+      (if (eq x "begin") 1 0))))))
     )
   )
 
   (let parse_expr
     (fn (tokens pos)
       (if
-        (eq (nth tokens pos) "(")
+        (eq (nth tokens pos) LPAREN)
         (parse_list tokens (add pos 1))
         (list (nth tokens pos) (add pos 1))
       )
@@ -44,19 +66,13 @@
   (let parse_list_items
     (fn (tokens pos items)
       (if
-        (eq (nth tokens pos) ")")
+        (eq (nth tokens pos) RPAREN)
         (list items (add pos 1))
-
         (begin
           (let parsed (parse_expr tokens pos))
           (let node (nth parsed 0))
           (let next_pos (nth parsed 1))
-
-          (parse_list_items
-            tokens
-            next_pos
-            (concat items (list node))
-          )
+          (parse_list_items tokens next_pos (concat items (list node)))
         )
       )
     )
@@ -71,16 +87,6 @@
   (let parse
     (fn (tokens)
       (nth (parse_expr tokens 0) 0)
-    )
-  )
-
-  (let normalize_items
-    (fn (xs i out)
-      (if
-        (eq i (len xs))
-        out
-        (normalize_items xs (add i 1) (concat out (list (normalize (nth xs i)))))
-      )
     )
   )
 
@@ -109,60 +115,36 @@
       (if
         (eq (type node) "number")
         node
-
         (if
           (eq (type node) "string")
-
           (if
-            (is_special node)
-            node
-            (list "var" node)
+            (is_number_string node)
+            (tonumber node)
+            (if
+              (is_special node)
+              node
+              (list "var" node)
+            )
           )
-
           (if
             (eq (nth node 0) "let")
-            (list
-              "let"
-              (nth node 1)
-              (normalize (nth node 2))
-            )
-
+            (list "let" (nth node 1) (normalize (nth node 2)))
             (if
               (eq (nth node 0) "fn")
-              (list
-                "fn"
-                (normalize_fn_params (nth node 1) 0 empty)
-                (normalize (nth node 2))
-              )
-
+              (list "fn" (normalize_fn_params (nth node 1) 0 empty) (normalize (nth node 2)))
               (if
                 (eq (nth node 0) "if")
-                (list
-                  "if"
-                  (normalize (nth node 1))
-                  (normalize (nth node 2))
-                  (normalize (nth node 3))
-                )
-
+                (list "if" (normalize (nth node 1)) (normalize (nth node 2)) (normalize (nth node 3)))
                 (if
                   (eq (nth node 0) "begin")
-                  (concat
-                    (list "begin")
-                    (normalize_call_args node 1 empty)
-                  )
-
+                  (concat (list "begin") (normalize_call_args node 1 empty))
                   (if
                     (eq (nth node 0) "add")
                     (list "add" (normalize (nth node 1)) (normalize (nth node 2)))
-
                     (if
                       (eq (nth node 0) "mul")
                       (list "mul" (normalize (nth node 1)) (normalize (nth node 2)))
-
-                      (concat
-                        (list (nth node 0))
-                        (normalize_call_args node 1 empty)
-                      )
+                      (concat (list (nth node 0)) (normalize_call_args node 1 empty))
                     )
                   )
                 )
@@ -175,33 +157,7 @@
   )
 
   (list
-    (normalize (parse (list "(" "add" "x" 1 ")")))
-
-    (normalize
-      (parse
-        (list
-          "(" "let" "inc"
-            "(" "fn" "(" "x" ")"
-              "(" "add" "x" 1 ")"
-            ")"
-          ")"
-        )
-      )
-    )
-
-    (normalize
-      (parse
-        (list
-          "(" "begin"
-            "(" "let" "inc"
-              "(" "fn" "(" "x" ")"
-                "(" "add" "x" 1 ")"
-              ")"
-            ")"
-            "(" "inc" 9 ")"
-          ")"
-        )
-      )
-    )
+    (normalize (parse (list LPAREN "add" "2" "3" RPAREN)))
+    (normalize (parse (list LPAREN "add" "x" "1" RPAREN)))
   )
 )

@@ -259,6 +259,13 @@ case "LIST": {
         break;
       }
 
+      case "TONUMBER": {
+        const v = stack.pop();
+        const n = Number(v);
+        stack.push(Number.isFinite(n) ? n : 0);
+        break;
+      }
+
 
       case "CONCAT": {
         const b = stack.pop();

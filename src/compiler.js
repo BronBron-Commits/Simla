@@ -196,7 +196,6 @@ if (name === "get") {
         return out;
       }
 
-
       if (name === "strcat") {
         compile(node.args[0], out);
         compile(node.args[1], out);
@@ -204,7 +203,11 @@ if (name === "get") {
         return out;
       }
 
-
+      if (name === "tonumber") {
+        compile(node.args[0], out);
+        out.push(["TONUMBER"]);
+        return out;
+      }
 
     if (name === "concat") {
       compile(node.args[0], out);
