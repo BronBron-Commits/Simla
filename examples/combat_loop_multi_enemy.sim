@@ -391,9 +391,14 @@
     )
   )
 
+  (let targetWasDead (get enemy "dead"))
+
   (let deathEvent
     (if enemyDead
-      (list (list "death" (get enemy "id")))
+      (if targetWasDead
+        (list)
+        (list (list "death" (get enemy "id")))
+      )
       (if playerDead
         (list (list "death" (get player "id")))
         (list)

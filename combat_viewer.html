@@ -14,7 +14,7 @@
       font-size:12px;
       white-space:pre-wrap;
       z-index:10;
-      max-height:30vh;
+      max-height:24vh;
       overflow:auto;
     }
   </style>
@@ -31,6 +31,99 @@ import { compile } from "./src/compiler.js";
 const hud = document.getElementById("hud");
 const canvas = document.getElementById("view");
 const ctx = canvas.getContext("2d");
+
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function playHitSound(power = 1) {
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  // Per-hit variation.
+  const pitchJitter = 0.75 + Math.random() * 0.65;
+  const dropJitter = 0.75 + Math.random() * 0.5;
+  const filterJitter = 0.75 + Math.random() * 0.7;
+  const durationJitter = 0.09 + Math.random() * 0.09;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc.type = Math.random() > 0.5 ? "sawtooth" : "square";
+  osc.frequency.setValueAtTime((120 + power * 18) * pitchJitter, now);
+  osc.frequency.exponentialRampToValueAtTime(45 * dropJitter, now + durationJitter);
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime((700 + power * 70) * filterJitter, now);
+  filter.frequency.exponentialRampToValueAtTime(120 + Math.random() * 120, now + durationJitter);
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + durationJitter + 0.04);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + durationJitter + 0.05);
+
+  // Short noise burst for impact.
+  const bufferSize = audioCtx.sampleRate * 0.08;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  }
+
+  const noise = audioCtx.createBufferSource();
+  const noiseGain = audioCtx.createGain();
+  const noiseFilter = audioCtx.createBiquadFilter();
+
+  noise.buffer = buffer;
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.setValueAtTime((500 + power * 55) * (0.8 + Math.random() * 0.8), now);
+  noiseFilter.Q.setValueAtTime(0.9, now);
+
+  noiseGain.gain.setValueAtTime(0.13, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+
+  noise.start(now);
+  noise.stop(now + 0.09);
+}
+
+function playDeathSound() {
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(160, now);
+  osc.frequency.exponentialRampToValueAtTime(45, now + 0.35);
+
+  gain.gain.setValueAtTime(0.12, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.42);
+}
 
 function tokenize(code) {
   return code.replace(/;;.*$/gm,"")
@@ -52,6 +145,8 @@ function resize(){
 }
 resize();
 addEventListener("resize", resize);
+addEventListener("pointerdown", ensureAudio, { once:true });
+addEventListener("touchstart", ensureAudio, { once:true });
 
 let bytecode;
 let status = "loading";
@@ -60,6 +155,8 @@ let lastEvents = [];
 let lastAction = "boot";
 let lastStepTime = 0;
 let eventAnims = [];
+let particles = [];
+let shake = 0;
 
 let state = [
   "round",1,
@@ -73,11 +170,15 @@ let state = [
 
 const script = [
   ["move", 9],
+
+  ["end", 0],
   ["end", 0],
   ["end", 0],
 
   ["attack", 2],
   ["attack", 2],
+
+  ["end", 0],
 
   ["attack", 3],
   ["attack", 3],
@@ -120,14 +221,20 @@ function act(type, val){
 
   for (const ev of lastEvents) {
     if (ev[0] === "attack") {
+      playHitSound(ev[3] || 1);
+      shake = Math.max(shake, 8 + (ev[3] || 1));
       eventAnims.push({ type:"attack", attacker:ev[1], target:ev[2], dmg:ev[3], t:0 });
+      eventAnims.push({ type:"slash", attacker:ev[1], target:ev[2], dmg:ev[3], t:0 });
       eventAnims.push({ type:"damage", target:ev[2], dmg:ev[3], t:0 });
     }
     if (ev[0] === "move") {
       eventAnims.push({ type:"move", id:ev[1], from:ev[2], to:ev[3], t:0 });
     }
     if (ev[0] === "death") {
+      playDeathSound();
+      shake = Math.max(shake, 18);
       eventAnims.push({ type:"death", id:ev[1], t:0 });
+      spawnDeathParticles(ev[1]);
     }
   }
 }
@@ -148,8 +255,94 @@ function frame(time){
   for (const a of eventAnims) a.t += 0.045;
   eventAnims = eventAnims.filter(a => a.t < 1.4);
 
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.08;
+    p.life -= 0.025;
+  }
+  particles = particles.filter(p => p.life > 0);
+  shake *= 0.88;
+
   draw(time);
   requestAnimationFrame(frame);
+}
+
+function spawnDeathParticles(id) {
+  const entities = get(state, "entities", []);
+  const target = entities.find(e => get(e, "id") === id);
+  if (!target) return;
+
+  const TILE_SIZE = Math.min(42, Math.max(24, canvas.width / 17.5));
+  const offsetX = canvas.width/2 - (16*TILE_SIZE)/2;
+  const offsetY = canvas.height*0.48;
+  const pos = entityPos(target, TILE_SIZE, offsetX, offsetY);
+
+  for (let i = 0; i < 28; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const spd = 1.5 + Math.random() * 4;
+    particles.push({
+      x: pos.x,
+      y: pos.y,
+      vx: Math.cos(a) * spd,
+      vy: Math.sin(a) * spd - 1.5,
+      r: 2 + Math.random() * 4,
+      life: 1,
+      color: get(target, "team") === "player" ? "#4aa8ff" : "#ff5757"
+    });
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawSlashTrails(entities, TILE_SIZE, offsetX, offsetY) {
+  for (const a of eventAnims) {
+    if (a.type !== "slash") continue;
+
+    const attacker = entities.find(e => get(e, "id") === a.attacker);
+    const target = entities.find(e => get(e, "id") === a.target);
+    if (!attacker || !target) continue;
+
+    const pa = entityPos(attacker, TILE_SIZE, offsetX, offsetY);
+    const pt = entityPos(target, TILE_SIZE, offsetX, offsetY);
+
+    const k = Math.min(1, a.t / 0.35);
+    const alpha = Math.max(0, 1 - k);
+
+    const mx = pa.x + (pt.x - pa.x) * k;
+    const my = pa.y + (pt.y - pa.y) * k;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = get(attacker, "team") === "player" ? "#ffe08a" : "#ff8a8a";
+    ctx.lineWidth = 6;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 18;
+
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y - 22);
+    ctx.quadraticCurveTo(
+      (pa.x + pt.x) / 2,
+      (pa.y + pt.y) / 2 - 80,
+      mx,
+      my - 22
+    );
+    ctx.stroke();
+
+    ctx.restore();
+  }
 }
 
 function entityPos(e, TILE_SIZE, offsetX, offsetY) {
@@ -164,16 +357,20 @@ function entityPos(e, TILE_SIZE, offsetX, offsetY) {
     }
   }
 
-  let x = offsetX + tile*TILE_SIZE + TILE_SIZE*0.28;
-  let y = team==="player" ? offsetY+TILE_SIZE+52 : offsetY-TILE_SIZE-42;
+  // Mobile vertical arena:
+  // tile controls horizontal lane,
+  // team controls vertical side.
+  let x = offsetX + tile*TILE_SIZE + TILE_SIZE*0.35;
+  let y = team==="player" ? offsetY + TILE_SIZE*2.2 : offsetY - TILE_SIZE*1.7;
 
   for (const a of eventAnims) {
     if (a.type === "attack" && a.attacker === id && a.t < 0.45) {
       const dir = team === "player" ? -1 : 1;
-      x += dir * Math.sin(a.t * Math.PI / 0.45) * 26;
+      y += dir * Math.sin(a.t * Math.PI / 0.45) * 34;
     }
     if (a.type === "attack" && a.target === id && a.t < 0.25) {
       x += Math.sin(a.t * 80) * 5;
+      y += Math.sin(a.t * 95) * 4;
     }
   }
 
@@ -326,13 +523,18 @@ function drawDamageNumbers(entities, TILE_SIZE, offsetX, offsetY) {
 }
 
 function draw(time){
+  ctx.save();
+  const sx = (Math.random() * 2 - 1) * shake;
+  const sy = (Math.random() * 2 - 1) * shake;
+  ctx.translate(sx, sy);
+
   ctx.fillStyle="#050713";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(-40,-40,canvas.width+80,canvas.height+80);
 
   const entities = get(state,"entities",[]);
-  const TILE_SIZE = Math.min(64, Math.max(34, canvas.width / 18));
+  const TILE_SIZE = Math.min(42, Math.max(24, canvas.width / 17.5));
   const offsetX = canvas.width/2 - (16*TILE_SIZE)/2;
-  const offsetY = canvas.height*0.55;
+  const offsetY = canvas.height*0.48;
 
   // arena glow
   const g = ctx.createRadialGradient(canvas.width/2, offsetY, 10, canvas.width/2, offsetY, canvas.width*0.75);
@@ -341,19 +543,35 @@ function draw(time){
   ctx.fillStyle = g;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // grid
+  // mobile lane grid
   for(let i=0;i<16;i++){
     const x = offsetX + i*TILE_SIZE;
     const y = offsetY;
 
-    ctx.strokeStyle="#26364f";
-    ctx.lineWidth=1;
-    ctx.strokeRect(x,y,TILE_SIZE-4,TILE_SIZE-4);
+    ctx.fillStyle = i % 2 === 0 ? "rgba(30,50,82,.42)" : "rgba(22,38,64,.34)";
+    ctx.fillRect(x, y, TILE_SIZE-3, TILE_SIZE*1.6);
 
-    ctx.fillStyle="#5f708a";
-    ctx.font = "12px monospace";
-    ctx.fillText(i,x+8,y+TILE_SIZE+12);
+    ctx.strokeStyle="#2e4568";
+    ctx.lineWidth=1;
+    ctx.strokeRect(x,y,TILE_SIZE-3,TILE_SIZE*1.6);
+
+    ctx.fillStyle="#8ca0bd";
+    ctx.font = "11px monospace";
+    ctx.fillText(i,x+6,y+TILE_SIZE*1.6+12);
   }
+
+  // front/back lanes
+  ctx.strokeStyle = "rgba(74,168,255,.25)";
+  ctx.beginPath();
+  ctx.moveTo(offsetX, offsetY + TILE_SIZE*2.2);
+  ctx.lineTo(offsetX + 16*TILE_SIZE, offsetY + TILE_SIZE*2.2);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255,87,87,.25)";
+  ctx.beginPath();
+  ctx.moveTo(offsetX, offsetY - TILE_SIZE*1.7);
+  ctx.lineTo(offsetX + 16*TILE_SIZE, offsetY - TILE_SIZE*1.7);
+  ctx.stroke();
 
   // event lines
   for (const ev of lastEvents) {
@@ -374,12 +592,17 @@ function draw(time){
     ctx.stroke();
   }
 
+  drawSlashTrails(entities, TILE_SIZE, offsetX, offsetY);
+
   for(const e of entities){
     const pos = entityPos(e, TILE_SIZE, offsetX, offsetY);
     drawFighter(e, pos, time);
   }
 
   drawDamageNumbers(entities, TILE_SIZE, offsetX, offsetY);
+  drawParticles();
+
+  ctx.restore();
 
   hud.textContent =
     "Simλ visual combat simulation" +
