@@ -556,7 +556,14 @@ case "LIST": {
 
 
   default:
-        throw new Error("Unknown op: " + op);
+        if (op === "MOD") {
+      const b = stack.pop();
+      const a = stack.pop();
+      stack.push(a % b);
+      continue;
+    }
+
+    throw new Error("Unknown op: " + op);
     }
   }
 

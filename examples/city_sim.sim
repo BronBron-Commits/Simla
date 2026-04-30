@@ -1,0 +1,103 @@
+(begin
+  ;; Simλ Living City v2
+  ;; Neighborhood day cycle:
+  ;; morning -> afternoon commute -> work -> evening home
+
+  (let tick (get state "tick"))
+  (let entities (get state "entities"))
+
+  ;; repeating day cycle
+  ;; 0-5 morning/home
+  ;; 6-13 afternoon/work commute
+  ;; 14-19 work
+  ;; 20-27 evening/home commute
+  (let dayTick (mod tick 28))
+
+  (let phase
+    (if (lt dayTick 6)
+      "morning"
+      (if (lt dayTick 14)
+        "afternoon"
+        (if (lt dayTick 20)
+          "work"
+          "evening"
+        )
+      )
+    )
+  )
+
+  (let stepToward
+    (fn (from to)
+      (if (lt from to)
+        (add from 1)
+        (if (gt from to)
+          (sub from 1)
+          from
+        )
+      )
+    )
+  )
+
+  (let updateCitizen
+    (fn (e)
+      (let tile (get e "tile"))
+      (let home (get e "home"))
+      (let job (get e "job"))
+      (let money (get e "money"))
+
+      (let target
+        (if (eq phase "afternoon")
+          job
+          (if (eq phase "work")
+            job
+            home
+          )
+        )
+      )
+
+      (let nextTile (stepToward tile target))
+      (let atJob (eq nextTile job))
+
+      (let earned
+        (if (eq phase "work")
+          (if atJob 2 0)
+          0
+        )
+      )
+
+      (list
+        "id" (get e "id")
+        "type" "citizen"
+        "tile" nextTile
+        "home" home
+        "job" job
+        "money" (add money earned)
+        "mode" phase
+      )
+    )
+  )
+
+  (let updated
+    (map
+      (fn (e)
+        (if (eq (get e "type") "citizen")
+          (updateCitizen e)
+          e
+        )
+      )
+      entities
+    )
+  )
+
+  (list
+    "state"
+      (list
+        "tick" (add tick 1)
+        "phase" phase
+        "entities" updated
+      )
+
+    "events" (list)
+    "result" "running"
+  )
+)

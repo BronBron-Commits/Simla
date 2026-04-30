@@ -116,6 +116,7 @@ if (name === "get") {
       sub: "SUB",
       mul: "MUL",
       div: "DIV",
+      mod: "MOD",
       min: "MIN",
       max: "MAX",
       or: "OR",
