@@ -414,6 +414,19 @@
     )
   )
 
+  (let allEnemiesDead
+    (if (get nextEnemy2 "dead")
+      (if (get nextEnemy3 "dead")
+        (if (get nextEnemy4 "dead")
+          1
+          0
+        )
+        0
+      )
+      0
+    )
+  )
+
   (list
     "state"
       (list
@@ -424,7 +437,7 @@
     "result"
       (if playerDead
         "defeat"
-        (if enemyDead
+        (if allEnemiesDead
           "victory"
           "ongoing"
         )

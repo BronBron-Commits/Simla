@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simλ Combat Simulation</title>
+  <style>
+    body { margin:0; background:#050713; color:#fff; font-family:monospace; overflow:hidden; }
+    canvas { display:block; width:100vw; height:100vh; background:#050713; }
+    #hud {
+      position:fixed;
+      left:10px; top:10px; right:10px;
+      background:rgba(0,0,0,.62);
+      border:1px solid rgba(255,255,255,.18);
+      padding:8px;
+      font-size:12px;
+      white-space:pre-wrap;
+      z-index:10;
+      max-height:30vh;
+      overflow:auto;
+    }
+  </style>
+</head>
+<body>
+<div id="hud">loading...</div>
+<canvas id="view"></canvas>
+
+<script type="module">
+import { parse } from "./src/parser.js";
+import { run } from "./src/vm.js";
+import { compile } from "./src/compiler.js";
+
+const hud = document.getElementById("hud");
+const canvas = document.getElementById("view");
+const ctx = canvas.getContext("2d");
+
+function tokenize(code) {
+  return code.replace(/;;.*$/gm,"")
+    .replace(/\(/g," ( ")
+    .replace(/\)/g," ) ")
+    .match(/"[^"]*"|\S+/g);
+}
+
+function get(e,k,f){
+  if(!Array.isArray(e)) return f;
+  for(let i=0;i<e.length;i+=2)
+    if(e[i]===k) return e[i+1];
+  return f;
+}
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
+
+let bytecode;
+let status = "loading";
+let stepIndex = 0;
+let lastEvents = [];
+let lastAction = "boot";
+let lastStepTime = 0;
+let eventAnims = [];
+
+let state = [
+  "round",1,
+  "entities",[
+    ["id",1,"team","player","hp",40,"tile",7,"attack",8,"move",4,"dead",0,"scale",1.35],
+    ["id",2,"team","enemy","hp",10,"tile",10,"attack",3,"move",2,"dead",0],
+    ["id",3,"team","enemy","hp",8,"tile",12,"attack",2,"move",2,"dead",0],
+    ["id",4,"team","enemy","hp",12,"tile",14,"attack",4,"move",1,"dead",0]
+  ]
+];
+
+const script = [
+  ["move", 9],
+  ["end", 0],
+  ["end", 0],
+
+  ["attack", 2],
+  ["attack", 2],
+
+  ["attack", 3],
+  ["attack", 3],
+
+  ["end", 0],
+  ["end", 0],
+
+  ["attack", 4],
+  ["attack", 4]
+];
+
+async function init(){
+  try {
+    const code = await fetch("./examples/combat_loop_multi_enemy.sim").then(r => {
+      if (!r.ok) throw new Error("fetch failed " + r.status);
+      return r.text();
+    });
+    const ast = parse(tokenize(code));
+    bytecode = compile(ast);
+    status = "ongoing";
+    requestAnimationFrame(frame);
+  } catch (err) {
+    hud.textContent = "INIT ERROR:\n" + (err.stack || err);
+  }
+}
+
+function act(type, val){
+  const result = run(bytecode,{
+    state,
+    actionType: type,
+    actorId:1,
+    targetId: type==="attack"?val:0,
+    actionTile: type==="move"?val:0
+  }).result;
+
+  state = get(result,"state",state);
+  lastEvents = (get(result,"events",[]) || []).filter(Array.isArray);
+  status = get(result,"result","unknown");
+  lastAction = type + ":" + val;
+
+  for (const ev of lastEvents) {
+    if (ev[0] === "attack") {
+      eventAnims.push({ type:"attack", attacker:ev[1], target:ev[2], dmg:ev[3], t:0 });
+      eventAnims.push({ type:"damage", target:ev[2], dmg:ev[3], t:0 });
+    }
+    if (ev[0] === "move") {
+      eventAnims.push({ type:"move", id:ev[1], from:ev[2], to:ev[3], t:0 });
+    }
+    if (ev[0] === "death") {
+      eventAnims.push({ type:"death", id:ev[1], t:0 });
+    }
+  }
+}
+
+function maybeStep(time){
+  if(status !== "ongoing") return;
+  if(stepIndex >= script.length) return;
+  if(time - lastStepTime < 1100) return;
+
+  const [type,val] = script[stepIndex++];
+  act(type,val);
+  lastStepTime = time;
+}
+
+function frame(time){
+  maybeStep(time);
+
+  for (const a of eventAnims) a.t += 0.045;
+  eventAnims = eventAnims.filter(a => a.t < 1.4);
+
+  draw(time);
+  requestAnimationFrame(frame);
+}
+
+function entityPos(e, TILE_SIZE, offsetX, offsetY) {
+  const id = get(e,"id");
+  const team = get(e,"team");
+  let tile = get(e,"tile");
+
+  for (const a of eventAnims) {
+    if (a.type === "move" && a.id === id && a.t < 1) {
+      const k = ease(a.t);
+      tile = a.from + (a.to - a.from) * k;
+    }
+  }
+
+  let x = offsetX + tile*TILE_SIZE + TILE_SIZE*0.28;
+  let y = team==="player" ? offsetY+TILE_SIZE+52 : offsetY-TILE_SIZE-42;
+
+  for (const a of eventAnims) {
+    if (a.type === "attack" && a.attacker === id && a.t < 0.45) {
+      const dir = team === "player" ? -1 : 1;
+      x += dir * Math.sin(a.t * Math.PI / 0.45) * 26;
+    }
+    if (a.type === "attack" && a.target === id && a.t < 0.25) {
+      x += Math.sin(a.t * 80) * 5;
+    }
+  }
+
+  return {x,y};
+}
+
+function ease(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t*t*(3-2*t);
+}
+
+function drawFighter(e, pos, time) {
+  const id = get(e,"id");
+  const team = get(e,"team");
+  const hp = get(e,"hp");
+  const dead = get(e,"dead");
+  const maxHp = team === "player" ? 40 : (id === 2 ? 10 : id === 3 ? 8 : 12);
+  const scale = get(e, "scale", 1);
+
+  const isPlayer = team === "player";
+  const color = isPlayer ? "#4aa8ff" : "#ff5757";
+  const dark = isPlayer ? "#1f5f9f" : "#8f2222";
+
+  const bodyScale = isPlayer ? 1.55 : 1.0;
+  const weaponScale = isPlayer ? 1.75 : 1.0;
+  const bodyWidth = isPlayer ? 11 : 8;
+  const limbWidth = isPlayer ? 8 : 6;
+  const headSize = isPlayer ? 15 : 11;
+
+  const hit = eventAnims.some(a => a.type === "attack" && a.target === id && a.t < 0.28);
+  const death = dead || eventAnims.some(a => a.type === "death" && a.id === id);
+  const attack = eventAnims.some(a => a.type === "attack" && a.attacker === id && a.t < 0.45);
+
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+
+  if (death) {
+    ctx.rotate(1.15);
+    ctx.globalAlpha = 0.55;
+  }
+
+  ctx.scale(bodyScale, bodyScale);
+
+  ctx.scale(scale, scale);
+
+  if (hit) {
+    ctx.shadowColor = "#fff";
+    ctx.shadowBlur = 22;
+  }
+
+  const bob = Math.sin(time * 0.006 + id) * 2;
+  const armSwing = attack ? 1 : Math.sin(time * 0.008 + id) * 0.25;
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // shadow
+  ctx.globalAlpha *= 0.45;
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.ellipse(0, 35, 24, 8, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha = death ? 0.55 : 1;
+
+  // legs
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = limbWidth;
+  ctx.beginPath();
+  ctx.moveTo(-7, 17+bob);
+  ctx.lineTo(-15, 34+bob);
+  ctx.moveTo(7, 17+bob);
+  ctx.lineTo(15, 34+bob);
+  ctx.stroke();
+
+  // body
+  ctx.strokeStyle = color;
+  ctx.lineWidth = bodyWidth;
+  ctx.beginPath();
+  ctx.moveTo(0, -8+bob);
+  ctx.lineTo(0, 18+bob);
+  ctx.stroke();
+
+  // arms
+  ctx.strokeStyle = hit ? "#fff" : color;
+  ctx.lineWidth = limbWidth;
+  ctx.beginPath();
+  if (isPlayer) {
+    ctx.moveTo(0, 0+bob);
+    ctx.lineTo(-15, 12+bob);
+    ctx.moveTo(0, 0+bob);
+    ctx.lineTo(18 + armSwing*18, -2+bob);
+  } else {
+    ctx.moveTo(0, 0+bob);
+    ctx.lineTo(15, 12+bob);
+    ctx.moveTo(0, 0+bob);
+    ctx.lineTo(-18 - armSwing*18, -2+bob);
+  }
+  ctx.stroke();
+
+  // weapon
+  ctx.strokeStyle = isPlayer ? "#dff6ff" : "#ffd0d0";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (isPlayer) {
+    ctx.moveTo(18 + armSwing*18, -2+bob);
+    ctx.lineTo((34 + armSwing*22) * weaponScale, (-18+bob) * weaponScale);
+  } else {
+    ctx.moveTo(-18 - armSwing*18, -2+bob);
+    ctx.lineTo(-34 - armSwing*22, -18+bob);
+  }
+  ctx.stroke();
+
+  // head
+  ctx.fillStyle = hit ? "#fff" : color;
+  ctx.beginPath();
+  ctx.arc(0, -22+bob, headSize, 0, Math.PI*2);
+  ctx.fill();
+
+  // hp bar
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#1b2436";
+  ctx.fillRect(-24, -52, 48, 6);
+  ctx.fillStyle = hp <= 0 ? "#555" : "#59ff8a";
+  ctx.fillRect(-24, -52, 48 * Math.max(0, hp / maxHp), 6);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "12px monospace";
+  ctx.fillText("id " + id, -14, -60);
+  ctx.fillText(String(hp), -7, -40);
+
+  ctx.restore();
+}
+
+function drawDamageNumbers(entities, TILE_SIZE, offsetX, offsetY) {
+  for (const a of eventAnims) {
+    if (a.type !== "damage") continue;
+    const target = entities.find(e => get(e,"id") === a.target);
+    if (!target) continue;
+
+    const pos = entityPos(target, TILE_SIZE, offsetX, offsetY);
+    const rise = a.t * 44;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - a.t);
+    ctx.fillStyle = "#ffd166";
+    ctx.font = "bold 20px monospace";
+    ctx.fillText("-" + a.dmg, pos.x - 10, pos.y - 70 - rise);
+    ctx.restore();
+  }
+}
+
+function draw(time){
+  ctx.fillStyle="#050713";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const entities = get(state,"entities",[]);
+  const TILE_SIZE = Math.min(64, Math.max(34, canvas.width / 18));
+  const offsetX = canvas.width/2 - (16*TILE_SIZE)/2;
+  const offsetY = canvas.height*0.55;
+
+  // arena glow
+  const g = ctx.createRadialGradient(canvas.width/2, offsetY, 10, canvas.width/2, offsetY, canvas.width*0.75);
+  g.addColorStop(0, "rgba(40,80,140,.25)");
+  g.addColorStop(1, "rgba(5,7,19,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // grid
+  for(let i=0;i<16;i++){
+    const x = offsetX + i*TILE_SIZE;
+    const y = offsetY;
+
+    ctx.strokeStyle="#26364f";
+    ctx.lineWidth=1;
+    ctx.strokeRect(x,y,TILE_SIZE-4,TILE_SIZE-4);
+
+    ctx.fillStyle="#5f708a";
+    ctx.font = "12px monospace";
+    ctx.fillText(i,x+8,y+TILE_SIZE+12);
+  }
+
+  // event lines
+  for (const ev of lastEvents) {
+    if (!Array.isArray(ev) || ev[0] !== "attack") continue;
+
+    const a = entities.find(e => get(e,"id") === ev[1]);
+    const b = entities.find(e => get(e,"id") === ev[2]);
+    if (!a || !b) continue;
+
+    const pa = entityPos(a, TILE_SIZE, offsetX, offsetY);
+    const pb = entityPos(b, TILE_SIZE, offsetX, offsetY);
+
+    ctx.strokeStyle = "rgba(255,255,255,.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y-20);
+    ctx.lineTo(pb.x, pb.y-20);
+    ctx.stroke();
+  }
+
+  for(const e of entities){
+    const pos = entityPos(e, TILE_SIZE, offsetX, offsetY);
+    drawFighter(e, pos, time);
+  }
+
+  drawDamageNumbers(entities, TILE_SIZE, offsetX, offsetY);
+
+  hud.textContent =
+    "Simλ visual combat simulation" +
+    "\nstep: " + stepIndex + "/" + script.length +
+    "\naction: " + lastAction +
+    "\nstatus: " + status +
+    "\nevents: " + JSON.stringify(lastEvents);
+}
+
+init();
+</script>
+</body>
+</html>

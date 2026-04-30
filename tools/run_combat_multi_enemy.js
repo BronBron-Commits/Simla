@@ -56,7 +56,7 @@ const bytecode = compile(ast);
 let state = [
   "round", 1,
   "entities", [
-    ["id", 1, "team", "player", "hp", 24, "tile", 7, "attack", 4, "move", 3, "dead", 0],
+    ["id", 1, "team", "player", "hp", 40, "tile", 7, "attack", 8, "move", 4, "dead", 0, "scale", 1.35],
     ["id", 2, "team", "enemy", "hp", 10, "tile", 10, "attack", 3, "move", 2, "dead", 0],
     ["id", 3, "team", "enemy", "hp", 8, "tile", 12, "attack", 2, "move", 2, "dead", 0],
     ["id", 4, "team", "enemy", "hp", 12, "tile", 14, "attack", 4, "move", 1, "dead", 0]
