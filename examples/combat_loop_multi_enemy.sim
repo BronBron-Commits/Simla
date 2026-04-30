@@ -147,9 +147,46 @@
     )
   )
 
+  (let enemy3Tile (get enemy3 "tile"))
+  (let enemy4Tile (get enemy4 "tile"))
+
+  (let enemy3DistA (sub nextPlayerTile enemy3Tile))
+  (let enemy3DistB (sub enemy3Tile nextPlayerTile))
+  (let enemy3Distance (if (lt enemy3DistA 0) enemy3DistB enemy3DistA))
+  (let enemy3Adjacent (if (gt enemy3Distance attackRange) 0 1))
+
+  (let enemy4DistA (sub nextPlayerTile enemy4Tile))
+  (let enemy4DistB (sub enemy4Tile nextPlayerTile))
+  (let enemy4Distance (if (lt enemy4DistA 0) enemy4DistB enemy4DistA))
+  (let enemy4Adjacent (if (gt enemy4Distance attackRange) 0 1))
+
+  (let enemy3Attacks
+    (if isEnd
+      (if (get enemy3 "dead") 0 enemy3Adjacent)
+      0
+    )
+  )
+
+  (let enemy4Attacks
+    (if isEnd
+      (if (get enemy4 "dead") 0 enemy4Adjacent)
+      0
+    )
+  )
+
+  (let totalEnemyDamage
+    (add
+      (if enemyAttacks enemyAttack 0)
+      (add
+        (if enemy3Attacks (get enemy3 "attack") 0)
+        (if enemy4Attacks (get enemy4 "attack") 0)
+      )
+    )
+  )
+
   (let playerHpAfterEnemy
-    (if enemyAttacks
-      (sub playerHp enemyAttack)
+    (if isEnd
+      (sub playerHp totalEnemyDamage)
       playerHp
     )
   )
@@ -208,8 +245,6 @@
 
   ;; Enemy 3/4 basic end-turn chase.
   ;; Enemy 2 still uses the existing single-enemy attack/move logic above.
-  (let enemy3Tile (get enemy3 "tile"))
-  (let enemy4Tile (get enemy4 "tile"))
 
   (let enemy3Step
     (if (lt enemy3Tile nextPlayerTile)
@@ -233,14 +268,20 @@
 
   (let nextEnemy3Tile
     (if isEnd
-      (if (get enemy3 "dead") enemy3Tile enemy3Step)
+      (if (get enemy3 "dead")
+        enemy3Tile
+        (if enemy3Attacks enemy3Tile enemy3Step)
+      )
       enemy3Tile
     )
   )
 
   (let nextEnemy4Tile
     (if isEnd
-      (if (get enemy4 "dead") enemy4Tile enemy4Step)
+      (if (get enemy4 "dead")
+        enemy4Tile
+        (if enemy4Attacks enemy4Tile enemy4Step)
+      )
       enemy4Tile
     )
   )
@@ -298,9 +339,21 @@
   )
 
   (let enemyAttackEvent
-    (if enemyAttacks
-      (list (list "attack" (get enemy "id") (get player "id") enemyAttack))
-      (list)
+    (concat
+      (if enemyAttacks
+        (list (list "attack" (get enemy "id") (get player "id") enemyAttack))
+        (list)
+      )
+      (concat
+        (if enemy3Attacks
+          (list (list "attack" (get enemy3 "id") (get player "id") (get enemy3 "attack")))
+          (list)
+        )
+        (if enemy4Attacks
+          (list (list "attack" (get enemy4 "id") (get player "id") (get enemy4 "attack")))
+          (list)
+        )
+      )
     )
   )
 
@@ -317,14 +370,20 @@
         (if isEnd
           (if (get enemy3 "dead")
             (list)
-            (list (list "move" (get enemy3 "id") enemy3Tile nextEnemy3Tile))
+            (if enemy3Attacks
+              (list)
+              (list (list "move" (get enemy3 "id") enemy3Tile nextEnemy3Tile))
+            )
           )
           (list)
         )
         (if isEnd
           (if (get enemy4 "dead")
             (list)
-            (list (list "move" (get enemy4 "id") enemy4Tile nextEnemy4Tile))
+            (if enemy4Attacks
+              (list)
+              (list (list "move" (get enemy4 "id") enemy4Tile nextEnemy4Tile))
+            )
           )
           (list)
         )
@@ -382,7 +441,7 @@
         "canMove" canMove
         "playerCanAttack" playerCanAttack
         "enemyActs" enemyActs
-        "enemyAttacks" enemyAttacks
+        "enemyAttacks" totalEnemyDamage
       )
   )
 )
