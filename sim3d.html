@@ -371,12 +371,15 @@
       const size = get(obj, "size") || 1;
       const col = colorOf(obj, [120, 220, 255]);
 
-      // idle motion
-      const bob = Math.sin(t * 0.004) * 0.08;
-      const sway = Math.sin(t * 0.003) * 0.2;
+      const id = get(obj, "id") || 0;
+      const isEnemy = id === 101;
+
+      const bob = Math.sin(t * 0.004 + id) * 0.07;
+      const sway = Math.sin(t * 0.003 + id) * 0.16;
+      const breathe = 1 + Math.sin(t * 0.005 + id) * 0.04;
 
       function P(x, y, z) {
-        let p = [x * size, (y + bob) * size, z * size];
+        let p = [x * size * breathe, (y + bob) * size, z * size];
         p = rotateY(p, sway);
         return project([p[0] + ox, p[1] + oy, p[2] + oz]);
       }
@@ -391,88 +394,114 @@
         ctx.globalAlpha = 1;
       }
 
-      const d = 0.22;
+      function dot(p, r, alpha = 1) {
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], r * size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
 
-      // proportions
-      const headY = 1.25;
-      const chestY = 0.45;
-      const hipsY = -0.35;
+      function poly(points, alpha = 1) {
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
 
-      const shoulderW = 0.55;
-      const armReach = 0.85;
-      const legSpread = 0.3;
+      const d = 0.24;
 
-      // front
-      const headF = P(0, headY, -d);
-      const neckF = P(0, 0.85, -d);
-      const chestF = P(0, chestY, -d);
-      const hipsF = P(0, hipsY, -d);
-      const lShoulderF = P(-shoulderW, 0.65, -d);
-      const rShoulderF = P(shoulderW, 0.65, -d);
-      const lHandF = P(-armReach, -0.05, -d);
-      const rHandF = P(armReach, -0.05, -d);
-      const lFootF = P(-legSpread, -1.2, -d);
-      const rFootF = P(legSpread, -1.2, -d);
+      const head = P(0, 1.28, -d);
+      const neck = P(0, 0.88, -d);
+      const chest = P(0, 0.45, -d);
+      const hips = P(0, -0.35, -d);
 
-      // back
-      const headB = P(0, headY, d);
-      const neckB = P(0, 0.85, d);
-      const chestB = P(0, chestY, d);
-      const hipsB = P(0, hipsY, d);
-      const lShoulderB = P(-shoulderW, 0.65, d);
-      const rShoulderB = P(shoulderW, 0.65, d);
-      const lHandB = P(-armReach, -0.05, d);
-      const rHandB = P(armReach, -0.05, d);
-      const lFootB = P(-legSpread, -1.2, d);
-      const rFootB = P(legSpread, -1.2, d);
+      const lShoulder = P(-0.52, 0.68, -d);
+      const rShoulder = P(0.52, 0.68, -d);
+      const lElbow = P(-0.72, 0.25, -d);
+      const rElbow = P(0.72, 0.25, -d);
+      const lHand = P(-0.82, -0.12, -d);
+      const rHand = P(0.82, -0.12, -d);
+
+      const lKnee = P(-0.26, -0.78, -d);
+      const rKnee = P(0.26, -0.78, -d);
+      const lFoot = P(-0.36, -1.24, -d);
+      const rFoot = P(0.36, -1.24, -d);
+
+      const chestL = P(-0.38, 0.55, -d);
+      const chestR = P(0.38, 0.55, -d);
+      const waistL = P(-0.25, -0.25, -d);
+      const waistR = P(0.25, -0.25, -d);
 
       ctx.save();
+
       ctx.strokeStyle = col.css;
       ctx.fillStyle = col.css;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = isEnemy ? 26 : 22;
       ctx.shadowColor = col.css;
       ctx.lineCap = "round";
+      ctx.lineJoin = "round";
 
-      // back (dim)
-      line(neckB, hipsB, 4, 0.3);
-      line(lShoulderB, rShoulderB, 4, 0.3);
-      line(lShoulderB, lHandB, 3, 0.3);
-      line(rShoulderB, rHandB, 3, 0.3);
-      line(hipsB, lFootB, 3, 0.3);
-      line(hipsB, rFootB, 3, 0.3);
+      // armor torso
+      ctx.lineWidth = 2;
+      poly([chestL, chestR, waistR, hips, waistL], 0.32);
 
-      // connectors (depth)
-      line(headF, headB, 2, 0.4);
-      line(chestF, chestB, 2, 0.4);
-      line(hipsF, hipsB, 2, 0.4);
+      // spine / body core
+      line(head, neck, 5, 0.9);
+      line(neck, chest, 7, 1);
+      line(chest, hips, 7, 1);
 
-      // front (bright)
-      line(neckF, chestF, 5, 1);
-      line(chestF, hipsF, 5, 1);
-      line(lShoulderF, rShoulderF, 5, 1);
-      line(lShoulderF, lHandF, 4, 1);
-      line(rShoulderF, rHandF, 4, 1);
-      line(hipsF, lFootF, 4, 1);
-      line(hipsF, rFootF, 4, 1);
+      // shoulders and arms
+      line(lShoulder, rShoulder, 7, 1);
+      line(lShoulder, lElbow, 5, 1);
+      line(lElbow, lHand, 4, 1);
+      line(rShoulder, rElbow, 5, 1);
+      line(rElbow, rHand, 4, 1);
 
-      // head (sphere hint)
-      ctx.globalAlpha = 0.3;
+      // legs
+      line(hips, lKnee, 5, 1);
+      line(lKnee, lFoot, 4, 1);
+      line(hips, rKnee, 5, 1);
+      line(rKnee, rFoot, 4, 1);
+
+      // joints
+      dot(lShoulder, 5, 0.95);
+      dot(rShoulder, 5, 0.95);
+      dot(lHand, 4.5, 0.95);
+      dot(rHand, 4.5, 0.95);
+      dot(lFoot, 5, 0.95);
+      dot(rFoot, 5, 0.95);
+
+      // head glow + face
+      ctx.globalAlpha = 0.22;
       ctx.beginPath();
-      ctx.arc(headB[0], headB[1], Math.max(5, 11 * size), 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(head[0], head[1], Math.max(10, 20 * size), 0, Math.PI * 2);
+      ctx.fill();
 
       ctx.globalAlpha = 1;
       ctx.beginPath();
-      ctx.arc(headF[0], headF[1], Math.max(6, 13 * size), 0, Math.PI * 2);
+      ctx.arc(head[0], head[1], Math.max(7, 14 * size), 0, Math.PI * 2);
       ctx.fill();
 
-      // weapon (simple line from right hand)
-      const weaponTip = P(armReach + 0.6, -0.1, -d);
-      ctx.lineWidth = 4;
-      line(rHandF, weaponTip, 4, 1);
+      // weapon
+      const weaponTip = isEnemy
+        ? P(1.25, -0.55, -d)
+        : P(1.35, 0.12, -d);
+
+      ctx.strokeStyle = isEnemy ? "rgba(255,190,120,1)" : "rgba(220,245,255,1)";
+      ctx.shadowColor = ctx.strokeStyle;
+      line(rHand, weaponTip, 4, 1);
+
+      // small blade tip
+      dot(weaponTip, 4, 1);
 
       ctx.restore();
     }
+
     function drawRing(obj, t) {
       const ox = get(obj, "x");
       const oy = get(obj, "y");
