@@ -1,36 +1,101 @@
 (begin
-  (let PUSH 1)
-  (let ADD 2)
-  (let MUL 3)
-
   (let top (fn (xs) (nth xs (sub (len xs) 1))))
   (let drop2 (fn (xs) (slice xs 0 (sub (len xs) 2))))
 
+  (let env_get_at
+    (fn (env name i)
+      (if
+        (lt i 0)
+        0
+        (if
+          (eq (nth (nth env i) 0) name)
+          (nth (nth env i) 1)
+          (env_get_at env name (sub i 1))
+        )
+      )
+    )
+  )
+
+  (let env_get
+    (fn (env name)
+      (env_get_at env name (sub (len env) 1))
+    )
+  )
+
+  (let env_set
+    (fn (env name value)
+      (append env (list name value))
+    )
+  )
+
+  (let compile_seq
+    (fn (nodes i)
+      (if
+        (eq i (len nodes))
+        (list)
+        (concat
+          (compile (nth nodes i))
+          (compile_seq nodes (add i 1))
+        )
+      )
+    )
+  )
+
   (let compile
     (fn (node)
-
       (if
-        (eq (len node) 1)
-
-        (list PUSH (nth node 0))
+        (eq (type node) "number")
+        (list "PUSH" node)
 
         (if
-          (eq (nth node 0) "add")
+          (eq (nth node 0) "var")
+          (list "LOAD" (nth node 1))
 
-          (concat
-            (concat
-              (compile (nth node 1))
-              (compile (nth node 2))
-            )
-            (list ADD)
-          )
+          (if
+            (eq (nth node 0) "begin")
+            (compile_seq node 1)
 
-          (concat
-            (concat
-              (compile (nth node 1))
-              (compile (nth node 2))
+            (if
+              (eq (nth node 0) "let")
+              (concat
+                (compile (nth node 2))
+                (list "STORE" (nth node 1))
+              )
+
+              (if
+                (eq (nth node 0) "if")
+                (list
+                  "IF"
+                  (compile (nth node 1))
+                  (compile (nth node 2))
+                  (compile (nth node 3))
+                )
+
+                (if
+                  (eq (nth node 0) "add")
+                  (concat
+                    (concat
+                      (compile (nth node 1))
+                      (compile (nth node 2))
+                    )
+                    (list "ADD")
+                  )
+
+                  (if
+                    (eq (nth node 0) "mul")
+                    (concat
+                      (concat
+                        (compile (nth node 1))
+                        (compile (nth node 2))
+                      )
+                      (list "MUL")
+                    )
+
+                    0
+                  )
+                )
+              )
             )
-            (list MUL)
           )
         )
       )
@@ -38,42 +103,96 @@
   )
 
   (let exec
-    (fn (code stack ip)
+    (fn (code stack env ip)
       (if
         (eq ip (len code))
-
-        (top stack)
+        (list (top stack) env)
 
         (if
-          (eq (nth code ip) PUSH)
-
-          (exec code (append stack (nth code (add ip 1))) (add ip 2))
+          (eq (nth code ip) 0)
+          (list (top stack) env)
 
           (if
-            (eq (nth code ip) ADD)
+            (eq (nth code ip) "PUSH")
+            (exec code (append stack (nth code (add ip 1))) env (add ip 2))
 
-            (exec
-              code
-              (append
-                (drop2 stack)
-                (add
-                  (nth stack (sub (len stack) 2))
-                  (nth stack (sub (len stack) 1))
+            (if
+              (eq (nth code ip) "LOAD")
+              (exec code (append stack (env_get env (nth code (add ip 1)))) env (add ip 2))
+
+              (if
+                (eq (nth code ip) "STORE")
+                (exec
+                  code
+                  (slice stack 0 (sub (len stack) 1))
+                  (env_set env (nth code (add ip 1)) (top stack))
+                  (add ip 2)
+                )
+
+                (if
+                  (eq (nth code ip) "ADD")
+                  (exec
+                    code
+                    (append
+                      (drop2 stack)
+                      (add
+                        (nth stack (sub (len stack) 2))
+                        (nth stack (sub (len stack) 1))
+                      )
+                    )
+                    env
+                    (add ip 1)
+                  )
+
+                  (if
+                    (eq (nth code ip) "MUL")
+                    (exec
+                      code
+                      (append
+                        (drop2 stack)
+                        (mul
+                          (nth stack (sub (len stack) 2))
+                          (nth stack (sub (len stack) 1))
+                        )
+                      )
+                      env
+                      (add ip 1)
+                    )
+
+                    (if
+                      (eq (nth code ip) "IF")
+                      (begin
+                        (let cond_result (exec (nth code (add ip 1)) (list) env 0))
+                        (if
+                          (nth cond_result 0)
+
+                          (begin
+                            (let then_result (exec (nth code (add ip 2)) (list) env 0))
+                            (exec
+                              code
+                              (append stack (nth then_result 0))
+                              (nth then_result 1)
+                              (add ip 4)
+                            )
+                          )
+
+                          (begin
+                            (let else_result (exec (nth code (add ip 3)) (list) env 0))
+                            (exec
+                              code
+                              (append stack (nth else_result 0))
+                              (nth else_result 1)
+                              (add ip 4)
+                            )
+                          )
+                        )
+                      )
+
+                      0
+                    )
+                  )
                 )
               )
-              (add ip 1)
-            )
-
-            (exec
-              code
-              (append
-                (drop2 stack)
-                (mul
-                  (nth stack (sub (len stack) 2))
-                  (nth stack (sub (len stack) 1))
-                )
-              )
-              (add ip 1)
             )
           )
         )
@@ -81,14 +200,16 @@
     )
   )
 
-  (exec
-    (compile
-      (list "mul"
-        (list "add" (list 2) (list 3))
-        (list 4)
-      )
+  (let run
+    (fn (ast)
+      (nth (exec (compile ast) (list) (list) 0) 0)
     )
-    (list)
-    0
+  )
+
+  (list
+    (run (list "begin" (list "let" "x" 5) (list "add" (list "var" "x") 2)))
+    (run (list "if" 1 10 20))
+    (run (list "if" 0 10 20))
+    (run (list "begin" (list "let" "x" 4) (list "mul" (list "var" "x") 3)))
   )
 )
