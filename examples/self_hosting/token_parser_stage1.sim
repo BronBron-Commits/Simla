@@ -1,0 +1,54 @@
+(begin
+  ;; Stage 1 parser:
+  ;; token list -> AST list
+
+  (let parse_until
+    (fn (tokens i acc)
+      (let tok (nth tokens i))
+
+      (if (eq tok ")")
+        (list acc (add i 1))
+
+        (if (eq tok "(")
+          (begin
+            (let nested (parse_until tokens (add i 1) (list)))
+            (let nested_raw (nth nested 0))
+            (let nested_ast (slice nested_raw 1 (len nested_raw)))
+            (let next_i (nth nested 1))
+            (parse_until tokens next_i (concat acc (list nested_ast)))
+          )
+
+          (parse_until tokens (add i 1) (concat acc (list tok)))
+        )
+      )
+    )
+  )
+
+  (let parse
+    (fn (tokens)
+      (let first (nth tokens 0))
+
+      (if (eq first "(")
+        (begin
+          (let parsed (parse_until tokens 1 (list)))
+          (let raw (nth parsed 0))
+          (slice raw 1 (len raw))
+        )
+        first
+      )
+    )
+  )
+
+  (let flat_tokens
+    (list "(" "add" 2 3 ")")
+  )
+
+  (let nested_tokens
+    (list "(" "add" 1 "(" "mul" 2 3 ")" ")")
+  )
+
+  (list
+    "flat" (parse flat_tokens)
+    "nested" (parse nested_tokens)
+  )
+)
