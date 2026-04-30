@@ -206,16 +206,79 @@
     )
   )
 
+  ;; Enemy 3/4 basic end-turn chase.
+  ;; Enemy 2 still uses the existing single-enemy attack/move logic above.
+  (let enemy3Tile (get enemy3 "tile"))
+  (let enemy4Tile (get enemy4 "tile"))
+
+  (let enemy3Step
+    (if (lt enemy3Tile nextPlayerTile)
+      (add enemy3Tile 1)
+      (if (gt enemy3Tile nextPlayerTile)
+        (sub enemy3Tile 1)
+        enemy3Tile
+      )
+    )
+  )
+
+  (let enemy4Step
+    (if (lt enemy4Tile nextPlayerTile)
+      (add enemy4Tile 1)
+      (if (gt enemy4Tile nextPlayerTile)
+        (sub enemy4Tile 1)
+        enemy4Tile
+      )
+    )
+  )
+
+  (let nextEnemy3Tile
+    (if isEnd
+      (if (get enemy3 "dead") enemy3Tile enemy3Step)
+      enemy3Tile
+    )
+  )
+
+  (let nextEnemy4Tile
+    (if isEnd
+      (if (get enemy4 "dead") enemy4Tile enemy4Step)
+      enemy4Tile
+    )
+  )
+
   (let nextEnemy2
     (if (eq targetId 2) nextEnemy enemy2)
   )
 
-  (let nextEnemy3
+  (let enemy3AfterAttack
     (if (eq targetId 3) nextEnemy enemy3)
   )
 
-  (let nextEnemy4
+  (let enemy4AfterAttack
     (if (eq targetId 4) nextEnemy enemy4)
+  )
+
+  (let nextEnemy3
+    (list
+      "id" (get enemy3AfterAttack "id")
+      "team" (get enemy3AfterAttack "team")
+      "hp" (get enemy3AfterAttack "hp")
+      "tile" nextEnemy3Tile
+      "attack" (get enemy3AfterAttack "attack")
+      "move" (get enemy3AfterAttack "move")
+      "dead" (get enemy3AfterAttack "dead")
+    )
+  )
+
+  (let nextEnemy4
+    (list
+      "id" (get enemy4AfterAttack "id")
+      "team" (get enemy4AfterAttack "team")
+      "hp" (get enemy4AfterAttack "hp")
+      "tile" nextEnemy4Tile
+      "attack" (get enemy4AfterAttack "attack")
+      "move" (get enemy4AfterAttack "move")
+      "dead" (get enemy4AfterAttack "dead")
+    )
   )
 
   (let nextEntities (list nextPlayer nextEnemy2 nextEnemy3 nextEnemy4))
@@ -242,12 +305,30 @@
   )
 
   (let enemyMoveEvent
-    (if enemyActs
-      (if enemyAttacks
+    (concat
+      (if enemyActs
+        (if enemyAttacks
+          (list)
+          (list (list "move" (get enemy "id") enemyTile nextEnemyTile))
+        )
         (list)
-        (list (list "move" (get enemy "id") enemyTile nextEnemyTile))
       )
-      (list)
+      (concat
+        (if isEnd
+          (if (get enemy3 "dead")
+            (list)
+            (list (list "move" (get enemy3 "id") enemy3Tile nextEnemy3Tile))
+          )
+          (list)
+        )
+        (if isEnd
+          (if (get enemy4 "dead")
+            (list)
+            (list (list "move" (get enemy4 "id") enemy4Tile nextEnemy4Tile))
+          )
+          (list)
+        )
+      )
     )
   )
 
