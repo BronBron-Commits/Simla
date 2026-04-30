@@ -175,6 +175,36 @@ if (name === "get") {
       return out;
     }
 
+      if (name === "strlen") {
+        compile(node.args[0], out);
+        out.push(["STRLEN"]);
+        return out;
+      }
+
+      if (name === "charat") {
+        compile(node.args[0], out);
+        compile(node.args[1], out);
+        out.push(["CHARAT"]);
+        return out;
+      }
+
+      if (name === "substr") {
+        compile(node.args[0], out);
+        compile(node.args[1], out);
+        compile(node.args[2], out);
+        out.push(["SUBSTR"]);
+        return out;
+      }
+
+
+      if (name === "strcat") {
+        compile(node.args[0], out);
+        compile(node.args[1], out);
+        out.push(["STRCAT"]);
+        return out;
+      }
+
+
 
     if (name === "concat") {
       compile(node.args[0], out);

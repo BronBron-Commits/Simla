@@ -1,0 +1,83 @@
+(begin
+  (let empty (slice (list 1) 1 1))
+
+  (let is_space
+    (fn (ch)
+      (if (eq ch " ") 1 0)
+    )
+  )
+
+  (let is_paren
+    (fn (ch)
+      (if
+        (eq ch "(")
+        1
+        (if (eq ch ")") 1 0)
+      )
+    )
+  )
+
+  (let flush_token
+    (fn (tokens current)
+      (if
+        (eq (strlen current) 0)
+        tokens
+        (concat tokens (list current))
+      )
+    )
+  )
+
+  (let tokenize_at
+    (fn (src i tokens current)
+      (if
+        (eq i (strlen src))
+
+        (flush_token tokens current)
+
+        (begin
+          (let ch (charat src i))
+
+          (if
+            (is_space ch)
+
+            (tokenize_at
+              src
+              (add i 1)
+              (flush_token tokens current)
+              ""
+            )
+
+            (if
+              (is_paren ch)
+
+              (tokenize_at
+                src
+                (add i 1)
+                (concat (flush_token tokens current) (list ch))
+                ""
+              )
+
+              (tokenize_at
+                src
+                (add i 1)
+                tokens
+                (strcat current ch)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (let tokenize
+    (fn (src)
+      (tokenize_at src 0 empty "")
+    )
+  )
+
+  (list
+    (tokenize "(add 2 3)")
+    (tokenize "(let inc (fn (x) (add x 1)))")
+  )
+)

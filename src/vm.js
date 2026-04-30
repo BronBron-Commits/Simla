@@ -227,7 +227,35 @@ case "LIST": {
 
       case "LEN": {
         const v = stack.pop();
-        stack.push(Array.isArray(v) ? v.length : 0);
+        stack.push(Array.isArray(v) || typeof v === "string" ? v.length : 0);
+        break;
+      }
+
+      case "STRLEN": {
+        const v = stack.pop();
+        stack.push(typeof v === "string" ? v.length : 0);
+        break;
+      }
+
+      case "CHARAT": {
+        const index = stack.pop();
+        const str = stack.pop();
+        stack.push(typeof str === "string" ? (str[index] ?? "") : "");
+        break;
+      }
+
+      case "SUBSTR": {
+        const end = stack.pop();
+        const start = stack.pop();
+        const str = stack.pop();
+        stack.push(typeof str === "string" ? str.slice(start, end) : "");
+        break;
+      }
+
+      case "STRCAT": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(String(a) + String(b));
         break;
       }
 
@@ -245,7 +273,9 @@ case "LIST": {
       case "NTH": {
         const index = stack.pop();
         const list = stack.pop();
-        stack.push(Array.isArray(list) ? list[index] ?? 0 : 0);
+        if (Array.isArray(list)) stack.push(list[index] ?? 0);
+        else if (typeof list === "string") stack.push(list[index] ?? "");
+        else stack.push(0);
         break;
       }
 

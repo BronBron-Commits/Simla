@@ -1,0 +1,11 @@
+(begin
+  (list
+    (type "(add 2 3)")
+    (len "(add 2 3)")
+    (strlen "(add 2 3)")
+    (nth "(add 2 3)" 0)
+    (nth "(add 2 3)" 1)
+    (charat "(add 2 3)" 1)
+    (substr "(add 2 3)" 1 4)
+  )
+)
