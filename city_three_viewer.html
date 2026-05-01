@@ -171,11 +171,39 @@ sun.shadow.mapSize.width = 2048;
 sun.shadow.mapSize.height = 2048;
 scene.add(sun);
 
-const groundMat = new THREE.MeshStandardMaterial({ color:0x1f4033, roughness:0.95 });
-const roadMat = new THREE.MeshStandardMaterial({ color:0x3a4650, roughness:0.92 });
-const homeMat = new THREE.MeshStandardMaterial({ color:0x3bbd77, roughness:0.8 });
-const roofMat = new THREE.MeshStandardMaterial({ color:0x9c4a34, roughness:0.9 });
-const jobMat = new THREE.MeshStandardMaterial({ color:0xc79a36, roughness:0.75 });
+function makeNoiseTexture(base, fleck, size = 128, count = 900) {
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const g = c.getContext("2d");
+
+  g.fillStyle = base;
+  g.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < count; i++) {
+    const a = 0.05 + Math.random() * 0.10;
+    g.fillStyle = fleck.replace("ALPHA", a.toFixed(3));
+    g.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(8, 8);
+  return tex;
+}
+
+const grassTex = makeNoiseTexture("#1f4033", "rgba(120,210,140,ALPHA)");
+const roadTex = makeNoiseTexture("#3a4650", "rgba(210,220,230,ALPHA)");
+const wallTex = makeNoiseTexture("#3bbd77", "rgba(255,255,255,ALPHA)", 128, 450);
+const officeTex = makeNoiseTexture("#c79a36", "rgba(255,245,180,ALPHA)", 128, 450);
+
+const groundMat = new THREE.MeshStandardMaterial({ map:grassTex, color:0xffffff, roughness:0.98 });
+const roadMat = new THREE.MeshStandardMaterial({ map:roadTex, color:0xffffff, roughness:0.94 });
+const homeMat = new THREE.MeshStandardMaterial({ map:wallTex, color:0xffffff, roughness:0.82 });
+const roofMat = new THREE.MeshStandardMaterial({ color:0xa54b34, roughness:0.88 });
+const jobMat = new THREE.MeshStandardMaterial({ map:officeTex, color:0xffffff, roughness:0.78 });
 const blueMat = new THREE.MeshStandardMaterial({ color:0x5ec8ff, roughness:0.55, emissive:0x123040 });
 const greenMat = new THREE.MeshStandardMaterial({ color:0x8df58d, roughness:0.55, emissive:0x143014 });
 const goldMat = new THREE.MeshStandardMaterial({ color:0xffd166, roughness:0.55, emissive:0x352500 });
@@ -243,6 +271,19 @@ function addTile(x, z, isRoad) {
   mesh.receiveShadow = true;
   mesh.position.set(x, 0, z);
   scene.add(mesh);
+
+  if (isRoad) {
+    const lineGeo = new THREE.BoxGeometry(TILE * 0.52, 0.012, 0.035);
+    const lineMat = new THREE.MeshStandardMaterial({
+      color: 0xd7d2a1,
+      roughness: 0.6,
+      emissive: 0x1c1808
+    });
+    const line = new THREE.Mesh(lineGeo, lineMat);
+    line.position.set(x, tileHeight(x, z) + 0.05, z);
+    line.rotation.y = Math.PI / 4;
+    scene.add(line);
+  }
 }
 
 function addHouse(id, tile) {
@@ -381,7 +422,7 @@ function stepSim() {
 
 function updateVisuals(time) {
   for (const [id, v] of visuals) {
-    v.t = Math.min(1, v.t + 0.018);
+    v.t = Math.min(1, v.t + 0.010);
     const k = v.t * v.t * (3 - 2 * v.t);
     v.current.x = v.from.x + (v.to.x - v.from.x) * k;
     v.current.z = v.from.z + (v.to.z - v.from.z) * k;
@@ -390,7 +431,9 @@ function updateVisuals(time) {
     if (mesh) {
       mesh.position.x = v.current.x;
       mesh.position.z = v.current.z;
-      mesh.position.y = tileHeight(v.current.x, v.current.z) + Math.sin(time * 0.008 + id) * 0.04;
+      const walking = v.t < 1 ? 1 : 0;
+      mesh.position.y = tileHeight(v.current.x, v.current.z) + Math.sin(time * 0.008 + id) * 0.035 * walking;
+      mesh.scale.y = 1 + Math.sin(time * 0.012 + id) * 0.025 * walking;
 
       const dx = v.to.x - v.from.x;
       const dz = v.to.z - v.from.z;
@@ -484,7 +527,7 @@ function applyDayNight(phase) {
 }
 
 function animate(time) {
-  if (time - lastStep > 900) {
+  if (time - lastStep > 1350) {
     stepSim();
     lastStep = time;
   }
