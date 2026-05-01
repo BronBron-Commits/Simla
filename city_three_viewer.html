@@ -404,6 +404,8 @@ function stepSim() {
     const target = tileToWorld(tile);
     const visual = visuals.get(id);
 
+    // Smooth movement uses world-space endpoints, not numeric tile interpolation.
+    // This prevents row-wrap visual jumps such as tile 5 -> 6.
     visuals.set(id, {
       from: visual ? {...visual.current} : target,
       to: target,
