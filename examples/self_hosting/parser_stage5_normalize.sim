@@ -1,0 +1,50 @@
+(begin
+  ;; normalize parsed AST into compiler AST
+
+  (let normalize
+    (fn (node)
+      (if
+        (eq (type node) "number")
+        node
+
+        (if
+          (eq (type node) "list")
+          (begin
+            (let head (nth node 0))
+
+            (if
+              (eq head "add")
+              (list
+                "add"
+                (normalize (nth node 1))
+                (normalize (nth node 2))
+              )
+
+              (if
+                (eq head "mul")
+                (list
+                  "mul"
+                  (normalize (nth node 1))
+                  (normalize (nth node 2))
+                )
+
+                node
+              )
+            )
+          )
+
+          node
+        )
+      )
+    )
+  )
+
+  (let ast
+    (list "add" 1 (list "mul" 2 3))
+  )
+
+  (list
+    "normalized"
+    (normalize ast)
+  )
+)
