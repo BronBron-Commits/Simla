@@ -506,6 +506,7 @@
 
       group.userData.lastPos = group.position.clone();
       group.userData.walkPhase = Math.random() * Math.PI * 2;
+      group.userData.variation = 0.75 + Math.random() * 0.55;
 
       return group;
     }
@@ -699,7 +700,8 @@
       const duration = 400;
 
       for (const state of agents.values()) {
-        const t = Math.min(1, (now - state.time) / duration);
+        const tRaw = Math.min(1, (now - state.time) / duration);
+        const t = tRaw * tRaw * (3 - 2 * tRaw);
 
         const oldX = state.group.position.x;
         const oldZ = state.group.position.z;
@@ -725,8 +727,9 @@
           state.group.userData.walkPhase += Math.min(0.35, speed * 24);
 
           const phase = state.group.userData.walkPhase;
-          const swing = Math.sin(phase) * Math.min(0.55, speed * 45);
-          const bob = Math.abs(Math.sin(phase)) * Math.min(0.08, speed * 7);
+          const v = state.group.userData.variation || 1;
+          const swing = Math.sin(phase) * Math.min(0.26 * v, speed * 20);
+          const bob = Math.abs(Math.sin(phase)) * Math.min(0.035 * v, speed * 4);
 
           parts.leftArm.rotation.x = swing;
           parts.rightArm.rotation.x = -swing;
@@ -742,10 +745,11 @@
           parts.head.rotation.y = 0;
         } else {
           const idle = now * 0.002 + state.group.userData.walkPhase;
-          const breathe = Math.sin(idle) * 0.03;
-          const sway = Math.sin(idle * 0.7) * 0.045;
-          const headTurn = Math.sin(idle * 0.45) * 0.22;
-          const armDrift = Math.sin(idle * 0.8) * 0.06;
+          const v = state.group.userData.variation || 1;
+          const breathe = Math.sin(idle) * 0.014 * v;
+          const sway = Math.sin(idle * 0.7) * 0.022 * v;
+          const headTurn = Math.sin(idle * 0.45) * 0.09 * v;
+          const armDrift = Math.sin(idle * 0.8) * 0.028 * v;
 
           parts.leftArm.rotation.x = 0.1 + armDrift;
           parts.rightArm.rotation.x = 0.1 - armDrift;
