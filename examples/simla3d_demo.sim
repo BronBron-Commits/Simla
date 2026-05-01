@@ -3,6 +3,10 @@
 
   (let t (mul tick 0.001))
 
+  ;; progress loops smoothly between 0 and 1 forever
+  (let progress (mul 0.5 (add 1 (sin (mul t 0.6)))))
+
+  ;; locations
   (let mallX 10)
   (let mallZ 8)
 
@@ -15,20 +19,27 @@
   (let homeBX -6)
   (let homeBZ -10)
 
-  (let aliceX (add -10 (sin t)))
-  (let aliceZ -4)
+  ;; moving agent positions
+  (let alicePos (move_between -10 -4 mallX mallZ progress))
+  (let bobPos (move_between -4 -4 shopX shopZ progress))
+  (let caraPos (move_between 4 2 homeAX homeAZ progress))
+  (let davePos (move_between 8 4 mallX mallZ progress))
+  (let erinPos (move_between 10 10 homeBX homeBZ progress))
 
-  (let bobX -4)
-  (let bobZ (add -4 (cos t)))
+  (let aliceX (nth alicePos 0))
+  (let aliceZ (nth alicePos 1))
 
-  (let caraX (add 4 (sin (mul t 0.5))))
-  (let caraZ 2)
+  (let bobX (nth bobPos 0))
+  (let bobZ (nth bobPos 1))
 
-  (let daveX 8)
-  (let daveZ (add 4 (cos (mul t 0.75))))
+  (let caraX (nth caraPos 0))
+  (let caraZ (nth caraPos 1))
 
-  (let erinX (add 10 (sin (mul t 1.25))))
-  (let erinZ 10)
+  (let daveX (nth davePos 0))
+  (let daveZ (nth davePos 1))
+
+  (let erinX (nth erinPos 0))
+  (let erinZ (nth erinPos 1))
 
   (scene
     (list
