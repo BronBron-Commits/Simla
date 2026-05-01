@@ -549,12 +549,12 @@
       let moveForward = 0;
       let moveRight = 0;
 
-      if (keys.has("w")) moveForward += 1;
-      if (keys.has("s")) moveForward -= 1;
+      if (keys.has("w")) moveForward -= 1;
+      if (keys.has("s")) moveForward += 1;
       if (keys.has("d")) moveRight += 1;
       if (keys.has("a")) moveRight -= 1;
 
-      moveForward += -moveStick.y;
+      moveForward += moveStick.y;
       moveRight += moveStick.x;
 
       const mag = Math.hypot(moveForward, moveRight);
