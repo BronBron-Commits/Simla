@@ -5,6 +5,7 @@ import { execFileSync } from "child_process";
 
 const PORT = Number(process.env.PORT || 8080);
 const ROOT = process.cwd();
+const START_TIME = Date.now();
 
 function send(res, status, type, body) {
   res.writeHead(status, { "Content-Type": type });
@@ -16,6 +17,16 @@ function safePath(urlPath) {
   const resolved = path.resolve(ROOT, "." + clean);
   if (!resolved.startsWith(ROOT)) return null;
   return resolved;
+}
+
+function injectTick(src, tick) {
+  const trimmed = src.trim();
+
+  if (trimmed.startsWith("(begin")) {
+    return trimmed.replace("(begin", `(begin\n  (let tick ${tick})`);
+  }
+
+  return `(begin\n  (let tick ${tick})\n  ${src}\n)`;
 }
 
 const server = http.createServer((req, res) => {
@@ -33,7 +44,10 @@ const server = http.createServer((req, res) => {
         encoding: "utf8"
       });
 
-      fs.writeFileSync(expandedPath, expanded);
+      const tick = Date.now() - START_TIME;
+      const withTick = injectTick(expanded, tick);
+
+      fs.writeFileSync(expandedPath, withTick);
 
       const output = execFileSync("node", ["tools/run_js_vm.js", expandedPath], {
         cwd: ROOT,
@@ -51,7 +65,9 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let filePath = url.pathname === "/" ? path.join(ROOT, "simla3d_viewer.html") : safePath(url.pathname);
+  const filePath = url.pathname === "/"
+    ? path.join(ROOT, "simla3d_viewer.html")
+    : safePath(url.pathname);
 
   if (!filePath || !fs.existsSync(filePath)) {
     send(res, 404, "text/plain", "Not found");

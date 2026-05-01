@@ -5,6 +5,21 @@
     )
   )
 
+  (let lerp
+    (fn (a b t)
+      (add a (mul (sub b a) t))
+    )
+  )
+
+  (let move_between
+    (fn (startX startZ targetX targetZ progress)
+      (list
+        (lerp startX targetX progress)
+        (lerp startZ targetZ progress)
+      )
+    )
+  )
+
   (let cube
     (fn (id x y z size color)
       (list
