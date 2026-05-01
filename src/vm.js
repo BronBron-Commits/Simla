@@ -556,7 +556,14 @@ case "LIST": {
 
 
   default:
-        if (op === "MOD") {
+        if (op === "DIV") {
+      const b = stack.pop();
+      const a = stack.pop();
+      stack.push(Math.floor(a / b));
+      continue;
+    }
+
+    if (op === "MOD") {
       const b = stack.pop();
       const a = stack.pop();
       stack.push(a % b);
