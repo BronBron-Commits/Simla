@@ -44,8 +44,8 @@
     .joystick {
       position: fixed;
       bottom: 28px;
-      width: 132px;
-      height: 132px;
+      width: 264px;
+      height: 264px;
       border-radius: 50%;
       background: rgba(255,255,255,0.18);
       border: 2px solid rgba(255,255,255,0.35);
@@ -57,10 +57,10 @@
 
     .joystick .knob {
       position: absolute;
-      left: 42px;
-      top: 42px;
-      width: 48px;
-      height: 48px;
+      left: 84px;
+      top: 84px;
+      width: 96px;
+      height: 96px;
       border-radius: 50%;
       background: rgba(255,255,255,0.72);
       border: 2px solid rgba(20,40,60,0.25);
@@ -164,7 +164,7 @@
       let activePointer = null;
 
       function setKnob(dx, dy) {
-        const max = 42;
+        const max = 84;
         const len = Math.hypot(dx, dy);
         const scale = len > max ? max / len : 1;
 
