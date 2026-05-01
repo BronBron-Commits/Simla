@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simla3D Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #071018;
+      color: #eaf6ff;
+      font-family: system-ui, sans-serif;
+    }
+
+    #hud {
+      position: fixed;
+      left: 16px;
+      top: 16px;
+      z-index: 10;
+      max-width: 420px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(5, 12, 20, 0.82);
+      border: 1px solid rgba(120, 180, 255, 0.25);
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+    }
+
+    #hud h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+
+    #hud p {
+      margin: 4px 0;
+      color: #b8cce0;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    #status {
+      margin-top: 8px;
+      color: #88ffcc;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    #error {
+      margin-top: 8px;
+      color: #ff7777;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <h1>Simla3D Viewer</h1>
+    <p>Scene source: <code>examples/simla3d_demo.sim</code></p>
+    <p>WASD / arrows move camera. Drag mouse to orbit.</p>
+    <div id="status">loading...</div>
+    <div id="error"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#071018");
+
+    const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 1000);
+    camera.position.set(12, 10, 18);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+    scene.add(ambient);
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    const keys = new Set();
+    let yaw = -0.65;
+    let pitch = -0.45;
+    let radius = 22;
+    let target = new THREE.Vector3(0, 0, 0);
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    window.addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
+    window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+
+    window.addEventListener("pointerdown", e => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    window.addEventListener("pointerup", () => {
+      dragging = false;
+    });
+
+    window.addEventListener("pointermove", e => {
+      if (!dragging) return;
+
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      yaw -= dx * 0.006;
+      pitch -= dy * 0.004;
+      pitch = Math.max(-1.25, Math.min(-0.12, pitch));
+    });
+
+    window.addEventListener("wheel", e => {
+      radius += e.deltaY * 0.015;
+      radius = Math.max(6, Math.min(60, radius));
+    });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    function pairsToObj(arr) {
+      const obj = {};
+
+      for (let i = 0; i < arr.length - 1; i += 2) {
+        obj[arr[i]] = arr[i + 1];
+      }
+
+      return obj;
+    }
+
+    function clearRoot() {
+      while (root.children.length) {
+        const obj = root.children.pop();
+        obj.traverse?.(child => {
+          child.geometry?.dispose?.();
+          child.material?.dispose?.();
+        });
+      }
+    }
+
+    function addFloor(o) {
+      const geo = new THREE.BoxGeometry(Number(o.w || 20), 0.12, Number(o.d || 20));
+      const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(o.color || "#203020") });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      mesh.position.set(Number(o.x || 0), Number(o.y || 0) - 0.06, Number(o.z || 0));
+      root.add(mesh);
+
+      const grid = new THREE.GridHelper(Math.max(Number(o.w || 20), Number(o.d || 20)), Math.max(Number(o.w || 20), Number(o.d || 20)));
+      grid.position.y = 0.02;
+      root.add(grid);
+    }
+
+    function addCube(o) {
+      const size = Number(o.size || 1);
+      const geo = new THREE.BoxGeometry(size, size, size);
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(o.color || "#ffffff"),
+        roughness: 0.65,
+        metalness: 0.05
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(Number(o.x || 0), Number(o.y || 0), Number(o.z || 0));
+      mesh.name = String(o.id || "cube");
+      root.add(mesh);
+
+      if (o.id) {
+        const label = makeLabel(String(o.id));
+        label.position.set(Number(o.x || 0), Number(o.y || 0) + size * 0.75, Number(o.z || 0));
+        root.add(label);
+      }
+    }
+
+    function addLight(o) {
+      const light = new THREE.DirectionalLight(
+        new THREE.Color(o.color || "#ffffff"),
+        Number(o.intensity || 1)
+      );
+
+      light.position.set(Number(o.x || 0), Number(o.y || 8), Number(o.z || 0));
+      root.add(light);
+    }
+
+    function applyCamera(o) {
+      target.set(Number(o.tx || 0), Number(o.ty || 0), Number(o.tz || 0));
+
+      const x = Number(o.x || 12);
+      const y = Number(o.y || 10);
+      const z = Number(o.z || 18);
+
+      camera.position.set(x, y, z);
+      radius = camera.position.distanceTo(target);
+      camera.lookAt(target);
+    }
+
+    function makeLabel(text) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 64;
+
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.font = "28px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 128, 32);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(2.4, 0.6, 1);
+
+      return sprite;
+    }
+
+    async function loadScene() {
+      errorEl.textContent = "";
+
+      try {
+        const res = await fetch("/api/scene?file=examples/simla3d_demo.sim&cacheBust=" + Date.now());
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error(JSON.stringify(data, null, 2));
+        }
+
+        clearRoot();
+
+        let count = 0;
+
+        for (const item of data) {
+          if (!Array.isArray(item)) continue;
+
+          const o = pairsToObj(item);
+
+          if (o.type === "floor") addFloor(o);
+          if (o.type === "cube") addCube(o);
+          if (o.type === "light") addLight(o);
+          if (o.type === "camera") applyCamera(o);
+
+          count++;
+        }
+
+        statusEl.textContent = `loaded ${count} Simla3D objects`;
+      } catch (err) {
+        errorEl.textContent = String(err.message || err);
+        statusEl.textContent = "scene load failed";
+      }
+    }
+
+    function updateCamera() {
+      const speed = 0.18;
+
+      const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+
+      if (keys.has("w") || keys.has("arrowup")) target.addScaledVector(forward, speed);
+      if (keys.has("s") || keys.has("arrowdown")) target.addScaledVector(forward, -speed);
+      if (keys.has("a") || keys.has("arrowleft")) target.addScaledVector(right, -speed);
+      if (keys.has("d") || keys.has("arrowright")) target.addScaledVector(right, speed);
+
+      camera.position.x = target.x + Math.sin(yaw) * Math.cos(pitch) * radius;
+      camera.position.z = target.z + Math.cos(yaw) * Math.cos(pitch) * radius;
+      camera.position.y = target.y + Math.sin(-pitch) * radius;
+
+      camera.lookAt(target);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      updateCamera();
+      renderer.render(scene, camera);
+    }
+
+    loadScene();
+    setInterval(loadScene, 1000);
+    animate();
+  </script>
+</body>
+</html>
