@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simla City Three Viewer</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#071018; font-family:system-ui,sans-serif; }
+    #hud {
+      position:fixed;
+      left:14px;
+      right:14px;
+      bottom:14px;
+      z-index:10;
+      padding:14px;
+      border-radius:18px;
+      color:#eaf6ff;
+      background:linear-gradient(180deg, rgba(22,42,62,.94), rgba(6,14,24,.94));
+      border:1px solid rgba(130,200,255,.35);
+      box-shadow:0 14px 34px rgba(0,0,0,.5);
+    }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .label { font-size:12px; opacity:.7; letter-spacing:.12em; font-weight:800; }
+    .phase { font-size:24px; font-weight:900; text-transform:capitalize; }
+    .stats { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .pill { background:rgba(255,255,255,.09); border-radius:12px; padding:7px 10px; text-align:center; min-width:58px; }
+    .pill div { font-size:10px; opacity:.65; }
+    .pill b { font-size:16px; }
+  </style>
+</head>
+<body>
+<div id="hud">Loading...</div>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { parse } from "./src/parser.js";
+import { compile } from "./src/compiler.js";
+import { run } from "./src/vm.js";
+
+const hud = document.getElementById("hud");
+
+function tokenize(code) {
+  return code.replace(/;;.*$/gm, "")
+    .replace(/\(/g, " ( ")
+    .replace(/\)/g, " ) ")
+    .match(/"[^"]*"|\S+/g);
+}
+
+function get(list, key, fallback = undefined) {
+  if (!Array.isArray(list)) return fallback;
+  for (let i = 0; i < list.length; i += 2) {
+    if (list[i] === key) return list[i + 1];
+  }
+  return fallback;
+}
+
+const CITY_W = 6;
+const CITY_H = 6;
+const TILE = 2.4;
+
+function tileToWorld(tile) {
+  return {
+    x: (tile % CITY_W) * TILE - (CITY_W * TILE) / 2 + TILE / 2,
+    z: Math.floor(tile / CITY_W) * TILE - (CITY_H * TILE) / 2 + TILE / 2
+  };
+}
+
+let state = [
+  "tick", 0,
+  "phase", "morning",
+  "entities", [
+    ["id",100,"type","home","tile",2],
+    ["id",101,"type","home","tile",7],
+    ["id",102,"type","home","tile",24],
+    ["id",103,"type","home","tile",31],
+
+    ["id",200,"type","job","tile",16],
+    ["id",201,"type","job","tile",20],
+    ["id",202,"type","job","tile",28],
+    ["id",203,"type","job","tile",34],
+
+    ["id",1,"type","citizen","tile",2,"home",2,"job",16,"money",0,"mode","morning"],
+    ["id",2,"type","citizen","tile",3,"home",2,"job",20,"money",0,"mode","morning"],
+    ["id",3,"type","citizen","tile",7,"home",7,"job",16,"money",0,"mode","morning"],
+    ["id",4,"type","citizen","tile",8,"home",7,"job",28,"money",0,"mode","morning"],
+    ["id",5,"type","citizen","tile",24,"home",24,"job",34,"money",0,"mode","morning"],
+    ["id",6,"type","citizen","tile",25,"home",24,"job",20,"money",0,"mode","morning"],
+    ["id",7,"type","citizen","tile",31,"home",31,"job",28,"money",0,"mode","morning"],
+    ["id",8,"type","citizen","tile",32,"home",31,"job",34,"money",0,"mode","morning"],
+    ["id",9,"type","citizen","tile",1,"home",2,"job",16,"money",0,"mode","morning"],
+    ["id",10,"type","citizen","tile",6,"home",7,"job",20,"money",0,"mode","morning"]
+  ]
+];
+
+let bytecode;
+let lastStep = 0;
+const visuals = new Map();
+const meshes = new Map();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x071018);
+scene.fog = new THREE.Fog(0x071018, 16, 42);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(9, 12, 16);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+const hemi = new THREE.HemisphereLight(0xbcdfff, 0x172018, 1.2);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(8, 16, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+scene.add(sun);
+
+const groundMat = new THREE.MeshStandardMaterial({ color:0x1f4033, roughness:0.95 });
+const roadMat = new THREE.MeshStandardMaterial({ color:0x3a4650, roughness:0.92 });
+const homeMat = new THREE.MeshStandardMaterial({ color:0x3bbd77, roughness:0.8 });
+const roofMat = new THREE.MeshStandardMaterial({ color:0x9c4a34, roughness:0.9 });
+const jobMat = new THREE.MeshStandardMaterial({ color:0xc79a36, roughness:0.75 });
+const blueMat = new THREE.MeshStandardMaterial({ color:0x5ec8ff, roughness:0.55, emissive:0x123040 });
+const greenMat = new THREE.MeshStandardMaterial({ color:0x8df58d, roughness:0.55, emissive:0x143014 });
+const goldMat = new THREE.MeshStandardMaterial({ color:0xffd166, roughness:0.55, emissive:0x352500 });
+const purpleMat = new THREE.MeshStandardMaterial({ color:0xd7a8ff, roughness:0.55, emissive:0x201035 });
+
+function addTile(x, z, isRoad) {
+  const geo = new THREE.BoxGeometry(TILE * 0.96, 0.08, TILE * 0.96);
+  const mesh = new THREE.Mesh(geo, isRoad ? roadMat : groundMat);
+  mesh.position.set(x, -0.04, z);
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+function addHouse(id, tile) {
+  const p = tileToWorld(tile);
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.85, 1.25), homeMat);
+  body.position.y = 0.42;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.05, 0.65, 4), roofMat);
+  roof.position.y = 1.18;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  group.add(roof);
+
+  group.position.set(p.x, 0, p.z);
+  scene.add(group);
+  meshes.set(id, group);
+}
+
+function addJob(id, tile) {
+  const p = tileToWorld(tile);
+  const group = new THREE.Group();
+
+  const floors = 3 + (id % 2);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, floors * 0.55, 1.35), jobMat);
+  body.position.y = (floors * 0.55) / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  for (let i = 0; i < floors; i++) {
+    const win = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.12, 0.04),
+      new THREE.MeshStandardMaterial({ color:0xffe89a, emissive:0x7a5a10 })
+    );
+    win.position.set(0, 0.28 + i * 0.48, -0.7);
+    group.add(win);
+  }
+
+  group.position.set(p.x, 0, p.z);
+  scene.add(group);
+  meshes.set(id, group);
+}
+
+function addCitizen(id, tile, mode) {
+  const p = tileToWorld(tile);
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 5, 10), materialForMode(mode));
+  body.position.y = 0.55;
+  body.castShadow = true;
+  group.add(body);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 12),
+    new THREE.MeshStandardMaterial({ color:0xffd6a5, roughness:0.7 })
+  );
+  head.position.y = 1.08;
+  head.castShadow = true;
+  group.add(head);
+
+  group.position.set(p.x, 0, p.z);
+  scene.add(group);
+  meshes.set(id, group);
+  visuals.set(id, { from:{...p}, to:{...p}, current:{...p}, t:1 });
+}
+
+function materialForMode(mode) {
+  if (mode === "morning") return greenMat;
+  if (mode === "afternoon") return blueMat;
+  if (mode === "work") return goldMat;
+  return purpleMat;
+}
+
+function buildStaticCity() {
+  for (let y = 0; y < CITY_H; y++) {
+    for (let x = 0; x < CITY_W; x++) {
+      const wx = x * TILE - (CITY_W * TILE) / 2 + TILE / 2;
+      const wz = y * TILE - (CITY_H * TILE) / 2 + TILE / 2;
+      const isRoad = x === 2 || x === 4 || y === 2 || y === 4;
+      addTile(wx, wz, isRoad);
+    }
+  }
+
+  const entities = get(state, "entities", []);
+  for (const e of entities) {
+    const id = get(e, "id");
+    const type = get(e, "type");
+    const tile = get(e, "tile");
+    if (type === "home") addHouse(id, tile);
+    if (type === "job") addJob(id, tile);
+    if (type === "citizen") addCitizen(id, tile, get(e, "mode"));
+  }
+}
+
+function stepSim() {
+  const oldEntities = get(state, "entities", []);
+  const oldCitizens = oldEntities.filter(e => get(e, "type") === "citizen");
+
+  const result = run(bytecode, { state }).result;
+  const nextState = get(result, "state", state);
+  const nextEntities = get(nextState, "entities", []);
+  const nextCitizens = nextEntities.filter(e => get(e, "type") === "citizen");
+
+  for (const e of nextCitizens) {
+    const id = get(e, "id");
+    const tile = get(e, "tile");
+    const mode = get(e, "mode");
+    const target = tileToWorld(tile);
+    const visual = visuals.get(id);
+
+    visuals.set(id, {
+      from: visual ? {...visual.current} : target,
+      to: target,
+      current: visual ? {...visual.current} : target,
+      t: 0
+    });
+
+    const mesh = meshes.get(id);
+    if (mesh) {
+      mesh.children[0].material = materialForMode(mode);
+    }
+  }
+
+  state = nextState;
+}
+
+function updateVisuals(time) {
+  for (const [id, v] of visuals) {
+    v.t = Math.min(1, v.t + 0.018);
+    const k = v.t * v.t * (3 - 2 * v.t);
+    v.current.x = v.from.x + (v.to.x - v.from.x) * k;
+    v.current.z = v.from.z + (v.to.z - v.from.z) * k;
+
+    const mesh = meshes.get(id);
+    if (mesh) {
+      mesh.position.x = v.current.x;
+      mesh.position.z = v.current.z;
+      mesh.position.y = Math.sin(time * 0.008 + id) * 0.04;
+
+      const dx = v.to.x - v.from.x;
+      const dz = v.to.z - v.from.z;
+      if (Math.abs(dx) + Math.abs(dz) > 0.01) {
+        mesh.rotation.y = Math.atan2(dx, dz);
+      }
+    }
+  }
+}
+
+function updateHud() {
+  const tick = get(state, "tick", 0);
+  const phase = get(state, "phase", "morning");
+  const entities = get(state, "entities", []);
+  const citizens = entities.filter(e => get(e, "type") === "citizen");
+  const totalMoney = citizens.reduce((sum, e) => sum + get(e, "money", 0), 0);
+
+  hud.innerHTML =
+    '<div class="row">' +
+      '<div>' +
+        '<div class="label">SIMLA CITY</div>' +
+        '<div class="phase">' + phase + '</div>' +
+      '</div>' +
+      '<div class="stats">' +
+        '<div class="pill"><div>TICK</div><b>' + tick + '</b></div>' +
+        '<div class="pill"><div>POP</div><b>' + citizens.length + '</b></div>' +
+        '<div class="pill"><div>MONEY</div><b>$' + totalMoney + '</b></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function animate(time) {
+  if (time - lastStep > 900) {
+    stepSim();
+    lastStep = time;
+  }
+
+  updateVisuals(time);
+
+  const phase = get(state, "phase", "morning");
+  if (phase === "morning") scene.background.set(0x102438);
+  else if (phase === "afternoon") scene.background.set(0x14364b);
+  else if (phase === "work") scene.background.set(0x1a2f3d);
+  else scene.background.set(0x070d18);
+
+  updateHud();
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+async function init() {
+  const code = await fetch("./examples/city_sim.sim").then(r => r.text());
+  const ast = parse(tokenize(code));
+  bytecode = compile(ast);
+
+  buildStaticCity();
+  requestAnimationFrame(animate);
+}
+
+init().catch(err => {
+  hud.textContent = "ERROR: " + (err.stack || err);
+});
+</script>
+</body>
+</html>
