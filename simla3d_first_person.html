@@ -80,11 +80,73 @@
         opacity: 0.35;
       }
     }
+
+    #talkPrompt {
+      position: fixed;
+      left: 50%;
+      bottom: 210px;
+      transform: translateX(-50%);
+      z-index: 30;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.82);
+      color: #102030;
+      font-size: 14px;
+      font-weight: 700;
+      display: none;
+      pointer-events: auto;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+    }
+
+    #dialogueBox {
+      position: fixed;
+      left: 18px;
+      right: 18px;
+      bottom: 320px;
+      z-index: 31;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(8, 15, 26, 0.88);
+      color: #eef7ff;
+      display: none;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.4);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(180,220,255,0.24);
+    }
+
+    #dialogueName {
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #9fd3ff;
+    }
+
+    #dialogueText {
+      line-height: 1.4;
+      font-size: 15px;
+    }
+
+    #dialogueClose {
+      margin-top: 12px;
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      color: #fff;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   
   <div id="crosshair"></div>
+
+  <div id="talkPrompt">Talk</div>
+
+  <div id="dialogueBox">
+    <div id="dialogueName"></div>
+    <div id="dialogueText"></div>
+    <div id="dialogueClose">close</div>
+  </div>
 
   <div id="moveJoy" class="joystick">
     <div class="knob"></div>
@@ -104,6 +166,14 @@
     window.addEventListener("unhandledrejection", e => {
       console.warn("Simla3D async warning:", e.reason);
     });
+
+    const talkPrompt = document.getElementById("talkPrompt");
+    const dialogueBox = document.getElementById("dialogueBox");
+    const dialogueName = document.getElementById("dialogueName");
+    const dialogueText = document.getElementById("dialogueText");
+    const dialogueClose = document.getElementById("dialogueClose");
+
+    let nearestNpc = null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe7ff");
@@ -447,6 +517,8 @@
       if (!agents.has(id)) {
         const group = makePersonGroup(o);
         group.position.copy(target);
+        group.userData.npcId = id;
+        group.userData.targetName = String(o.target || "somewhere");
         root.add(group);
 
         agents.set(id, {
@@ -460,6 +532,7 @@
       }
 
       const state = agents.get(id);
+      state.group.userData.targetName = String(o.target || "somewhere");
       state.prev.copy(state.group.position);
       state.next.copy(target);
       state.time = performance.now();
@@ -530,6 +603,58 @@
         console.warn("Simla3D scene load warning:", err);
       }
     }
+
+    function npcLine(id, target) {
+      if (id.startsWith("m")) return `I'm just hanging around the mall. It has been busy today.`;
+      if (id.startsWith("n")) return `North mall is quieter, but I like walking over there.`;
+      if (id.startsWith("p")) return `The park is the best place to slow down for a minute.`;
+      if (id.startsWith("r")) return `I live around here. The neighborhood is getting crowded.`;
+      if (id.startsWith("s")) return `I'm heading through town toward ${target}.`;
+      if (id.startsWith("c")) return `I'm near the civic district today. Lots of people moving around.`;
+      if (id.startsWith("q")) return `This side of the city is growing fast.`;
+      return `I'm on my way to ${target}.`;
+    }
+
+    function openDialogue(npc) {
+      if (!npc) return;
+
+      const id = npc.userData.npcId || "npc";
+      const target = npc.userData.targetName || "somewhere";
+
+      dialogueName.textContent = id;
+      dialogueText.textContent = npcLine(id, target);
+      dialogueBox.style.display = "block";
+    }
+
+    function closeDialogue() {
+      dialogueBox.style.display = "none";
+    }
+
+    function updateInteraction() {
+      nearestNpc = null;
+
+      let bestDist = 2.8;
+
+      for (const state of agents.values()) {
+        const npc = state.group;
+        const dist = camera.position.distanceTo(npc.position);
+
+        if (dist < bestDist) {
+          bestDist = dist;
+          nearestNpc = npc;
+        }
+      }
+
+      if (nearestNpc) {
+        talkPrompt.style.display = "block";
+        talkPrompt.textContent = `Talk to ${nearestNpc.userData.npcId || "NPC"}`;
+      } else {
+        talkPrompt.style.display = "none";
+      }
+    }
+
+    talkPrompt.addEventListener("click", () => openDialogue(nearestNpc));
+    dialogueClose.addEventListener("click", closeDialogue);
 
     function updateCamera() {
       smoothLookX += (lookStick.x - smoothLookX) * 0.15;
@@ -642,6 +767,7 @@
       requestAnimationFrame(animate);
       updateCamera();
       updateAgents();
+      updateInteraction();
       renderer.render(scene, camera);
     }
 
