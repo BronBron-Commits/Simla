@@ -1,43 +1,25 @@
 (begin
   (import "../lib/simla3d.sim")
 
-  ;; time
   (let t (mul tick 0.001))
 
-  ;; scene
   (scene
     (list
-      ;; ground
-      (floor 32 32 "#203020")
+      (floor 64 64 "#203020")
 
-      ;; player
-      (cube "player" 0 1 0 1 "#55ccff")
+      (house "home_a" -10 -8)
+      (house "home_b" -6 -10)
+      (shop "corner_shop" 0 -8)
+      (mall "big_mall" 10 8)
 
-      ;; moving enemy
-      (cube
-        "enemy"
-        (add 4 (sin t))
-        1
-        2
-        1
-        "#ff5555"
-      )
+      (person "alice" (add -10 (sin t)) -4 "#55ccff")
+      (person "bob" -4 (add -4 (cos t)) "#ffaa44")
+      (person "cara" (add 4 (sin (mul t 0.5))) 2 "#ff66cc")
+      (person "dave" 8 (add 4 (cos (mul t 0.75))) "#99ff99")
+      (person "erin" (add 10 (sin (mul t 1.25))) 10 "#ddddff")
 
-      ;; big mall
-      (cube
-        "mall"
-        8
-        2
-        8
-        4
-        "#aaaaaa"
-      )
-
-      ;; light
-      (light "sun" 4 12 4 1 "#ffffff")
-
-      ;; camera
-      (camera 12 10 18 0 0 0)
+      (light "sun" 4 14 4 1.2 "#ffffff")
+      (camera 20 16 28 0 0 0)
     )
   )
 )

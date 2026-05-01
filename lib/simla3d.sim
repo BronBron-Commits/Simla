@@ -19,6 +19,59 @@
     )
   )
 
+  (let box
+    (fn (id x y z w h d color)
+      (list
+        "type" "box"
+        "id" id
+        "x" x
+        "y" y
+        "z" z
+        "w" w
+        "h" h
+        "d" d
+        "color" color
+      )
+    )
+  )
+
+  (let person
+    (fn (id x z color)
+      (list
+        "type" "person"
+        "id" id
+        "x" x
+        "y" 1
+        "z" z
+        "color" color
+      )
+    )
+  )
+
+  (let building
+    (fn (id x z w h d color)
+      (box id x (mul h 0.5) z w h d color)
+    )
+  )
+
+  (let mall
+    (fn (id x z)
+      (building id x z 8 4 8 "#999999")
+    )
+  )
+
+  (let house
+    (fn (id x z)
+      (building id x z 3 2.5 3 "#775533")
+    )
+  )
+
+  (let shop
+    (fn (id x z)
+      (building id x z 4 3 3 "#446688")
+    )
+  )
+
   (let floor
     (fn (w d color)
       (list
