@@ -1,0 +1,43 @@
+(begin
+  (import "../lib/simla3d.sim")
+
+  ;; time
+  (let t (mul tick 0.001))
+
+  ;; scene
+  (scene
+    (list
+      ;; ground
+      (floor 32 32 "#203020")
+
+      ;; player
+      (cube "player" 0 1 0 1 "#55ccff")
+
+      ;; moving enemy
+      (cube
+        "enemy"
+        (add 4 (sin t))
+        1
+        2
+        1
+        "#ff5555"
+      )
+
+      ;; big mall
+      (cube
+        "mall"
+        8
+        2
+        8
+        4
+        "#aaaaaa"
+      )
+
+      ;; light
+      (light "sun" 4 12 4 1 "#ffffff")
+
+      ;; camera
+      (camera 12 10 18 0 0 0)
+    )
+  )
+)

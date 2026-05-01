@@ -1,0 +1,71 @@
+(begin
+  (let vec3
+    (fn (x y z)
+      (list "vec3" x y z)
+    )
+  )
+
+  (let cube
+    (fn (id x y z size color)
+      (list
+        "type" "cube"
+        "id" id
+        "x" x
+        "y" y
+        "z" z
+        "size" size
+        "color" color
+      )
+    )
+  )
+
+  (let floor
+    (fn (w d color)
+      (list
+        "type" "floor"
+        "id" "floor"
+        "x" 0
+        "y" 0
+        "z" 0
+        "w" w
+        "d" d
+        "color" color
+      )
+    )
+  )
+
+  (let camera
+    (fn (x y z tx ty tz)
+      (list
+        "type" "camera"
+        "id" "camera"
+        "x" x
+        "y" y
+        "z" z
+        "tx" tx
+        "ty" ty
+        "tz" tz
+      )
+    )
+  )
+
+  (let light
+    (fn (id x y z intensity color)
+      (list
+        "type" "light"
+        "id" id
+        "x" x
+        "y" y
+        "z" z
+        "intensity" intensity
+        "color" color
+      )
+    )
+  )
+
+  (let scene
+    (fn (objects)
+      objects
+    )
+  )
+)

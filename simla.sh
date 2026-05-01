@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-if [ $# -lt 1 ]; then
-  echo "usage: simla <file.sim>"
+if [ -z "$1" ]; then
+  echo "Usage: ./simla.sh <file.sim>"
   exit 1
 fi
 
-if [ ! -f "$1" ]; then
-  echo "error: file not found: $1"
-  exit 1
-fi
+mkdir -p .tmp
 
-node tools/run_js_vm.js "$1"
+TMP_FILE=".tmp/simla-expanded.sim"
+
+node tools/expand_imports.js "$1" > "$TMP_FILE"
+node tools/run_js_vm.js "$TMP_FILE"
