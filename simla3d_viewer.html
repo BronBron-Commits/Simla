@@ -328,7 +328,8 @@
 
     function addWindows(x, z, w, h, d, centerY) {
       const rows = Math.max(1, Math.floor(h / 1.2));
-      const cols = Math.max(2, Math.floor(w / 1.1));
+      const colsFront = Math.max(2, Math.floor(w / 1.1));
+      const colsSide = Math.max(2, Math.floor(d / 1.1));
 
       const winMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color("#cde8ff"),
@@ -337,15 +338,35 @@
         roughness: 0.35
       });
 
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const wx = x - w / 2 + 0.6 + c * ((w - 1.2) / Math.max(1, cols - 1));
-          const wy = centerY - h / 2 + 0.75 + r * 1.05;
+      function addWindow(wx, wy, wz, rotY) {
+        const geo = new THREE.BoxGeometry(0.36, 0.36, 0.035);
+        const win = new THREE.Mesh(geo, winMat);
+        win.position.set(wx, wy, wz);
+        win.rotation.y = rotY;
+        root.add(win);
+      }
 
-          const geo = new THREE.BoxGeometry(0.36, 0.36, 0.035);
-          const win = new THREE.Mesh(geo, winMat);
-          win.position.set(wx, wy, z - d / 2 - 0.021);
-          root.add(win);
+      for (let r = 0; r < rows; r++) {
+        const wy = centerY - h / 2 + 0.75 + r * 1.05;
+
+        for (let c = 0; c < colsFront; c++) {
+          const wx = x - w / 2 + 0.6 + c * ((w - 1.2) / Math.max(1, colsFront - 1));
+
+          // front
+          addWindow(wx, wy, z - d / 2 - 0.021, 0);
+
+          // back
+          addWindow(wx, wy, z + d / 2 + 0.021, Math.PI);
+        }
+
+        for (let c = 0; c < colsSide; c++) {
+          const wz = z - d / 2 + 0.6 + c * ((d - 1.2) / Math.max(1, colsSide - 1));
+
+          // left
+          addWindow(x - w / 2 - 0.021, wy, wz, Math.PI / 2);
+
+          // right
+          addWindow(x + w / 2 + 0.021, wy, wz, -Math.PI / 2);
         }
       }
     }
