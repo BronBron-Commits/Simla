@@ -40,6 +40,46 @@
       pointer-events: none;
       box-shadow: 0 0 8px rgba(0,0,0,.4);
     }
+
+    .joystick {
+      position: fixed;
+      bottom: 28px;
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.35);
+      z-index: 20;
+      touch-action: none;
+      user-select: none;
+      backdrop-filter: blur(6px);
+    }
+
+    .joystick .knob {
+      position: absolute;
+      left: 42px;
+      top: 42px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.72);
+      border: 2px solid rgba(20,40,60,0.25);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+
+    #moveJoy {
+      left: 26px;
+    }
+
+    #lookJoy {
+      right: 26px;
+    }
+
+    @media (pointer: fine) {
+      .joystick {
+        opacity: 0.35;
+      }
+    }
   </style>
 </head>
 <body>
@@ -47,10 +87,31 @@
     <b>Simla3D First Person</b><br>
     Tap/click to lock pointer. WASD moves. Mouse looks.
   </div>
+  <div id="runtimeError" style="position:fixed;left:12px;right:12px;bottom:180px;z-index:999;color:#fff;background:rgba(160,0,0,.85);padding:10px;border-radius:10px;font:12px monospace;display:none;white-space:pre-wrap;"></div>
   <div id="crosshair"></div>
+
+  <div id="moveJoy" class="joystick">
+    <div class="knob"></div>
+  </div>
+
+  <div id="lookJoy" class="joystick">
+    <div class="knob"></div>
+  </div>
 
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+    const runtimeError = document.getElementById("runtimeError");
+
+    window.addEventListener("error", e => {
+      runtimeError.style.display = "block";
+      runtimeError.textContent = e.message + "\n" + (e.filename || "") + ":" + (e.lineno || "");
+    });
+
+    window.addEventListener("unhandledrejection", e => {
+      runtimeError.style.display = "block";
+      runtimeError.textContent = String(e.reason?.stack || e.reason || e);
+    });
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe7ff");
@@ -83,6 +144,9 @@
     let pitch = 0;
     let locked = false;
 
+    const moveStick = { x: 0, y: 0 };
+    const lookStick = { x: 0, y: 0 };
+
     window.addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
     window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 
@@ -93,6 +157,61 @@
     document.addEventListener("pointerlockchange", () => {
       locked = document.pointerLockElement === document.body;
     });
+
+    function setupJoystick(id, state) {
+      const joy = document.getElementById(id);
+      const knob = joy.querySelector(".knob");
+      let activePointer = null;
+
+      function setKnob(dx, dy) {
+        const max = 42;
+        const len = Math.hypot(dx, dy);
+        const scale = len > max ? max / len : 1;
+
+        const x = dx * scale;
+        const y = dy * scale;
+
+        knob.style.transform = `translate(${x}px, ${y}px)`;
+
+        state.x = x / max;
+        state.y = y / max;
+      }
+
+      function reset() {
+        activePointer = null;
+        state.x = 0;
+        state.y = 0;
+        knob.style.transform = "translate(0px, 0px)";
+      }
+
+      joy.addEventListener("pointerdown", e => {
+        activePointer = e.pointerId;
+        joy.setPointerCapture(e.pointerId);
+
+        const rect = joy.getBoundingClientRect();
+        setKnob(
+          e.clientX - (rect.left + rect.width / 2),
+          e.clientY - (rect.top + rect.height / 2)
+        );
+      });
+
+      joy.addEventListener("pointermove", e => {
+        if (activePointer !== e.pointerId) return;
+
+        const rect = joy.getBoundingClientRect();
+        setKnob(
+          e.clientX - (rect.left + rect.width / 2),
+          e.clientY - (rect.top + rect.height / 2)
+        );
+      });
+
+      joy.addEventListener("pointerup", reset);
+      joy.addEventListener("pointercancel", reset);
+      joy.addEventListener("lostpointercapture", reset);
+    }
+
+    setupJoystick("moveJoy", moveStick);
+    setupJoystick("lookJoy", lookStick);
 
     document.addEventListener("mousemove", e => {
       if (!locked) return;
@@ -380,44 +499,72 @@
     }
 
     async function loadScene() {
-      const res = await fetch("/api/scene?file=examples/simla3d_demo.sim&cacheBust=" + Date.now());
-      const data = await res.json();
+      try {
+        const res = await fetch("/api/scene?file=examples/simla3d_demo.sim&cacheBust=" + Date.now());
+        const data = await res.json();
 
-      if (!staticBuilt) {
-        clearRoot();
-        agents.clear();
-      }
-
-      for (const item of data) {
-        if (!Array.isArray(item)) continue;
-        const o = pairsToObj(item);
-
-        if (o.type === "agent" || o.type === "person") {
-          addPerson(o);
-          continue;
+        if (!Array.isArray(data)) {
+          throw new Error("Scene API did not return an array: " + JSON.stringify(data).slice(0, 300));
         }
 
-        if (staticBuilt) continue;
+        if (!staticBuilt) {
+          clearRoot();
+          agents.clear();
+        }
 
-        if (o.type === "floor") addFloor(o);
-        else if (o.type === "box") addBox(o);
-        else if (o.type === "cube") addBox({ ...o, w: o.size, h: o.size, d: o.size });
-        else if (o.type === "location") addLocation(o);
-        else if (o.type === "route") addRoute(o);
+        for (const item of data) {
+          if (!Array.isArray(item)) continue;
+          const o = pairsToObj(item);
+
+          if (o.type === "agent" || o.type === "person") {
+            addPerson(o);
+            continue;
+          }
+
+          if (staticBuilt) continue;
+
+          if (o.type === "floor") addFloor(o);
+          else if (o.type === "box") addBox(o);
+          else if (o.type === "cube") addBox({ ...o, w: o.size, h: o.size, d: o.size });
+          else if (o.type === "location") addLocation(o);
+          else if (o.type === "route") addRoute(o);
+        }
+
+        staticBuilt = true;
+      } catch (err) {
+        runtimeError.style.display = "block";
+        runtimeError.textContent = String(err.stack || err);
       }
-
-      staticBuilt = true;
     }
 
     function updateCamera() {
+      yaw -= lookStick.x * 0.045;
+      pitch -= lookStick.y * 0.035;
+      pitch = Math.max(-1.3, Math.min(1.3, pitch));
+
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
       const speed = keys.has("shift") ? 0.28 : 0.14;
 
-      if (keys.has("w")) camera.position.addScaledVector(forward, speed);
-      if (keys.has("s")) camera.position.addScaledVector(forward, -speed);
-      if (keys.has("a")) camera.position.addScaledVector(right, -speed);
-      if (keys.has("d")) camera.position.addScaledVector(right, speed);
+      let moveForward = 0;
+      let moveRight = 0;
+
+      if (keys.has("w")) moveForward += 1;
+      if (keys.has("s")) moveForward -= 1;
+      if (keys.has("d")) moveRight += 1;
+      if (keys.has("a")) moveRight -= 1;
+
+      moveForward += -moveStick.y;
+      moveRight += moveStick.x;
+
+      const mag = Math.hypot(moveForward, moveRight);
+      if (mag > 1) {
+        moveForward /= mag;
+        moveRight /= mag;
+      }
+
+      camera.position.addScaledVector(forward, moveForward * speed);
+      camera.position.addScaledVector(right, moveRight * speed);
 
       camera.position.y = 1.7;
       camera.rotation.order = "YXZ";
@@ -427,7 +574,7 @@
 
     function updateAgents() {
       const now = performance.now();
-      const duration = 400; // ms
+      const duration = 400;
 
       for (const state of agents.values()) {
         const t = Math.min(1, (now - state.time) / duration);
