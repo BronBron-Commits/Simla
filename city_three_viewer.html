@@ -52,9 +52,9 @@ function get(list, key, fallback = undefined) {
   return fallback;
 }
 
-const CITY_W = 6;
-const CITY_H = 6;
-const TILE = 2.4;
+const CITY_W = 10;
+const CITY_H = 10;
+const TILE = 2.05;
 
 function tileToWorld(tile) {
   return {
@@ -69,24 +69,42 @@ let state = [
   "entities", [
     ["id",100,"type","home","tile",2],
     ["id",101,"type","home","tile",7],
-    ["id",102,"type","home","tile",24],
-    ["id",103,"type","home","tile",31],
+    ["id",102,"type","home","tile",13],
+    ["id",103,"type","home","tile",18],
+    ["id",104,"type","home","tile",61],
+    ["id",105,"type","home","tile",68],
+    ["id",106,"type","home","tile",82],
+    ["id",107,"type","home","tile",87],
 
-    ["id",200,"type","job","tile",16],
-    ["id",201,"type","job","tile",20],
-    ["id",202,"type","job","tile",28],
-    ["id",203,"type","job","tile",34],
+    ["id",200,"type","job","tile",34],
+    ["id",201,"type","job","tile",36],
+    ["id",202,"type","job","tile",43],
+    ["id",203,"type","job","tile",45],
+    ["id",204,"type","job","tile",54],
+    ["id",205,"type","job","tile",56],
 
-    ["id",1,"type","citizen","tile",2,"home",2,"job",16,"money",0,"mode","morning"],
-    ["id",2,"type","citizen","tile",3,"home",2,"job",20,"money",0,"mode","morning"],
-    ["id",3,"type","citizen","tile",7,"home",7,"job",16,"money",0,"mode","morning"],
-    ["id",4,"type","citizen","tile",8,"home",7,"job",28,"money",0,"mode","morning"],
-    ["id",5,"type","citizen","tile",24,"home",24,"job",34,"money",0,"mode","morning"],
-    ["id",6,"type","citizen","tile",25,"home",24,"job",20,"money",0,"mode","morning"],
-    ["id",7,"type","citizen","tile",31,"home",31,"job",28,"money",0,"mode","morning"],
-    ["id",8,"type","citizen","tile",32,"home",31,"job",34,"money",0,"mode","morning"],
-    ["id",9,"type","citizen","tile",1,"home",2,"job",16,"money",0,"mode","morning"],
-    ["id",10,"type","citizen","tile",6,"home",7,"job",20,"money",0,"mode","morning"]
+    ["id",1,"type","citizen","tile",2,"home",2,"job",34,"money",0,"mode","morning"],
+    ["id",2,"type","citizen","tile",3,"home",2,"job",36,"money",0,"mode","morning"],
+    ["id",3,"type","citizen","tile",7,"home",7,"job",43,"money",0,"mode","morning"],
+    ["id",4,"type","citizen","tile",8,"home",7,"job",45,"money",0,"mode","morning"],
+    ["id",5,"type","citizen","tile",13,"home",13,"job",54,"money",0,"mode","morning"],
+    ["id",6,"type","citizen","tile",14,"home",13,"job",56,"money",0,"mode","morning"],
+    ["id",7,"type","citizen","tile",18,"home",18,"job",34,"money",0,"mode","morning"],
+    ["id",8,"type","citizen","tile",19,"home",18,"job",36,"money",0,"mode","morning"],
+
+    ["id",9,"type","citizen","tile",61,"home",61,"job",43,"money",0,"mode","morning"],
+    ["id",10,"type","citizen","tile",62,"home",61,"job",45,"money",0,"mode","morning"],
+    ["id",11,"type","citizen","tile",68,"home",68,"job",54,"money",0,"mode","morning"],
+    ["id",12,"type","citizen","tile",69,"home",68,"job",56,"money",0,"mode","morning"],
+    ["id",13,"type","citizen","tile",82,"home",82,"job",34,"money",0,"mode","morning"],
+    ["id",14,"type","citizen","tile",83,"home",82,"job",36,"money",0,"mode","morning"],
+    ["id",15,"type","citizen","tile",87,"home",87,"job",43,"money",0,"mode","morning"],
+    ["id",16,"type","citizen","tile",88,"home",87,"job",45,"money",0,"mode","morning"],
+
+    ["id",17,"type","citizen","tile",1,"home",2,"job",54,"money",0,"mode","morning"],
+    ["id",18,"type","citizen","tile",6,"home",7,"job",56,"money",0,"mode","morning"],
+    ["id",19,"type","citizen","tile",60,"home",61,"job",34,"money",0,"mode","morning"],
+    ["id",20,"type","citizen","tile",86,"home",87,"job",36,"money",0,"mode","morning"]
   ]
 ];
 
@@ -105,7 +123,7 @@ const skyTexture = new THREE.CanvasTexture(skyCanvas);
 skyTexture.colorSpace = THREE.SRGBColorSpace;
 
 scene.background = skyTexture;
-scene.fog = new THREE.Fog(0x071018, 16, 42);
+scene.fog = null;
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -145,7 +163,7 @@ function updateSky(topHex, midHex, bottomHex) {
 }
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(9, 12, 16);
+camera.position.set(14, 18, 24);
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -305,7 +323,7 @@ function terrainNoise(x, z) {
 }
 
 function addTerrain() {
-  const size = CITY_W * TILE + 10;
+  const size = CITY_W * TILE + 18;
   const segments = 80;
   const geo = new THREE.PlaneGeometry(size, size, segments, segments);
   geo.rotateX(-Math.PI / 2);
@@ -494,7 +512,7 @@ function buildStaticCity() {
     for (let x = 0; x < CITY_W; x++) {
       const wx = x * TILE - (CITY_W * TILE) / 2 + TILE / 2;
       const wz = y * TILE - (CITY_H * TILE) / 2 + TILE / 2;
-      const isRoad = x === 2 || x === 4 || y === 2 || y === 4;
+      const isRoad = x === 2 || x === 5 || x === 7 || y === 2 || y === 5 || y === 7;
       addTile(wx, wz, isRoad);
     }
   }
@@ -655,7 +673,7 @@ function applyDayNight(phase) {
   const c = phaseBlend(phase);
 
   updateSky(c.top, c.mid, c.bottom);
-  scene.fog.color.setHex(c.fog);
+  
 
   sun.color.setHex(c.sun);
   sun.intensity = c.intensity;
