@@ -48,6 +48,49 @@
     )
   )
 
+  (let location
+    (fn (id x z color)
+      (list
+        "type" "location"
+        "id" id
+        "x" x
+        "y" 0.08
+        "z" z
+        "color" color
+      )
+    )
+  )
+
+  (let agent
+    (fn (id x z target color)
+      (list
+        "type" "agent"
+        "id" id
+        "x" x
+        "y" 1
+        "z" z
+        "target" target
+        "color" color
+      )
+    )
+  )
+
+  (let route
+    (fn (id fromX fromZ toX toZ color)
+      (list
+        "type" "route"
+        "id" id
+        "fromX" fromX
+        "fromY" 1.05
+        "fromZ" fromZ
+        "toX" toX
+        "toY" 0.15
+        "toZ" toZ
+        "color" color
+      )
+    )
+  )
+
   (let building
     (fn (id x z w h d color)
       (box id x (mul h 0.5) z w h d color)

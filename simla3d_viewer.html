@@ -267,7 +267,55 @@
 
       root.add(group);
 
-      addLabelFor({ id: o.id, x, y: y + 1.65, z }, 0);
+      const labelText = o.target ? `${o.id} → ${o.target}` : o.id;
+      addLabelFor({ id: labelText, x, y: y + 1.65, z }, 0);
+    }
+
+    function addLocation(o) {
+      const x = num(o.x);
+      const y = num(o.y, 0.08);
+      const z = num(o.z);
+
+      const geo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 32);
+      const mat = new THREE.MeshStandardMaterial({
+        color: color(o.color, "#ddddff"),
+        emissive: color(o.color, "#ddddff"),
+        emissiveIntensity: 0.25,
+        roughness: 0.45
+      });
+
+      const marker = new THREE.Mesh(geo, mat);
+      marker.position.set(x, y, z);
+      root.add(marker);
+
+      addLabelFor(o, 0.7);
+    }
+
+    function addRoute(o) {
+      const from = new THREE.Vector3(num(o.fromX), num(o.fromY, 1.05), num(o.fromZ));
+      const to = new THREE.Vector3(num(o.toX), num(o.toY, 0.15), num(o.toZ));
+
+      const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+      const mat = new THREE.LineBasicMaterial({
+        color: color(o.color, "#ffffff"),
+        transparent: true,
+        opacity: 0.75
+      });
+
+      const line = new THREE.Line(geo, mat);
+      root.add(line);
+
+      const dotGeo = new THREE.SphereGeometry(0.14, 12, 8);
+      const dotMat = new THREE.MeshStandardMaterial({
+        color: color(o.color, "#ffffff"),
+        emissive: color(o.color, "#ffffff"),
+        emissiveIntensity: 0.3
+      });
+
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      const pulse = (Math.sin(Date.now() * 0.004) + 1) * 0.5;
+      dot.position.lerpVectors(from, to, pulse);
+      root.add(dot);
     }
 
     function addLight(o) {
@@ -342,6 +390,9 @@
           else if (o.type === "cube") addCube(o);
           else if (o.type === "box") addBox(o);
           else if (o.type === "person") addPerson(o);
+          else if (o.type === "agent") addPerson(o);
+          else if (o.type === "location") addLocation(o);
+          else if (o.type === "route") addRoute(o);
           else if (o.type === "light") addLight(o);
           else if (o.type === "camera") applyCamera(o);
 
