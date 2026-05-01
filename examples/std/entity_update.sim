@@ -1,0 +1,151 @@
+(begin
+  ;; Entity update pattern using flat key/value records.
+
+  (let empty (slice (list 1) 1 1))
+
+  (let assoc_get_at
+    (fn (record key i fallback)
+      (if
+        (eq i (len record))
+        fallback
+        (if
+          (eq (nth record i) key)
+          (nth record (add i 1))
+          (assoc_get_at record key (add i 2) fallback)
+        )
+      )
+    )
+  )
+
+  (let assoc_get
+    (fn (record key fallback)
+      (assoc_get_at record key 0 fallback)
+    )
+  )
+
+  (let assoc_set_build
+    (fn (record key value i acc found)
+      (if
+        (eq i (len record))
+        (if found acc (concat acc (list key value)))
+
+        (if
+          (eq (nth record i) key)
+          (assoc_set_build record key value (add i 2) (concat acc (list key value)) 1)
+
+          (assoc_set_build
+            record
+            key
+            value
+            (add i 2)
+            (concat acc (list (nth record i) (nth record (add i 1))))
+            found
+          )
+        )
+      )
+    )
+  )
+
+  (let assoc_set
+    (fn (record key value)
+      (assoc_set_build record key value 0 empty 0)
+    )
+  )
+
+  (let assoc_update
+    (fn (record key updater fallback)
+      (assoc_set record key (updater (assoc_get record key fallback)))
+    )
+  )
+
+  ;; Helpers
+
+  (let step_toward
+    (fn (from to)
+      (if
+        (lt from to)
+        (add from 1)
+        (if
+          (gt from to)
+          (sub from 1)
+          from
+        )
+      )
+    )
+  )
+
+  (let update_citizen
+    (fn (e phase)
+      (let tile (assoc_get e "tile" 0))
+      (let home (assoc_get e "home" 0))
+      (let job (assoc_get e "job" 0))
+      (let money (assoc_get e "money" 0))
+
+      (let target
+        (if
+          (eq phase "afternoon")
+          job
+          (if
+            (eq phase "work")
+            job
+            home
+          )
+        )
+      )
+
+      (let next_tile (step_toward tile target))
+      (let at_job (eq next_tile job))
+
+      (let earned
+        (if
+          (eq phase "work")
+          (if at_job 2 0)
+          0
+        )
+      )
+
+      (let e1 (assoc_set e "tile" next_tile))
+      (let e2 (assoc_set e1 "mode" phase))
+      (let e3 (assoc_set e2 "money" (add money earned)))
+
+      e3
+    )
+  )
+
+  (let update_entity
+    (fn (e phase)
+      (if
+        (eq (assoc_get e "type" "unknown") "citizen")
+        (update_citizen e phase)
+        e
+      )
+    )
+  )
+
+  (let update_entities
+    (fn (entities phase)
+      (map
+        (fn (e) (update_entity e phase))
+        entities
+      )
+    )
+  )
+
+  ;; Smoke test
+
+  (let entities
+    (list
+      (list "id" 1 "type" "citizen" "tile" 2 "home" 2 "job" 5 "money" 0 "mode" "morning")
+      (list "id" 2 "type" "citizen" "tile" 4 "home" 4 "job" 6 "money" 0 "mode" "morning")
+      (list "id" 100 "type" "home" "tile" 2)
+    )
+  )
+
+  (let after_afternoon (update_entities entities "afternoon"))
+  (let after_work (update_entities after_afternoon "work"))
+
+  (list
+    "after_afternoon" after_afternoon
+    "after_work" after_work
+  )
+)
