@@ -2,73 +2,62 @@
   (import "../lib/simla3d.sim")
 
   (let t (mul tick 0.001))
+  (let progress (mul 0.5 (add 1 (sin (mul t 0.45)))))
 
-  ;; progress loops smoothly between 0 and 1 forever
-  (let progress (mul 0.5 (add 1 (sin (mul t 0.6)))))
+  (let mallX 10) (let mallZ 8)
+  (let shopX 0) (let shopZ -8)
 
-  ;; locations
-  (let mallX 10)
-  (let mallZ 8)
+  (let h1x -10) (let h1z -8)
+  (let h2x -6) (let h2z -10)
+  (let h3x -16) (let h3z -4)
 
-  (let shopX 0)
-  (let shopZ -8)
-
-  (let homeAX -10)
-  (let homeAZ -8)
-
-  (let homeBX -6)
-  (let homeBZ -10)
-
-  ;; moving agent positions
-  (let alicePos (move_between -10 -4 mallX mallZ progress))
-  (let bobPos (move_between -4 -4 shopX shopZ progress))
-  (let caraPos (move_between 4 2 homeAX homeAZ progress))
-  (let davePos (move_between 8 4 mallX mallZ progress))
-  (let erinPos (move_between 10 10 homeBX homeBZ progress))
-
-  (let aliceX (nth alicePos 0))
-  (let aliceZ (nth alicePos 1))
-
-  (let bobX (nth bobPos 0))
-  (let bobZ (nth bobPos 1))
-
-  (let caraX (nth caraPos 0))
-  (let caraZ (nth caraPos 1))
-
-  (let daveX (nth davePos 0))
-  (let daveZ (nth davePos 1))
-
-  (let erinX (nth erinPos 0))
-  (let erinZ (nth erinPos 1))
+  (let a1 (move_between h1x h1z mallX mallZ progress))
+  (let a2 (move_between h2x h2z shopX shopZ progress))
+  (let a3 (move_between shopX shopZ h1x h1z progress))
 
   (scene
     (list
-      (floor 64 64 "#203020")
+      (floor 120 120 "#203020")
 
-      (house "home_a" homeAX homeAZ)
-      (house "home_b" homeBX homeBZ)
+      ;; dense housing
+      (house "home_1" h1x h1z)
+      (house "home_2" h2x h2z)
+      (house "home_3" h3x h3z)
+      (house "home_4" -18 -10)
+      (house "home_5" -20 -2)
+      (house "home_6" -14 -14)
+      (house "home_7" -24 5)
+      (house "home_8" -18 14)
+
+      ;; dense apartments (spread out properly)
+      (building "apt_a" 18 -2 6 7 6 "#6c7080")
+      (building "apt_b" 28 8 6 8 6 "#747080")
+      (building "apt_c" 38 18 6 9 6 "#6f7285")
+      (building "apt_d" 18 24 6 7 6 "#6b6f7f")
+      (building "apt_e" 32 -8 6 8 6 "#70758a")
+      (building "apt_f" 42 4 6 9 6 "#6d7288")
+
+      ;; city core
       (shop "corner_shop" shopX shopZ)
       (mall "big_mall" mallX mallZ)
 
-      (location "home_a_marker" homeAX homeAZ "#ffaa66")
-      (location "home_b_marker" homeBX homeBZ "#ffaa66")
-      (location "shop_marker" shopX shopZ "#66aaff")
-      (location "mall_marker" mallX mallZ "#ddddff")
+      ;; crowd cluster
+      (agent "crowd1" 8 7 "big_mall" "#eeeeff")
+      (agent "crowd2" 9 10 "big_mall" "#ffeeee")
+      (agent "crowd3" 12 7 "big_mall" "#eeffee")
+      (agent "crowd4" 13 10 "big_mall" "#ffffcc")
 
-      (agent "alice" aliceX aliceZ "big_mall" "#55ccff")
-      (agent "bob" bobX bobZ "corner_shop" "#ffaa44")
-      (agent "cara" caraX caraZ "home_a" "#ff66cc")
-      (agent "dave" daveX daveZ "big_mall" "#99ff99")
-      (agent "erin" erinX erinZ "home_b" "#ddddff")
+      ;; movers
+      (agent "a1" (nth a1 0) (nth a1 1) "big_mall" "#55ccff")
+      (agent "a2" (nth a2 0) (nth a2 1) "corner_shop" "#ffaa44")
+      (agent "a3" (nth a3 0) (nth a3 1) "home_1" "#ff66cc")
 
-      (route "alice_route" aliceX aliceZ mallX mallZ "#55ccff")
-      (route "bob_route" bobX bobZ shopX shopZ "#ffaa44")
-      (route "cara_route" caraX caraZ homeAX homeAZ "#ff66cc")
-      (route "dave_route" daveX daveZ mallX mallZ "#99ff99")
-      (route "erin_route" erinX erinZ homeBX homeBZ "#ddddff")
+      (route "r1" (nth a1 0) (nth a1 1) mallX mallZ "#55ccff")
+      (route "r2" (nth a2 0) (nth a2 1) shopX shopZ "#ffaa44")
+      (route "r3" (nth a3 0) (nth a3 1) h1x h1z "#ff66cc")
 
-      (light "sun" 4 14 4 1.2 "#ffffff")
-      (camera 20 16 28 0 0 0)
+      (light "sun" 4 18 4 1.3 "#ffffff")
+      (camera 34 26 46 0 0 0)
     )
   )
 )
