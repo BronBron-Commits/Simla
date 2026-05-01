@@ -466,12 +466,8 @@
       const line = new THREE.Line(geo, mat);
       root.add(line);
 
-      const dotGeo = new THREE.SphereGeometry(0.14, 12, 8);
-      const dotMat = new THREE.MeshStandardMaterial({
-        color: color(o.color, "#ffffff"),
-        emissive: color(o.color, "#ffffff"),
-        emissiveIntensity: 0.45
-      });
+      // route dot disabled for performance
+    });
 
       const dot = new THREE.Mesh(dotGeo, dotMat);
       const pulse = (Math.sin(Date.now() * 0.004) + 1) * 0.5;
@@ -571,7 +567,19 @@
     function addLabelFor(o, yOffset) {
       if (!o.id) return;
 
-      const label = makeLabel(String(o.id));
+      const id = String(o.id);
+      const important =
+        id.includes("mall") ||
+        id.includes("shop") ||
+        id.includes("school") ||
+        id.includes("office") ||
+        id.includes("station") ||
+        id.includes("park") ||
+        id.includes("plaza");
+
+      if (!important) return;
+
+      const label = makeLabel(id);
       label.position.set(num(o.x), num(o.y) + yOffset, num(o.z));
       root.add(label);
     }
@@ -663,7 +671,7 @@
     }
 
     loadScene();
-    setInterval(loadScene, 500);
+    setInterval(loadScene, 900);
     animate();
   </script>
 </body>
