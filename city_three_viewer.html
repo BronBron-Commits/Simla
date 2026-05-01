@@ -196,13 +196,100 @@ function makeNoiseTexture(base, fleck, size = 128, count = 900) {
 
 const grassTex = makeNoiseTexture("#1f4033", "rgba(120,210,140,ALPHA)");
 const roadTex = makeNoiseTexture("#3a4650", "rgba(210,220,230,ALPHA)");
-const wallTex = makeNoiseTexture("#3bbd77", "rgba(255,255,255,ALPHA)", 128, 450);
-const officeTex = makeNoiseTexture("#c79a36", "rgba(255,245,180,ALPHA)", 128, 450);
+function makeSidingTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#3bbd77";
+  g.fillRect(0, 0, 256, 256);
+
+  for (let y = 0; y < 256; y += 18) {
+    g.fillStyle = "rgba(255,255,255,.12)";
+    g.fillRect(0, y, 256, 2);
+    g.fillStyle = "rgba(0,0,0,.10)";
+    g.fillRect(0, y + 3, 256, 2);
+  }
+
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = "rgba(255,255,255,.05)";
+    g.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  return tex;
+}
+
+function makeRoofTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#9c4a34";
+  g.fillRect(0, 0, 256, 256);
+
+  for (let y = 0; y < 256; y += 22) {
+    for (let x = -20; x < 256; x += 42) {
+      g.fillStyle = "rgba(255,210,170,.14)";
+      g.fillRect(x + (y % 44 === 0 ? 0 : 21), y, 34, 3);
+      g.fillStyle = "rgba(0,0,0,.14)";
+      g.fillRect(x + (y % 44 === 0 ? 0 : 21), y + 4, 34, 2);
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  return tex;
+}
+
+function makeOfficeTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#b9822f";
+  g.fillRect(0, 0, 256, 256);
+
+  for (let y = 16; y < 256; y += 40) {
+    for (let x = 18; x < 256; x += 44) {
+      g.fillStyle = "rgba(255,236,150,.75)";
+      g.fillRect(x, y, 18, 18);
+      g.fillStyle = "rgba(255,255,255,.20)";
+      g.fillRect(x + 3, y + 3, 5, 5);
+      g.strokeStyle = "rgba(60,40,20,.35)";
+      g.strokeRect(x, y, 18, 18);
+    }
+  }
+
+  g.fillStyle = "rgba(0,0,0,.10)";
+  for (let x = 0; x < 256; x += 32) g.fillRect(x, 0, 2, 256);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 3);
+  return tex;
+}
+
+const wallTex = makeSidingTexture();
+const roofTex = makeRoofTexture();
+const officeTex = makeOfficeTexture();
 
 const groundMat = new THREE.MeshStandardMaterial({ map:grassTex, color:0xffffff, roughness:0.98 });
 const roadMat = new THREE.MeshStandardMaterial({ map:roadTex, color:0xffffff, roughness:0.94 });
 const homeMat = new THREE.MeshStandardMaterial({ map:wallTex, color:0xffffff, roughness:0.82 });
-const roofMat = new THREE.MeshStandardMaterial({ color:0xa54b34, roughness:0.88 });
+const roofMat = new THREE.MeshStandardMaterial({ map:roofTex, color:0xffffff, roughness:0.9 });
 const jobMat = new THREE.MeshStandardMaterial({ map:officeTex, color:0xffffff, roughness:0.78 });
 const blueMat = new THREE.MeshStandardMaterial({ color:0x5ec8ff, roughness:0.55, emissive:0x123040 });
 const greenMat = new THREE.MeshStandardMaterial({ color:0x8df58d, roughness:0.55, emissive:0x143014 });
