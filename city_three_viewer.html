@@ -96,8 +96,53 @@ const visuals = new Map();
 const meshes = new Map();
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x071018);
+
+const skyCanvas = document.createElement("canvas");
+skyCanvas.width = 16;
+skyCanvas.height = 256;
+const skyCtx = skyCanvas.getContext("2d");
+const skyTexture = new THREE.CanvasTexture(skyCanvas);
+skyTexture.colorSpace = THREE.SRGBColorSpace;
+
+scene.background = skyTexture;
 scene.fog = new THREE.Fog(0x071018, 16, 42);
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function hexToRgb(hex) {
+  return {
+    r: (hex >> 16) & 255,
+    g: (hex >> 8) & 255,
+    b: hex & 255
+  };
+}
+
+function rgbToCss(c) {
+  return `rgb(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)})`;
+}
+
+function mixColor(a, b, t) {
+  const ca = hexToRgb(a);
+  const cb = hexToRgb(b);
+  return {
+    r: lerp(ca.r, cb.r, t),
+    g: lerp(ca.g, cb.g, t),
+    b: lerp(ca.b, cb.b, t)
+  };
+}
+
+function updateSky(topHex, midHex, bottomHex) {
+  const grad = skyCtx.createLinearGradient(0, 0, 0, skyCanvas.height);
+  grad.addColorStop(0, rgbToCss(hexToRgb(topHex)));
+  grad.addColorStop(0.55, rgbToCss(hexToRgb(midHex)));
+  grad.addColorStop(1, rgbToCss(hexToRgb(bottomHex)));
+
+  skyCtx.fillStyle = grad;
+  skyCtx.fillRect(0, 0, skyCanvas.width, skyCanvas.height);
+  skyTexture.needsUpdate = true;
+}
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
 camera.position.set(9, 12, 16);
@@ -136,17 +181,74 @@ const greenMat = new THREE.MeshStandardMaterial({ color:0x8df58d, roughness:0.55
 const goldMat = new THREE.MeshStandardMaterial({ color:0xffd166, roughness:0.55, emissive:0x352500 });
 const purpleMat = new THREE.MeshStandardMaterial({ color:0xd7a8ff, roughness:0.55, emissive:0x201035 });
 
-function addTile(x, z, isRoad) {
-  const geo = new THREE.BoxGeometry(TILE * 0.96, 0.08, TILE * 0.96);
-  const mesh = new THREE.Mesh(geo, isRoad ? roadMat : groundMat);
-  mesh.position.set(x, -0.04, z);
+function terrainNoise(x, z) {
+  return (
+    Math.sin(x * 0.75) * 0.18 +
+    Math.cos(z * 0.62) * 0.16 +
+    Math.sin((x + z) * 0.38) * 0.12
+  );
+}
+
+function addTerrain() {
+  const size = CITY_W * TILE + 10;
+  const segments = 80;
+  const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+  geo.rotateX(-Math.PI / 2);
+
+  const pos = geo.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const dist = Math.sqrt(x*x + z*z);
+    const fade = Math.max(0, 1 - dist / (size * 0.62));
+    const h = terrainNoise(x, z) * fade;
+    pos.setY(i, h - 0.16);
+  }
+
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x234832,
+    roughness: 1.0,
+    metalness: 0.0
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+function tileHeight(x, z) {
+  return terrainNoise(x, z) * 0.25;
+}
+
+function addTile(x, z, isRoad) {
+  const size = TILE * 0.96;
+  const segments = 8;
+  const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+  geo.rotateX(-Math.PI / 2);
+
+  const pos = geo.attributes.position;
+
+  for (let i = 0; i < pos.count; i++) {
+    const wx = x + pos.getX(i);
+    const wz = z + pos.getZ(i);
+    pos.setY(i, tileHeight(wx, wz) + 0.018);
+  }
+
+  geo.computeVertexNormals();
+
+  const mesh = new THREE.Mesh(geo, isRoad ? roadMat : groundMat);
+  mesh.receiveShadow = true;
+  mesh.position.set(x, 0, z);
   scene.add(mesh);
 }
 
 function addHouse(id, tile) {
   const p = tileToWorld(tile);
   const group = new THREE.Group();
+  const h = tileHeight(p.x, p.z);
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.85, 1.25), homeMat);
   body.position.y = 0.42;
@@ -160,7 +262,7 @@ function addHouse(id, tile) {
   roof.castShadow = true;
   group.add(roof);
 
-  group.position.set(p.x, 0, p.z);
+  group.position.set(p.x, h, p.z);
   scene.add(group);
   meshes.set(id, group);
 }
@@ -168,6 +270,7 @@ function addHouse(id, tile) {
 function addJob(id, tile) {
   const p = tileToWorld(tile);
   const group = new THREE.Group();
+  const h = tileHeight(p.x, p.z);
 
   const floors = 3 + (id % 2);
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, floors * 0.55, 1.35), jobMat);
@@ -185,7 +288,7 @@ function addJob(id, tile) {
     group.add(win);
   }
 
-  group.position.set(p.x, 0, p.z);
+  group.position.set(p.x, h, p.z);
   scene.add(group);
   meshes.set(id, group);
 }
@@ -193,6 +296,7 @@ function addJob(id, tile) {
 function addCitizen(id, tile, mode) {
   const p = tileToWorld(tile);
   const group = new THREE.Group();
+  const h = tileHeight(p.x, p.z);
 
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 5, 10), materialForMode(mode));
   body.position.y = 0.55;
@@ -207,7 +311,7 @@ function addCitizen(id, tile, mode) {
   head.castShadow = true;
   group.add(head);
 
-  group.position.set(p.x, 0, p.z);
+  group.position.set(p.x, h, p.z);
   scene.add(group);
   meshes.set(id, group);
   visuals.set(id, { from:{...p}, to:{...p}, current:{...p}, t:1 });
@@ -221,6 +325,8 @@ function materialForMode(mode) {
 }
 
 function buildStaticCity() {
+  addTerrain();
+
   for (let y = 0; y < CITY_H; y++) {
     for (let x = 0; x < CITY_W; x++) {
       const wx = x * TILE - (CITY_W * TILE) / 2 + TILE / 2;
@@ -284,7 +390,7 @@ function updateVisuals(time) {
     if (mesh) {
       mesh.position.x = v.current.x;
       mesh.position.z = v.current.z;
-      mesh.position.y = Math.sin(time * 0.008 + id) * 0.04;
+      mesh.position.y = tileHeight(v.current.x, v.current.z) + Math.sin(time * 0.008 + id) * 0.04;
 
       const dx = v.to.x - v.from.x;
       const dz = v.to.z - v.from.z;
@@ -316,6 +422,67 @@ function updateHud() {
     '</div>';
 }
 
+function phaseBlend(phase) {
+  if (phase === "morning") {
+    return {
+      top: 0x17345c,
+      mid: 0x3f7ba8,
+      bottom: 0xffb36b,
+      fog: 0x2f5f7a,
+      sun: 0xffd19a,
+      hemi: 0x9fd9ff,
+      intensity: 1.65
+    };
+  }
+
+  if (phase === "afternoon") {
+    return {
+      top: 0x3b82c4,
+      mid: 0x7fc8ff,
+      bottom: 0xd9f3ff,
+      fog: 0x7ebbe0,
+      sun: 0xffffff,
+      hemi: 0xd6f1ff,
+      intensity: 2.35
+    };
+  }
+
+  if (phase === "work") {
+    return {
+      top: 0x244b78,
+      mid: 0xf0a45d,
+      bottom: 0xffd08a,
+      fog: 0xb97850,
+      sun: 0xffb56b,
+      hemi: 0xffcf9a,
+      intensity: 1.55
+    };
+  }
+
+  return {
+    top: 0x030712,
+    mid: 0x08162d,
+    bottom: 0x1b2546,
+    fog: 0x070d18,
+    sun: 0x8fb8ff,
+    hemi: 0x4c6fa8,
+    intensity: 0.45
+  };
+}
+
+function applyDayNight(phase) {
+  const c = phaseBlend(phase);
+
+  updateSky(c.top, c.mid, c.bottom);
+  scene.fog.color.setHex(c.fog);
+
+  sun.color.setHex(c.sun);
+  sun.intensity = c.intensity;
+
+  hemi.color.setHex(c.hemi);
+  hemi.intensity = phase === "evening" ? 0.65 : 1.15;
+}
+
 function animate(time) {
   if (time - lastStep > 900) {
     stepSim();
@@ -325,10 +492,7 @@ function animate(time) {
   updateVisuals(time);
 
   const phase = get(state, "phase", "morning");
-  if (phase === "morning") scene.background.set(0x102438);
-  else if (phase === "afternoon") scene.background.set(0x14364b);
-  else if (phase === "work") scene.background.set(0x1a2f3d);
-  else scene.background.set(0x070d18);
+  applyDayNight(phase);
 
   updateHud();
   renderer.render(scene, camera);
