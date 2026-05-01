@@ -1,0 +1,107 @@
+(begin
+  ;; Association-list helpers.
+  ;; Record shape:
+  ;; (list "id" 1 "hp" 20 "tile" 7)
+
+  (let empty (slice (list 1) 1 1))
+
+  (let assoc_get_at
+    (fn (record key i fallback)
+      (if
+        (eq i (len record))
+        fallback
+        (if
+          (eq (nth record i) key)
+          (nth record (add i 1))
+          (assoc_get_at record key (add i 2) fallback)
+        )
+      )
+    )
+  )
+
+  (let assoc_get
+    (fn (record key fallback)
+      (assoc_get_at record key 0 fallback)
+    )
+  )
+
+  (let assoc_has
+    (fn (record key)
+      (if
+        (eq (assoc_get record key "__missing__") "__missing__")
+        0
+        1
+      )
+    )
+  )
+
+  (let assoc_set_build
+    (fn (record key value i acc found)
+      (if
+        (eq i (len record))
+        (if
+          found
+          acc
+          (concat acc (list key value))
+        )
+
+        (if
+          (eq (nth record i) key)
+          (assoc_set_build
+            record
+            key
+            value
+            (add i 2)
+            (concat acc (list key value))
+            1
+          )
+
+          (assoc_set_build
+            record
+            key
+            value
+            (add i 2)
+            (concat acc (list (nth record i) (nth record (add i 1))))
+            found
+          )
+        )
+      )
+    )
+  )
+
+  (let assoc_set
+    (fn (record key value)
+      (assoc_set_build record key value 0 empty 0)
+    )
+  )
+
+  (let assoc_update
+    (fn (record key updater fallback)
+      (assoc_set
+        record
+        key
+        (updater (assoc_get record key fallback))
+      )
+    )
+  )
+
+  (let unit
+    (list "id" 1 "hp" 20 "tile" 7)
+  )
+
+  (let damaged
+    (assoc_update unit "hp" (fn (x) (sub x 5)) 0)
+  )
+
+  (let moved
+    (assoc_set damaged "tile" 9)
+  )
+
+  (list
+    "hp" (assoc_get moved "hp" 0)
+    "tile" (assoc_get moved "tile" 0)
+    "has_hp" (assoc_has moved "hp")
+    "has_name" (assoc_has moved "name")
+    "name_default" (assoc_get moved "name" "none")
+  )
+)
