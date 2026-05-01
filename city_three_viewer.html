@@ -337,23 +337,58 @@ function addJob(id, tile) {
 function addCitizen(id, tile, mode) {
   const p = tileToWorld(tile);
   const group = new THREE.Group();
-  const h = tileHeight(p.x, p.z);
 
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 5, 10), materialForMode(mode));
-  body.position.y = 0.55;
+  const mat = materialForMode(mode);
+  const skin = new THREE.MeshStandardMaterial({ color:0xffd6a5, roughness:0.7 });
+  const pants = new THREE.MeshStandardMaterial({ color:0x1d2a34, roughness:0.82 });
+
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.20, 0.52, 6, 12), mat);
+  body.name = "body";
+  body.position.y = 0.72;
   body.castShadow = true;
   group.add(body);
 
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 16, 12),
-    new THREE.MeshStandardMaterial({ color:0xffd6a5, roughness:0.7 })
-  );
-  head.position.y = 1.08;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), skin);
+  head.name = "head";
+  head.position.y = 1.22;
   head.castShadow = true;
   group.add(head);
 
-  group.position.set(p.x, h, p.z);
+  const armGeo = new THREE.CapsuleGeometry(0.055, 0.34, 4, 8);
+
+  const leftArm = new THREE.Mesh(armGeo, mat);
+  leftArm.name = "leftArm";
+  leftArm.position.set(-0.25, 0.78, 0);
+  leftArm.rotation.z = -0.24;
+  leftArm.castShadow = true;
+  group.add(leftArm);
+
+  const rightArm = new THREE.Mesh(armGeo, mat);
+  rightArm.name = "rightArm";
+  rightArm.position.set(0.25, 0.78, 0);
+  rightArm.rotation.z = 0.24;
+  rightArm.castShadow = true;
+  group.add(rightArm);
+
+  const legGeo = new THREE.CapsuleGeometry(0.065, 0.38, 4, 8);
+
+  const leftLeg = new THREE.Mesh(legGeo, pants);
+  leftLeg.name = "leftLeg";
+  leftLeg.position.set(-0.09, 0.30, 0);
+  leftLeg.rotation.z = 0.10;
+  leftLeg.castShadow = true;
+  group.add(leftLeg);
+
+  const rightLeg = new THREE.Mesh(legGeo, pants);
+  rightLeg.name = "rightLeg";
+  rightLeg.position.set(0.09, 0.30, 0);
+  rightLeg.rotation.z = -0.10;
+  rightLeg.castShadow = true;
+  group.add(rightLeg);
+
+  group.position.set(p.x, tileHeight(p.x, p.z), p.z);
   scene.add(group);
+
   meshes.set(id, group);
   visuals.set(id, { from:{...p}, to:{...p}, current:{...p}, t:1 });
 }
@@ -434,8 +469,22 @@ function updateVisuals(time) {
       mesh.position.x = v.current.x;
       mesh.position.z = v.current.z;
       const walking = v.t < 1 ? 1 : 0;
+      const walkPhase = time * 0.012 + id;
+
       mesh.position.y = tileHeight(v.current.x, v.current.z) + Math.sin(time * 0.008 + id) * 0.035 * walking;
-      mesh.scale.y = 1 + Math.sin(time * 0.012 + id) * 0.025 * walking;
+      mesh.scale.y = 1 + Math.sin(walkPhase) * 0.025 * walking;
+
+      const leftArm = mesh.getObjectByName("leftArm");
+      const rightArm = mesh.getObjectByName("rightArm");
+      const leftLeg = mesh.getObjectByName("leftLeg");
+      const rightLeg = mesh.getObjectByName("rightLeg");
+
+      if (leftArm && rightArm && leftLeg && rightLeg) {
+        leftArm.rotation.x = Math.sin(walkPhase) * 0.55 * walking;
+        rightArm.rotation.x = -Math.sin(walkPhase) * 0.55 * walking;
+        leftLeg.rotation.x = -Math.sin(walkPhase) * 0.65 * walking;
+        rightLeg.rotation.x = Math.sin(walkPhase) * 0.65 * walking;
+      }
 
       const dx = v.to.x - v.from.x;
       const dz = v.to.z - v.from.z;
