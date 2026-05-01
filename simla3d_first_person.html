@@ -87,7 +87,6 @@
     <b>Simla3D First Person</b><br>
     Tap/click to lock pointer. WASD moves. Mouse looks.
   </div>
-  <div id="runtimeError" style="position:fixed;left:12px;right:12px;bottom:180px;z-index:999;color:#fff;background:rgba(160,0,0,.85);padding:10px;border-radius:10px;font:12px monospace;display:none;white-space:pre-wrap;"></div>
   <div id="crosshair"></div>
 
   <div id="moveJoy" class="joystick">
@@ -101,16 +100,12 @@
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
-    const runtimeError = document.getElementById("runtimeError");
-
     window.addEventListener("error", e => {
-      runtimeError.style.display = "block";
-      runtimeError.textContent = e.message + "\n" + (e.filename || "") + ":" + (e.lineno || "");
+      console.warn("Simla3D runtime warning:", e.message);
     });
 
     window.addEventListener("unhandledrejection", e => {
-      runtimeError.style.display = "block";
-      runtimeError.textContent = String(e.reason?.stack || e.reason || e);
+      console.warn("Simla3D async warning:", e.reason);
     });
 
     const scene = new THREE.Scene();
@@ -532,8 +527,7 @@
 
         staticBuilt = true;
       } catch (err) {
-        runtimeError.style.display = "block";
-        runtimeError.textContent = String(err.stack || err);
+        console.warn("Simla3D scene load warning:", err);
       }
     }
 
