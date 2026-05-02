@@ -227,10 +227,19 @@
     let viewMode = "first";
 
     const viewToggle = document.getElementById("viewToggle");
+    const leftJoy = document.getElementById("moveJoy");
+    const rightJoy = document.getElementById("lookJoy");
+
     viewToggle.addEventListener("click", () => {
       viewMode = viewMode === "first" ? "iso" : "first";
-      viewToggle.textContent = viewMode === "first" ? "Isometric" : "Perspective";
-      document.getElementById("crosshair").style.display = viewMode === "first" ? "block" : "none";
+
+      const isFirst = viewMode === "first";
+
+      viewToggle.textContent = isFirst ? "Isometric" : "Perspective";
+      document.getElementById("crosshair").style.display = isFirst ? "block" : "none";
+
+      if (leftJoy) leftJoy.style.display = isFirst ? "block" : "none";
+      if (rightJoy) rightJoy.style.display = isFirst ? "block" : "none";
     });
 
     const moveStick = { x: 0, y: 0 };
