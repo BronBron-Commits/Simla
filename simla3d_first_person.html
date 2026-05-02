@@ -578,6 +578,44 @@
       state.time = performance.now();
     }
 
+    function makeScaleTexture(baseColor) {
+      const size = 128;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#" + baseColor.getHexString();
+      ctx.fillRect(0, 0, size, size);
+
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.lineWidth = 4;
+
+      for (let y = -16; y < size + 16; y += 16) {
+        for (let x = -16; x < size + 16; x += 16) {
+          const ox = ((y / 16) % 2) * 8;
+          ctx.beginPath();
+          ctx.arc(x + ox, y, 11, 0, Math.PI);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      for (let y = 0; y < size; y += 16) {
+        for (let x = 0; x < size; x += 16) {
+          ctx.beginPath();
+          ctx.arc(x + 4, y + 4, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(7, 7);
+      return tex;
+    }
+
     function addDragon(o) {
       const group = new THREE.Group();
 
@@ -586,8 +624,22 @@
       group.rotation.y = num(o.heading, 0) + Math.PI;
       group.scale.set(sc, sc, sc);
 
-      const matA = new THREE.MeshStandardMaterial({ color: color(o.colorA, "#244c2a"), roughness: 0.75 });
-      const matB = new THREE.MeshStandardMaterial({ color: color(o.colorB, "#2a5f31"), roughness: 0.75 });
+      const baseA = color(o.colorA, "#244c2a");
+      const baseB = color(o.colorB, "#2a5f31");
+
+      const matA = new THREE.MeshStandardMaterial({
+        color: baseA,
+        map: makeScaleTexture(baseA),
+        roughness: 0.82,
+        metalness: 0.02
+      });
+
+      const matB = new THREE.MeshStandardMaterial({
+        color: baseB,
+        map: makeScaleTexture(baseB),
+        roughness: 0.8,
+        metalness: 0.02
+      });
       const hornMat = new THREE.MeshStandardMaterial({ color: "#ddddbb", roughness: 0.8 });
       const eyeMat = new THREE.MeshStandardMaterial({ color: "#ffdd44", emissive: "#ffbb22", emissiveIntensity: 0.8 });
 
