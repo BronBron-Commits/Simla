@@ -221,6 +221,7 @@
     const agents = new Map();
     const dragons = new Map();
     const dragonFlights = new Map();
+    const wizardSpells = [];
 
     const keys = new Set();
     let yaw = 0;
@@ -624,6 +625,7 @@ group.userData.parts = {
         group.position.copy(target);
         group.userData.npcId = id;
         group.userData.targetName = String(o.target || "somewhere");
+        group.userData.role = String(o.role || "commoner");
         root.add(group);
 
         agents.set(id, {
@@ -893,6 +895,101 @@ group.userData.parts = {
         if (dot > 0.58) {
           igniteAgent(state);
         }
+      }
+    }
+
+    function nearestDragonTo(x, z) {
+      let best = null;
+      let bestDist = Infinity;
+
+      for (const d of dragonFlights.values()) {
+        const dx = d.group.position.x - x;
+        const dz = d.group.position.z - z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = d;
+        }
+      }
+
+      return best;
+    }
+
+    function spawnWizardSpell(wizardState, dragonState) {
+      if (!wizardState || !dragonState) return;
+
+      const start = wizardState.group.position.clone();
+      start.y += 1.25;
+
+      const target = dragonState.group.position.clone();
+
+      const mat = new THREE.MeshBasicMaterial({
+        color: "#66ccff",
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const bolt = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 12, 8),
+        mat
+      );
+
+      bolt.position.copy(start);
+      root.add(bolt);
+
+      wizardSpells.push({
+        mesh: bolt,
+        start,
+        target,
+        created: performance.now(),
+        duration: 700
+      });
+    }
+
+    function updateWizardSpells() {
+      const now = performance.now();
+
+      for (const state of agents.values()) {
+        const role = String(state.group.userData.role || "");
+
+        if (role !== "wizard") continue;
+
+        if (!state.lastSpell) state.lastSpell = 0;
+
+        if (now - state.lastSpell > 1800 + (state.wanderPhase || 0) * 250) {
+          const target = nearestDragonTo(state.group.position.x, state.group.position.z);
+          if (target) {
+            state.lastSpell = now;
+            spawnWizardSpell(state, target);
+          }
+        }
+      }
+
+      for (let i = wizardSpells.length - 1; i >= 0; i--) {
+        const spell = wizardSpells[i];
+        const raw = (now - spell.created) / spell.duration;
+
+        if (raw >= 1) {
+          root.remove(spell.mesh);
+          spell.mesh.geometry?.dispose?.();
+          spell.mesh.material?.dispose?.();
+          wizardSpells.splice(i, 1);
+          continue;
+        }
+
+        const t = raw * raw * (3 - 2 * raw);
+
+        spell.mesh.position.set(
+          spell.start.x + (spell.target.x - spell.start.x) * t,
+          spell.start.y + (spell.target.y - spell.start.y) * t,
+          spell.start.z + (spell.target.z - spell.start.z) * t
+        );
+
+        const pulse = 1 + Math.sin(now * 0.03) * 0.35;
+        spell.mesh.scale.set(pulse, pulse, pulse);
       }
     }
 
@@ -1255,6 +1352,7 @@ group.userData.parts = {
       updateDragons();
       updateDragonFlights();
       updateBurningAgents();
+      updateWizardSpells();
       updateInteraction();
       renderer.render(scene, camera);
     }
