@@ -90,6 +90,21 @@
     )
   )
 
+  (let role_agent
+    (fn (id x z target color role)
+      (list
+        "type" "agent"
+        "id" id
+        "x" x
+        "y" 1
+        "z" z
+        "target" target
+        "color" color
+        "role" role
+      )
+    )
+  )
+
   (let route
     (fn (id fromX fromZ toX toZ color)
       (list

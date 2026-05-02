@@ -263,6 +263,13 @@
       (route "r24" (nth a24 0) (nth a24 1) stationX stationZ "#ffbbbb")
 
 
+
+      ;; D&D themed citizens
+      (role_agent "wizard_01" 4 6 "library" "#7755ff" "wizard")
+      (role_agent "wizard_02" -6 28 "library" "#aa66ff" "wizard")
+      (role_agent "warrior_01" -12 18 "station" "#aa4444" "warrior")
+      (role_agent "warrior_02" 14 -10 "office_tower" "#cc5533" "warrior")
+
       ;; high-flying dragons above the city
       (dragon_flight "city_dragon_01" 0 0 0 0.45 "#244c2a" "#2a5f31")
       (dragon_flight "city_dragon_02" 28 18 2 0.42 "#243a4c" "#2a4c5f")
