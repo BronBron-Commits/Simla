@@ -2,54 +2,39 @@
   (import "../lib/simla3d.sim")
 
   (let t (mul tick 0.001))
-  (let wingBeat (sin (mul t 7)))
-  (let tailWave (sin (mul t 2.4)))
-  (let breathe (sin (mul t 1.6)))
-  (let headBob (sin (mul t 1.9)))
-  (let firePulse (mul 0.5 (add 1 (sin (mul t 5)))))
 
-  ;; one dragon helper
+  ;; smaller dragon helper
   (let dragon
     (fn (name x z phase colorA colorB)
       (begin
-        (let fx (add x (mul (sin (add phase (mul t 0.7))) 4)))
-        (let fz (add z (mul (cos (add phase (mul t 0.45))) 3)))
-        (let fy (add 8 (mul (sin (add phase (mul t 1.2))) 0.7)))
+        (let s 0.55)
+        (let fx (add x (mul (sin (add phase (mul t 0.7))) 3)))
+        (let fz (add z (mul (cos (add phase (mul t 0.45))) 2.5)))
+        (let fy (add 8 (mul (sin (add phase (mul t 1.2))) 0.55)))
         (let wb (sin (add phase (mul t 7))))
         (let tw (sin (add phase (mul t 2.4))))
         (let hb (sin (add phase (mul t 1.9))))
-        (let fp (mul 0.5 (add 1 (sin (add phase (mul t 5))))))
 
         (list
+          (box (concat name "_body") fx fy fz (mul 6 s) (mul 2.2 s) (mul 10 s) colorA)
+          (box (concat name "_chest") fx (add fy (mul 0.15 s)) (sub fz (mul 3.2 s)) (mul 4.2 s) (mul 2.4 s) (mul 3.4 s) colorB)
 
-          (box (concat name "_body") fx fy fz 6 2.2 10 colorA)
-          (box (concat name "_chest") fx (add fy (add 0.15 (mul breathe 0.14))) (sub fz 3.2) 4.2 2.4 3.4 colorB)
+          (box (concat name "_neck") fx (add fy (mul (add 0.9 (mul hb 0.25)) s)) (sub fz (mul 6.0 s)) (mul 1.6 s) (mul 1.5 s) (mul 3.4 s) colorB)
+          (box (concat name "_head") fx (add fy (mul (add 1.15 (mul hb 0.35)) s)) (sub fz (mul 8.5 s)) (mul 2.7 s) (mul 1.8 s) (mul 2.4 s) colorB)
+          (box (concat name "_snout") fx (add fy (mul (add 0.95 (mul hb 0.35)) s)) (sub fz (mul 10.0 s)) (mul 1.7 s) (mul 0.9 s) (mul 1.7 s) colorA)
 
-          (box (concat name "_neck") fx (add fy (add 0.9 (mul hb 0.25))) (sub fz 6.0) 1.6 1.5 3.4 colorB)
-          (box (concat name "_head") fx (add fy (add 1.15 (mul hb 0.35))) (sub fz 8.5) 2.7 1.8 2.4 colorB)
-          (box (concat name "_snout") fx (add fy (add 0.95 (mul hb 0.35))) (sub fz 10.0) 1.7 0.9 1.7 colorA)
+          (box (concat name "_horn_l") (sub fx (mul 0.9 s)) (add fy (mul (add 2.15 (mul hb 0.35)) s)) (sub fz (mul 8.7 s)) (mul 0.35 s) (mul 1.1 s) (mul 0.35 s) "#ddddbb")
+          (box (concat name "_horn_r") (add fx (mul 0.9 s)) (add fy (mul (add 2.15 (mul hb 0.35)) s)) (sub fz (mul 8.7 s)) (mul 0.35 s) (mul 1.1 s) (mul 0.35 s) "#ddddbb")
 
-          (box (concat name "_horn_l") (sub fx 0.9) (add fy (add 2.15 (mul hb 0.35))) (sub fz 8.7) 0.35 1.1 0.35 "#ddddbb")
-          (box (concat name "_horn_r") (add fx 0.9) (add fy (add 2.15 (mul hb 0.35))) (sub fz 8.7) 0.35 1.1 0.35 "#ddddbb")
+          (box (concat name "_eye_l") (sub fx (mul 0.6 s)) (add fy (mul (add 1.48 (mul hb 0.35)) s)) (sub fz (mul 10.85 s)) (mul 0.28 s) (mul 0.28 s) (mul 0.08 s) "#ffdd44")
+          (box (concat name "_eye_r") (add fx (mul 0.6 s)) (add fy (mul (add 1.48 (mul hb 0.35)) s)) (sub fz (mul 10.85 s)) (mul 0.28 s) (mul 0.28 s) (mul 0.08 s) "#ffdd44")
 
-          (box (concat name "_eye_l") (sub fx 0.6) (add fy (add 1.48 (mul hb 0.35))) (sub fz 10.85) 0.28 0.28 0.08 "#ffdd44")
-          (box (concat name "_eye_r") (add fx 0.6) (add fy (add 1.48 (mul hb 0.35))) (sub fz 10.85) 0.28 0.28 0.08 "#ffdd44")
+          (box (concat name "_tail_1") fx (sub fy (mul 0.25 s)) (add fz (mul (add 6.4 (mul tw 0.5)) s)) (mul 2.2 s) (mul 1.3 s) (mul 3.5 s) colorB)
+          (box (concat name "_tail_2") fx (sub fy (mul 0.65 s)) (add fz (mul (add 9.0 (mul tw 0.9)) s)) (mul 1.4 s) (mul 1.0 s) (mul 3.2 s) colorA)
+          (box (concat name "_tail_3") fx (sub fy (mul 0.95 s)) (add fz (mul (add 11.3 (mul tw 1.2)) s)) (mul 0.8 s) (mul 0.7 s) (mul 2.6 s) colorA)
 
-          (box (concat name "_leg_fl") (sub fx 2.0) (sub fy 1.05) (sub fz 3.0) 0.9 1.4 0.9 "#214725")
-          (box (concat name "_leg_fr") (add fx 2.0) (sub fy 1.05) (sub fz 3.0) 0.9 1.4 0.9 "#214725")
-          (box (concat name "_leg_bl") (sub fx 2.0) (sub fy 1.05) (add fz 3.2) 0.9 1.4 0.9 "#214725")
-          (box (concat name "_leg_br") (add fx 2.0) (sub fy 1.05) (add fz 3.2) 0.9 1.4 0.9 "#214725")
-
-          (box (concat name "_tail_1") fx (sub fy 0.25) (add fz (add 6.4 (mul tw 0.5))) 2.2 1.3 3.5 colorB)
-          (box (concat name "_tail_2") fx (sub fy 0.65) (add fz (add 9.0 (mul tw 0.9))) 1.4 1.0 3.2 colorA)
-          (box (concat name "_tail_3") fx (sub fy 0.95) (add fz (add 11.3 (mul tw 1.2))) 0.8 0.7 2.6 colorA)
-
-          (box (concat name "_wing_l") (sub fx 5.2) (add fy (mul wb 1.9)) (sub fz 0.8) 7.2 0.25 8.5 colorA)
-          (box (concat name "_wing_r") (add fx 5.2) (add fy (mul wb 1.9)) (sub fz 0.8) 7.2 0.25 8.5 colorA)
-
-          (box (concat name "_fire_1") fx (add fy 0.6) (sub fz 12.0) (add 0.8 (mul fp 0.6)) 0.6 2.4 "#ff7a22")
-          (box (concat name "_fire_2") fx (add fy 0.4) (sub fz 14.0) (add 1.2 (mul fp 1.0)) 0.8 2.8 "#ffcc33")
-          (box (concat name "_fire_3") fx (add fy 0.2) (sub fz 16.4) (add 1.8 (mul fp 1.4)) 1.0 3.0 "#ff3b1f")
+          (box (concat name "_wing_l") (sub fx (mul 5.2 s)) (add fy (mul wb 1.25)) (sub fz (mul 0.8 s)) (mul 7.2 s) (mul 0.25 s) (mul 8.5 s) colorA)
+          (box (concat name "_wing_r") (add fx (mul 5.2 s)) (add fy (mul wb 1.25)) (sub fz (mul 0.8 s)) (mul 7.2 s) (mul 0.25 s) (mul 8.5 s) colorA)
         )
       )
     )
@@ -59,21 +44,27 @@
     (flatten
       (list
         (list
-          (floor 160 160 "#2f4f2f")
+          (floor 190 190 "#2f4f2f")
           (light "sun" -8 24 8 1.5 "#ffffff")
-          (camera 32 22 54 0 8 0)
+          (camera 42 28 68 0 8 0)
         )
 
         (dragon "dragon_01" 0 0 0 "#244c2a" "#2a5f31")
-        (dragon "dragon_02" 18 10 1 "#3e243f" "#5f2a5b")
-        (dragon "dragon_03" -20 8 2 "#243a4c" "#2a4c5f")
-        (dragon "dragon_04" 28 -16 3 "#4c2f24" "#6f3f2a")
-        (dragon "dragon_05" -30 -14 4 "#3d4c24" "#5a6f2a")
-        (dragon "dragon_06" 6 28 5 "#4c2440" "#6f2a5a")
-        (dragon "dragon_07" -12 32 6 "#223f32" "#2a5f4a")
-        (dragon "dragon_08" 40 22 7 "#32244c" "#4a2a6f")
-        (dragon "dragon_09" -42 20 8 "#4c4424" "#6f632a")
-        (dragon "dragon_10" 0 -34 9 "#24324c" "#2a3f6f")
+        (dragon "dragon_02" 14 8 1 "#3e243f" "#5f2a5b")
+        (dragon "dragon_03" -16 8 2 "#243a4c" "#2a4c5f")
+        (dragon "dragon_04" 24 -12 3 "#4c2f24" "#6f3f2a")
+        (dragon "dragon_05" -26 -12 4 "#3d4c24" "#5a6f2a")
+        (dragon "dragon_06" 6 24 5 "#4c2440" "#6f2a5a")
+        (dragon "dragon_07" -12 28 6 "#223f32" "#2a5f4a")
+        (dragon "dragon_08" 34 20 7 "#32244c" "#4a2a6f")
+        (dragon "dragon_09" -36 18 8 "#4c4424" "#6f632a")
+        (dragon "dragon_10" 0 -30 9 "#24324c" "#2a3f6f")
+        (dragon "dragon_11" 42 -2 10 "#4c2430" "#6f2a3f")
+        (dragon "dragon_12" -44 -2 11 "#244c44" "#2a6f62")
+        (dragon "dragon_13" 22 36 12 "#394c24" "#556f2a")
+        (dragon "dragon_14" -26 38 13 "#4c3424" "#6f4a2a")
+        (dragon "dragon_15" 48 30 14 "#24284c" "#2a346f")
+        (dragon "dragon_16" -50 30 15 "#4c2448" "#6f2a68")
       )
     )
   )
