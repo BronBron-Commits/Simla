@@ -583,7 +583,7 @@
 
       const sc = num(o.scale, 1);
       group.position.set(num(o.x), num(o.y, 8), num(o.z));
-      group.rotation.y = num(o.heading, 0);
+      group.rotation.y = num(o.heading, 0) + Math.PI;
       group.scale.set(sc, sc, sc);
 
       const matA = new THREE.MeshStandardMaterial({ color: color(o.colorA, "#244c2a"), roughness: 0.75 });
