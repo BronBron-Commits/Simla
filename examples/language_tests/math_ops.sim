@@ -1,0 +1,7 @@
+(begin
+  (list
+    (sqrt 9)
+    (abs -12)
+    (atan2 1 1)
+  )
+)

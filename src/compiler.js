@@ -244,6 +244,25 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "sqrt") {
+      compile(node.args[0], out);
+      out.push(["SQRT"]);
+      return out;
+    }
+
+    if (name === "atan2") {
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["ATAN2"]);
+      return out;
+    }
+
+    if (name === "abs") {
+      compile(node.args[0], out);
+      out.push(["ABS"]);
+      return out;
+    }
+
 
     if (name === "damage_all") {
       compile(node.args[0], out); // list

@@ -307,6 +307,25 @@ case "LIST": {
         break;
       }
 
+      case "SQRT": {
+        const a = stack.pop();
+        stack.push(Math.sqrt(a));
+        break;
+      }
+
+      case "ATAN2": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.atan2(a, b));
+        break;
+      }
+
+      case "ABS": {
+        const a = stack.pop();
+        stack.push(Math.abs(a));
+        break;
+      }
+
 
         case "DAMAGE_ALL": {
           const tick = stack.pop() | 0;
