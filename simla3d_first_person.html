@@ -794,15 +794,105 @@ group.userData.parts = {
           colorB: o.colorB
         });
 
+        const fireMat = new THREE.MeshBasicMaterial({
+          color: "#ff6a1a",
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+
+        const fireCone = new THREE.Mesh(
+          new THREE.ConeGeometry(1.2, 8, 16),
+          fireMat
+        );
+        fireCone.name = "fire_breath";
+        fireCone.rotation.x = Math.PI / 2;
+        fireCone.position.set(0, 0.6, -9.5);
+        fireCone.scale.set(1, 1, 1);
+        group.add(fireCone);
+
         root.add(group);
 
         dragonFlights.set(id, {
           group,
+          fireCone,
           baseX: num(o.baseX),
           baseZ: num(o.baseZ),
           phase: num(o.phase),
-          scale: num(o.scale, 1)
+          scale: num(o.scale, 1),
+          lastFire: 0
         });
+      }
+    }
+
+    function igniteAgent(state) {
+      if (state.group.userData.onFire) return;
+
+      state.group.userData.onFire = true;
+      state.group.userData.fireStart = performance.now();
+
+      const fireMat = new THREE.MeshBasicMaterial({
+        color: "#ff5a18",
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const fire = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 12, 8),
+        fireMat
+      );
+
+      fire.name = "burning_fire";
+      fire.position.y = 0.55;
+      fire.scale.set(0.8, 1.4, 0.8);
+      state.group.add(fire);
+    }
+
+    function updateBurningAgents() {
+      const now = performance.now();
+
+      for (const state of agents.values()) {
+        if (!state.group.userData.onFire) continue;
+
+        const fire = state.group.getObjectByName("burning_fire");
+        if (!fire) continue;
+
+        const t = now * 0.008 + state.wanderPhase;
+        fire.scale.set(
+          0.75 + Math.sin(t) * 0.18,
+          1.25 + Math.abs(Math.sin(t * 1.3)) * 0.45,
+          0.75 + Math.cos(t) * 0.18
+        );
+
+        fire.material.opacity = 0.55 + Math.abs(Math.sin(t * 1.8)) * 0.35;
+      }
+    }
+
+    function dragonBreathHitsAgents(x, y, z, heading) {
+      const forwardX = Math.sin(heading);
+      const forwardZ = Math.cos(heading);
+
+      for (const state of agents.values()) {
+        const ax = state.group.position.x;
+        const ay = state.group.position.y;
+        const az = state.group.position.z;
+
+        const dx = ax - x;
+        const dz = az - z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist > 9.5) continue;
+        if (Math.abs(ay - y) > 18) continue;
+
+        const dot = ((dx / Math.max(dist, 0.001)) * forwardX) + ((dz / Math.max(dist, 0.001)) * forwardZ);
+
+        // cone in front of dragon
+        if (dot > 0.58) {
+          igniteAgent(state);
+        }
       }
     }
 
@@ -840,6 +930,25 @@ group.userData.parts = {
 
         state.group.position.set(x, y, z);
         state.group.rotation.y = Math.atan2(vx, vz) + Math.PI;
+
+        const heading = state.group.rotation.y;
+        const fireCycle = Math.sin(t * 0.7 + p * 1.9);
+        const isBreathingFire = fireCycle > 0.86;
+
+        if (state.fireCone) {
+          const firePower = isBreathingFire ? (fireCycle - 0.86) / 0.14 : 0;
+          state.fireCone.material.opacity = firePower * 0.9;
+          state.fireCone.scale.set(
+            0.7 + firePower * 1.4,
+            0.7 + firePower * 1.7,
+            0.7 + firePower * 1.7
+          );
+        }
+
+        if (isBreathingFire && performance.now() - state.lastFire > 500) {
+          state.lastFire = performance.now();
+          dragonBreathHitsAgents(x, y, z, heading);
+        }
 
         const flap = Math.sin(t * 7 + p);
         const wingL = state.group.getObjectByName("wing_l");
@@ -1145,6 +1254,7 @@ group.userData.parts = {
       updateAgents();
       updateDragons();
       updateDragonFlights();
+      updateBurningAgents();
       updateInteraction();
       renderer.render(scene, camera);
     }
