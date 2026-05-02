@@ -220,6 +220,7 @@
     let staticBuilt = false;
     const agents = new Map();
     const dragons = new Map();
+    const dragonFlights = new Map();
 
     const keys = new Set();
     let yaw = 0;
@@ -702,6 +703,81 @@
       state.time = performance.now();
     }
 
+    function addDragonFlight(o) {
+      const id = String(o.id || "dragon_flight");
+
+      if (!dragonFlights.has(id)) {
+        const group = makeDragonGroup({
+          id,
+          x: 0,
+          y: 8,
+          z: 0,
+          heading: 0,
+          scale: o.scale,
+          colorA: o.colorA,
+          colorB: o.colorB
+        });
+
+        root.add(group);
+
+        dragonFlights.set(id, {
+          group,
+          baseX: num(o.baseX),
+          baseZ: num(o.baseZ),
+          phase: num(o.phase),
+          scale: num(o.scale, 1)
+        });
+      }
+    }
+
+    function updateDragonFlights() {
+      const t = performance.now() * 0.001;
+
+      for (const state of dragonFlights.values()) {
+        const p = state.phase;
+
+        const speedX = 0.35 + Math.sin(p + 1) * 0.15;
+        const speedZ = 0.30 + Math.cos(p + 2) * 0.12;
+
+        const x =
+          state.baseX +
+          Math.sin(p + t * speedX) * 5.5 +
+          Math.sin(p * 1.7 + t * 1.15) * 1.8;
+
+        const z =
+          state.baseZ +
+          Math.cos(p + t * speedZ) * 4.2 +
+          Math.sin(p * 2.1 + t * 0.9) * 1.6;
+
+        const y =
+          8 +
+          Math.sin(p + t * 0.75) * 2.6 +
+          Math.sin(p * 1.3 + t * 2.2) * 0.55;
+
+        const vx =
+          Math.cos(p + t * speedX) * 5.5 +
+          Math.cos(p * 1.7 + t * 1.15) * 1.8;
+
+        const vz =
+          -Math.sin(p + t * speedZ) * 4.2 +
+          Math.cos(p * 2.1 + t * 0.9) * 1.6;
+
+        state.group.position.set(x, y, z);
+        state.group.rotation.y = Math.atan2(vx, vz) + Math.PI;
+
+        const flap = Math.sin(t * 7 + p);
+        const wingL = state.group.getObjectByName("wing_l");
+        const wingR = state.group.getObjectByName("wing_r");
+
+        if (wingL && wingR) {
+          wingL.position.y = 0.2 + flap * 1.2;
+          wingR.position.y = 0.2 + flap * 1.2;
+          wingL.rotation.z = flap * 0.25;
+          wingR.rotation.z = -flap * 0.25;
+        }
+      }
+    }
+
     function addLocation(o) {
       const marker = new THREE.Mesh(
         new THREE.CylinderGeometry(0.45, 0.45, 0.1, 24),
@@ -744,6 +820,7 @@
             clearRoot();
             agents.clear();
             dragons.clear();
+            dragonFlights.clear();
             staticBuilt = false;
           }
         }
@@ -756,6 +833,11 @@
         for (const item of data) {
           if (!Array.isArray(item)) continue;
           const o = pairsToObj(item);
+
+          if (o.type === "dragon_flight") {
+            addDragonFlight(o);
+            continue;
+          }
 
           if (o.type === "dragon") {
             addDragon(o);
@@ -884,8 +966,10 @@
       const duration = 220;
 
       for (const state of dragons.values()) {
-        const raw = Math.min(1, (now - state.time) / duration);
-        const t = raw * raw * (3 - 2 * raw);
+        const raw = (now - state.time) / duration;
+
+        // allow slight extrapolation so dragons never stop between samples
+        const t = Math.min(raw, 1.35);
 
         state.group.position.set(
           state.prev.x + (state.next.x - state.prev.x) * t,
@@ -978,6 +1062,7 @@
       updateCamera();
       updateAgents();
       updateDragons();
+      updateDragonFlights();
       updateInteraction();
       renderer.render(scene, camera);
     }

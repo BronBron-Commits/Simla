@@ -130,6 +130,21 @@
     )
   )
 
+  (let dragon_flight
+    (fn (id baseX baseZ phase scale colorA colorB)
+      (list
+        "type" "dragon_flight"
+        "id" id
+        "baseX" baseX
+        "baseZ" baseZ
+        "phase" phase
+        "scale" scale
+        "colorA" colorA
+        "colorB" colorB
+      )
+    )
+  )
+
   (let dragon
     (fn (id x y z heading scale colorA colorB)
       (list
