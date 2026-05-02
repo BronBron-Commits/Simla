@@ -130,6 +130,22 @@
     )
   )
 
+  (let dragon
+    (fn (id x y z heading scale colorA colorB)
+      (list
+        "type" "dragon"
+        "id" id
+        "x" x
+        "y" y
+        "z" z
+        "heading" heading
+        "scale" scale
+        "colorA" colorA
+        "colorB" colorB
+      )
+    )
+  )
+
   (let floor
     (fn (w d color)
       (list
