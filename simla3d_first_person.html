@@ -1050,11 +1050,11 @@ group.userData.parts = {
 
     function updateAgents() {
       const now = performance.now();
-      const duration = 400;
+      const duration = 650;
 
       for (const state of agents.values()) {
-        const tRaw = Math.min(1, (now - state.time) / duration);
-        const t = tRaw * tRaw * (3 - 2 * tRaw);
+        const tRaw = (now - state.time) / duration;
+        const t = Math.min(tRaw, 1.25);
 
         const oldX = state.group.position.x;
         const oldZ = state.group.position.z;
