@@ -8,12 +8,24 @@
     (fn (name x z phase colorA colorB)
       (begin
         (let s 0.55)
-        (let fx (add x (mul (sin (add phase (mul t 0.7))) 3)))
-        (let fz (add z (mul (cos (add phase (mul t 0.45))) 2.5)))
-        (let fy (add 8 (mul (sin (add phase (mul t 1.2))) 0.55)))
-        (let wb (sin (add phase (mul t 7))))
-        (let tw (sin (add phase (mul t 2.4))))
-        (let hb (sin (add phase (mul t 1.9))))
+
+        ;; deterministic variation from phase
+        (let pathWide (add 2.0 (mul (sin phase) 3.0)))
+        (let pathDeep (add 2.0 (mul (cos phase) 2.5)))
+        (let baseHeight (add 6.5 (mul (sin (mul phase 1.7)) 5.0)))
+        (let heightBob (add 0.4 (mul (cos (mul phase 2.3)) 1.4)))
+        (let speedA (add 0.35 (mul (sin (add phase 1)) 0.22)))
+        (let speedB (add 0.28 (mul (cos (add phase 2)) 0.18)))
+
+        ;; varied flight paths
+        (let fx (add x (mul (sin (add phase (mul t speedA))) pathWide)))
+        (let fz (add z (mul (cos (add phase (mul t speedB))) pathDeep)))
+        (let fy (add baseHeight (mul (sin (add phase (mul t (add 0.8 speedA)))) heightBob)))
+
+        ;; varied animation timing
+        (let wb (sin (add phase (mul t (add 5.5 (mul speedA 4))))))
+        (let tw (sin (add phase (mul t (add 1.7 speedB)))))
+        (let hb (sin (add phase (mul t (add 1.2 speedA)))))
 
         (list
           (box (concat name "_body") fx fy fz (mul 6 s) (mul 2.2 s) (mul 10 s) colorA)
