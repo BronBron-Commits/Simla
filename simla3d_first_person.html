@@ -219,6 +219,7 @@
 
     let staticBuilt = false;
     const agents = new Map();
+    const dragons = new Map();
 
     const keys = new Set();
     let yaw = 0;
@@ -616,7 +617,7 @@
       return tex;
     }
 
-    function addDragon(o) {
+    function makeDragonGroup(o) {
       const group = new THREE.Group();
 
       const sc = num(o.scale, 1);
@@ -668,7 +669,37 @@
       part(-5.2, 0.2 + flap * 1.2, -0.8, 7.2, 0.25, 8.5, matA);
       part(5.2, 0.2 + flap * 1.2, -0.8, 7.2, 0.25, 8.5, matA);
 
-      root.add(group);
+      return group;
+    }
+
+    function addDragon(o) {
+      const id = String(o.id || "dragon");
+      const targetPos = new THREE.Vector3(num(o.x), num(o.y, 8), num(o.z));
+      const targetHeading = num(o.heading, 0) + Math.PI;
+
+      if (!dragons.has(id)) {
+        const group = makeDragonGroup(o);
+        group.position.copy(targetPos);
+        group.rotation.y = targetHeading;
+        root.add(group);
+
+        dragons.set(id, {
+          group,
+          prev: targetPos.clone(),
+          next: targetPos.clone(),
+          prevHeading: targetHeading,
+          nextHeading: targetHeading,
+          time: performance.now()
+        });
+        return;
+      }
+
+      const state = dragons.get(id);
+      state.prev.copy(state.group.position);
+      state.next.copy(targetPos);
+      state.prevHeading = state.group.rotation.y;
+      state.nextHeading = targetHeading;
+      state.time = performance.now();
     }
 
     function addLocation(o) {
@@ -709,9 +740,12 @@
         }
 
         if (isDragonScene) {
-          clearRoot();
-          agents.clear();
-          staticBuilt = false;
+          if (!staticBuilt) {
+            clearRoot();
+            agents.clear();
+            dragons.clear();
+            staticBuilt = false;
+          }
         }
 
         if (!staticBuilt) {
@@ -845,6 +879,28 @@
       camera.rotation.x = pitch;
     }
 
+    function updateDragons() {
+      const now = performance.now();
+      const duration = 220;
+
+      for (const state of dragons.values()) {
+        const raw = Math.min(1, (now - state.time) / duration);
+        const t = raw * raw * (3 - 2 * raw);
+
+        state.group.position.set(
+          state.prev.x + (state.next.x - state.prev.x) * t,
+          state.prev.y + (state.next.y - state.prev.y) * t,
+          state.prev.z + (state.next.z - state.prev.z) * t
+        );
+
+        let delta = state.nextHeading - state.prevHeading;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+
+        state.group.rotation.y = state.prevHeading + delta * t;
+      }
+    }
+
     function updateAgents() {
       const now = performance.now();
       const duration = 400;
@@ -921,12 +977,13 @@
       requestAnimationFrame(animate);
       updateCamera();
       updateAgents();
+      updateDragons();
       updateInteraction();
       renderer.render(scene, camera);
     }
 
     loadScene();
-    setInterval(loadScene, isDragonScene ? 120 : 400);
+    setInterval(loadScene, isDragonScene ? 180 : 400);
     animate();
   </script>
 </body>
