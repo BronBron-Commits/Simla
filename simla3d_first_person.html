@@ -176,6 +176,7 @@
     let nearestNpc = null;
 
     const sceneFile = new URLSearchParams(location.search).get("file") || "examples/simla3d_demo.sim";
+    const isDragonScene = sceneFile.includes("dragon");
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe7ff");
@@ -583,6 +584,12 @@
           throw new Error("Scene API did not return an array: " + JSON.stringify(data).slice(0, 300));
         }
 
+        if (isDragonScene) {
+          clearRoot();
+          agents.clear();
+          staticBuilt = false;
+        }
+
         if (!staticBuilt) {
           clearRoot();
           agents.clear();
@@ -783,7 +790,7 @@
     }
 
     loadScene();
-    setInterval(loadScene, 400);
+    setInterval(loadScene, isDragonScene ? 120 : 400);
     animate();
   </script>
 </body>
