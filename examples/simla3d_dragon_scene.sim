@@ -1,0 +1,49 @@
+(begin
+  (import "../lib/simla3d.sim")
+
+  (let t (mul tick 0.001))
+  (let wingBeat (sin (mul t 4)))
+  (let tailWave (sin (mul t 2)))
+  (let breathe (sin (mul t 1.5)))
+
+  (scene
+    (list
+      (floor 120 120 "#2f4f2f")
+
+      ;; main dragon mass
+      (box "dragon_body" 0 2.1 0 6 2.2 10 "#244c2a")
+      (box "dragon_chest" 0 (add 2.25 (mul breathe 0.08)) -3.2 4.2 2.4 3.4 "#2a5f31")
+
+      ;; neck and head aligned from front of body
+      (box "dragon_neck" 0 3.0 -6.0 1.6 1.5 3.4 "#2e6534")
+      (box "dragon_head" 0 3.25 -8.5 2.7 1.8 2.4 "#356f39")
+      (box "dragon_snout" 0 3.05 -10.0 1.7 0.9 1.7 "#2c5a30")
+
+      ;; horns
+      (box "dragon_horn_l" -0.9 4.25 -8.7 0.35 1.1 0.35 "#ddddbb")
+      (box "dragon_horn_r" 0.9 4.25 -8.7 0.35 1.1 0.35 "#ddddbb")
+
+      ;; eyes
+      (box "dragon_eye_l" -0.6 3.58 -10.85 0.28 0.28 0.08 "#ffdd44")
+      (box "dragon_eye_r" 0.6 3.58 -10.85 0.28 0.28 0.08 "#ffdd44")
+
+      ;; legs under body
+      (box "dragon_leg_fl" -2.0 0.9 -3.0 1 1.8 1.2 "#214725")
+      (box "dragon_leg_fr" 2.0 0.9 -3.0 1 1.8 1.2 "#214725")
+      (box "dragon_leg_bl" -2.0 0.9 3.2 1 1.8 1.2 "#214725")
+      (box "dragon_leg_br" 2.0 0.9 3.2 1 1.8 1.2 "#214725")
+
+      ;; tail connected to rear of body
+      (box "dragon_tail_1" 0 1.85 (add 6.4 (mul tailWave 0.25)) 2.2 1.3 3.5 "#285c30")
+      (box "dragon_tail_2" 0 1.45 (add 9.0 (mul tailWave 0.45)) 1.4 1.0 3.2 "#244c2a")
+      (box "dragon_tail_3" 0 1.15 (add 11.3 (mul tailWave 0.65)) 0.8 0.7 2.6 "#1d4025")
+
+      ;; wings attached to shoulders
+      (box "dragon_wing_l" -4.6 (add 3.1 (mul wingBeat 0.45)) -0.8 5.8 0.25 7.5 "#1f3f29")
+      (box "dragon_wing_r" 4.6 (add 3.1 (mul wingBeat 0.45)) -0.8 5.8 0.25 7.5 "#1f3f29")
+
+      (light "sun" -8 20 8 1.4 "#ffffff")
+      (camera 18 14 30 0 2 0)
+    )
+  )
+)
