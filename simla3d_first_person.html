@@ -222,6 +222,7 @@
     const dragons = new Map();
     const dragonFlights = new Map();
     const wizardSpells = [];
+    const spellExplosions = [];
 
     const keys = new Set();
     let yaw = 0;
@@ -949,6 +950,63 @@ group.userData.parts = {
       });
     }
 
+    function spawnSpellExplosion(pos) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: "#88ddff",
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      for (let i = 0; i < 14; i++) {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), mat.clone());
+        mesh.position.copy(pos);
+
+        const a = Math.random() * Math.PI * 2;
+        const up = Math.random() * 1.2 + 0.2;
+        const speed = Math.random() * 2.2 + 1.0;
+
+        root.add(mesh);
+
+        spellExplosions.push({
+          mesh,
+          vx: Math.cos(a) * speed,
+          vy: up,
+          vz: Math.sin(a) * speed,
+          born: performance.now(),
+          life: 650
+        });
+      }
+    }
+
+    function updateSpellExplosions() {
+      const now = performance.now();
+
+      for (let i = spellExplosions.length - 1; i >= 0; i--) {
+        const e = spellExplosions[i];
+        const age = now - e.born;
+        const t = age / e.life;
+
+        if (t >= 1) {
+          root.remove(e.mesh);
+          e.mesh.geometry?.dispose?.();
+          e.mesh.material?.dispose?.();
+          spellExplosions.splice(i, 1);
+          continue;
+        }
+
+        e.mesh.position.x += e.vx * 0.035;
+        e.mesh.position.y += e.vy * 0.035;
+        e.mesh.position.z += e.vz * 0.035;
+        e.vy -= 0.025;
+
+        const fade = 1 - t;
+        e.mesh.material.opacity = fade;
+        e.mesh.scale.setScalar(1 + t * 2.5);
+      }
+    }
+
     function updateWizardSpells() {
       const now = performance.now();
 
@@ -973,6 +1031,7 @@ group.userData.parts = {
         const raw = (now - spell.created) / spell.duration;
 
         if (raw >= 1) {
+          spawnSpellExplosion(spell.target);
           root.remove(spell.mesh);
           spell.mesh.geometry?.dispose?.();
           spell.mesh.material?.dispose?.();
@@ -1353,6 +1412,7 @@ group.userData.parts = {
       updateDragonFlights();
       updateBurningAgents();
       updateWizardSpells();
+      updateSpellExplosions();
       updateInteraction();
       renderer.render(scene, camera);
     }
