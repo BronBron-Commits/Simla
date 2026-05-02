@@ -264,6 +264,14 @@
 
 
 
+
+      ;; visible D&D plaza cluster
+      (role_agent "wizard_plaza_01" 2 3 "plaza_center" "#7755ff" "wizard")
+      (role_agent "wizard_plaza_02" 4 4 "plaza_center" "#aa66ff" "wizard")
+      (role_agent "warrior_plaza_01" 0 5 "plaza_center" "#aa4444" "warrior")
+      (role_agent "warrior_plaza_02" -2 4 "plaza_center" "#cc5533" "warrior")
+      (role_agent "warrior_plaza_03" 1 7 "plaza_center" "#884422" "warrior")
+
       ;; D&D themed citizens
       (role_agent "wizard_01" 4 6 "library" "#7755ff" "wizard")
       (role_agent "wizard_02" -6 28 "library" "#aa66ff" "wizard")
