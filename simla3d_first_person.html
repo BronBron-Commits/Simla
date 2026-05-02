@@ -175,6 +175,8 @@
 
     let nearestNpc = null;
 
+    const sceneFile = new URLSearchParams(location.search).get("file") || "examples/simla3d_demo.sim";
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#cfe7ff");
     scene.fog = new THREE.FogExp2("#cfe7ff", 0.006);
@@ -349,14 +351,19 @@
       mesh.position.set(x, y, z);
       root.add(mesh);
 
-      const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(w * 1.08, 0.16, d * 1.08),
-        new THREE.MeshStandardMaterial({ color: "#1c2530", roughness: 0.85 })
-      );
-      roof.position.set(x, y + h / 2 + 0.1, z);
-      root.add(roof);
+      const id = String(o.id || "");
+      const isCreature = id.startsWith("dragon_");
 
-      addWindows(x, z, w, h, d, y);
+      if (!isCreature) {
+        const roof = new THREE.Mesh(
+          new THREE.BoxGeometry(w * 1.08, 0.16, d * 1.08),
+          new THREE.MeshStandardMaterial({ color: "#1c2530", roughness: 0.85 })
+        );
+        roof.position.set(x, y + h / 2 + 0.1, z);
+        root.add(roof);
+
+        addWindows(x, z, w, h, d, y);
+      }
     }
 
     function addWindows(x, z, w, h, d, centerY) {
@@ -569,7 +576,7 @@
 
     async function loadScene() {
       try {
-        const res = await fetch("/api/scene?file=examples/simla3d_demo.sim&cacheBust=" + Date.now());
+        const res = await fetch("/api/scene?file=" + encodeURIComponent(sceneFile) + "&cacheBust=" + Date.now());
         const data = await res.json();
 
         if (!Array.isArray(data)) {
