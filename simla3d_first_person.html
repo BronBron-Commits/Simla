@@ -450,8 +450,13 @@
         roughness: 0.8
       });
 
+      const team = Number(o.team ?? 0);
+
+      const shirtColor =
+        team === 0 ? new THREE.Color("#cc4444") : new THREE.Color("#4488ff");
+
       const shirtMat = new THREE.MeshStandardMaterial({
-        color: outfit,
+        color: shirtColor,
         roughness: 0.7,
         metalness: 0.02
       });
@@ -623,6 +628,7 @@ group.userData.parts = {
 
       if (!agents.has(id)) {
         const group = makePersonGroup(o);
+        const teamColor = (Number(o.team ?? 0) === 0) ? 0xff4444 : 0x4488ff;
         group.position.copy(target);
         group.userData.npcId = id;
         group.userData.targetName = String(o.target || "somewhere");
@@ -631,6 +637,7 @@ group.userData.parts = {
 
         agents.set(id, {
           group,
+          team: Number(o.team ?? 0),
           prev: target.clone(),
           next: target.clone(),
           time: performance.now(),
@@ -765,6 +772,7 @@ group.userData.parts = {
 
         dragons.set(id, {
           group,
+          team: Number(o.team ?? 1),
           prev: targetPos.clone(),
           next: targetPos.clone(),
           prevHeading: targetHeading,
@@ -819,6 +827,7 @@ group.userData.parts = {
 
         dragonFlights.set(id, {
           group,
+          team: Number(o.team ?? 1),
           fireCone,
           baseX: num(o.baseX),
           baseZ: num(o.baseZ),
@@ -874,36 +883,41 @@ group.userData.parts = {
       }
     }
 
-    function dragonBreathHitsAgents(x, y, z, heading) {
-      const forwardX = Math.sin(heading);
-      const forwardZ = Math.cos(heading);
+function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
+  const forwardX = Math.sin(heading);
+  const forwardZ = Math.cos(heading);
 
-      for (const state of agents.values()) {
-        const ax = state.group.position.x;
-        const ay = state.group.position.y;
-        const az = state.group.position.z;
+  for (const state of agents.values()) {
+    if (state.team === dragonTeam) continue;
 
-        const dx = ax - x;
-        const dz = az - z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
+    const ax = state.group.position.x;
+    const ay = state.group.position.y;
+    const az = state.group.position.z;
 
-        if (dist > 9.5) continue;
-        if (Math.abs(ay - y) > 18) continue;
+    const dx = ax - x;
+    const dz = az - z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
 
-        const dot = ((dx / Math.max(dist, 0.001)) * forwardX) + ((dz / Math.max(dist, 0.001)) * forwardZ);
+    if (dist > 9.5) continue;
+    if (Math.abs(ay - y) > 18) continue;
 
-        // cone in front of dragon
-        if (dot > 0.58) {
-          igniteAgent(state);
-        }
-      }
+    const dot =
+      (dx / Math.max(dist, 0.001)) * forwardX +
+      (dz / Math.max(dist, 0.001)) * forwardZ;
+
+    // cone in front of dragon
+    if (dot > 0.58) {
+      igniteAgent(state);
     }
+  }
+}
 
-    function nearestDragonTo(x, z) {
+    function nearestDragonTo(x, z, team) {
       let best = null;
       let bestDist = Infinity;
 
       for (const d of dragonFlights.values()) {
+        if (d.team === team) continue;
         const dx = d.group.position.x - x;
         const dz = d.group.position.z - z;
         const dist = Math.sqrt(dx * dx + dz * dz);
@@ -1018,7 +1032,7 @@ group.userData.parts = {
         if (!state.lastSpell) state.lastSpell = 0;
 
         if (now - state.lastSpell > 1800 + (state.wanderPhase || 0) * 250) {
-          const target = nearestDragonTo(state.group.position.x, state.group.position.z);
+          const target = nearestDragonTo(state.group.position.x, state.group.position.z, state.team);
           if (target) {
             state.lastSpell = now;
             spawnWizardSpell(state, target);
@@ -1103,7 +1117,7 @@ group.userData.parts = {
 
         if (isBreathingFire && performance.now() - state.lastFire > 500) {
           state.lastFire = performance.now();
-          dragonBreathHitsAgents(x, y, z, heading);
+          dragonBreathHitsAgents(x, y, z, heading, state.team);
         }
 
         const flap = Math.sin(t * 7 + p);

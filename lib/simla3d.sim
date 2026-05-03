@@ -1,16 +1,6 @@
 (begin
-  (let vec3
-    (fn (x y z)
-      (list "vec3" x y z)
-    )
-  )
-
-  (let lerp
-    (fn (a b t)
-      (add a (mul (sub b a) t))
-    )
-  )
-
+  (let vec3 (fn (x y z) (list "vec3" x y z)))
+  (let lerp (fn (a b t) (add a (mul (sub b a) t))))
   (let move_between
     (fn (startX startZ targetX targetZ progress)
       (list
@@ -20,64 +10,8 @@
     )
   )
 
-  (let cube
-    (fn (id x y z size color)
-      (list
-        "type" "cube"
-        "id" id
-        "x" x
-        "y" y
-        "z" z
-        "size" size
-        "color" color
-      )
-    )
-  )
-
-  (let box
-    (fn (id x y z w h d color)
-      (list
-        "type" "box"
-        "id" id
-        "x" x
-        "y" y
-        "z" z
-        "w" w
-        "h" h
-        "d" d
-        "color" color
-      )
-    )
-  )
-
-  (let person
-    (fn (id x z color)
-      (list
-        "type" "person"
-        "id" id
-        "x" x
-        "y" 1
-        "z" z
-        "color" color
-      )
-    )
-  )
-
-  (let location
-    (fn (id x z color)
-      (list
-        "type" "location"
-        "id" id
-        "x" x
-        "y" 0.08
-        "z" z
-        "color" color
-      )
-    )
-  )
-
   (let agent
-    (fn (id x z target color)
+    (fn (id x z target color team)
       (list
         "type" "agent"
         "id" id
@@ -86,12 +20,13 @@
         "z" z
         "target" target
         "color" color
+        "team" team
       )
     )
   )
 
   (let role_agent
-    (fn (id x z target color role)
+    (fn (id x z target color role team)
       (list
         "type" "agent"
         "id" id
@@ -101,52 +36,13 @@
         "target" target
         "color" color
         "role" role
+        "team" team
       )
-    )
-  )
-
-  (let route
-    (fn (id fromX fromZ toX toZ color)
-      (list
-        "type" "route"
-        "id" id
-        "fromX" fromX
-        "fromY" 1.05
-        "fromZ" fromZ
-        "toX" toX
-        "toY" 0.15
-        "toZ" toZ
-        "color" color
-      )
-    )
-  )
-
-  (let building
-    (fn (id x z w h d color)
-      (box id x (mul h 0.5) z w h d color)
-    )
-  )
-
-  (let mall
-    (fn (id x z)
-      (building id x z 8 4 8 "#999999")
-    )
-  )
-
-  (let house
-    (fn (id x z)
-      (building id x z 3 2.5 3 "#775533")
-    )
-  )
-
-  (let shop
-    (fn (id x z)
-      (building id x z 4 3 3 "#446688")
     )
   )
 
   (let dragon_flight
-    (fn (id baseX baseZ phase scale colorA colorB)
+    (fn (id baseX baseZ phase scale colorA colorB team)
       (list
         "type" "dragon_flight"
         "id" id
@@ -156,73 +52,34 @@
         "scale" scale
         "colorA" colorA
         "colorB" colorB
+        "team" team
       )
     )
   )
 
-  (let dragon
-    (fn (id x y z heading scale colorA colorB)
-      (list
-        "type" "dragon"
-        "id" id
-        "x" x
-        "y" y
-        "z" z
-        "heading" heading
-        "scale" scale
-        "colorA" colorA
-        "colorB" colorB
-      )
+  (let location
+    (fn (id x z color)
+      (list "type" "location" "id" id "x" x "y" 0.08 "z" z "color" color)
     )
   )
 
   (let floor
     (fn (w d color)
-      (list
-        "type" "floor"
-        "id" "floor"
-        "x" 0
-        "y" 0
-        "z" 0
-        "w" w
-        "d" d
-        "color" color
-      )
-    )
-  )
-
-  (let camera
-    (fn (x y z tx ty tz)
-      (list
-        "type" "camera"
-        "id" "camera"
-        "x" x
-        "y" y
-        "z" z
-        "tx" tx
-        "ty" ty
-        "tz" tz
-      )
+      (list "type" "floor" "id" "floor" "x" 0 "y" 0 "z" 0 "w" w "d" d "color" color)
     )
   )
 
   (let light
     (fn (id x y z intensity color)
-      (list
-        "type" "light"
-        "id" id
-        "x" x
-        "y" y
-        "z" z
-        "intensity" intensity
-        "color" color
-      )
+      (list "type" "light" "id" id "x" x "y" y "z" z "intensity" intensity "color" color)
     )
   )
 
-  (let scene
-    (fn (objects)
-      objects
+  (let camera
+    (fn (x y z tx ty tz)
+      (list "type" "camera" "id" "camera" "x" x "y" y "z" z "tx" tx "ty" ty "tz" tz)
     )
   )
+
+  (let scene (fn (objects) objects))
 )
