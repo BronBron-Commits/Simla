@@ -682,6 +682,11 @@ const healthBack = new THREE.Mesh(
       }
 
       const state = agents.get(id);
+
+      if (state.group.userData.dead) {
+        return;
+      }
+
       state.group.userData.targetName = String(o.target || "somewhere");
 
       const now = performance.now();
@@ -891,6 +896,10 @@ const healthBack = new THREE.Mesh(
       if (nextHp <= 0) {
         state.group.userData.dead = true;
         state.group.userData.deathTime = performance.now();
+
+        if (state.prev) state.prev.copy(state.group.position);
+        if (state.next) state.next.copy(state.group.position);
+        state.time = performance.now();
 
         state.group.rotation.z = Math.PI / 2;
         state.group.position.y = 0.25;
@@ -1454,6 +1463,10 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const duration = 650;
 
       for (const state of agents.values()) {
+        if (state.group.userData.dead) {
+          continue;
+        }
+
         const raw = (now - state.time) / duration;
         const t = Math.min(raw, 1.25);
 
@@ -1474,6 +1487,36 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         let finalX = baseX + wanderX;
         let finalZ = baseZ + wanderZ;
+
+        // teams charge toward the nearest living enemy center
+        let enemyCx = 0;
+        let enemyCz = 0;
+        let enemyCount = 0;
+
+        for (const other of agents.values()) {
+          if (other === state) continue;
+          if (other.group.userData.dead) continue;
+          if (other.team === state.team) continue;
+
+          enemyCx += other.group.position.x;
+          enemyCz += other.group.position.z;
+          enemyCount++;
+        }
+
+        if (enemyCount > 0) {
+          enemyCx /= enemyCount;
+          enemyCz /= enemyCount;
+
+          const dxEnemy = enemyCx - finalX;
+          const dzEnemy = enemyCz - finalZ;
+          const distEnemy = Math.hypot(dxEnemy, dzEnemy);
+
+          if (distEnemy > 0.01) {
+            const chargeSpeed = state.team === 1 ? 0.42 : 0.36;
+            finalX += (dxEnemy / distEnemy) * chargeSpeed;
+            finalZ += (dzEnemy / distEnemy) * chargeSpeed;
+          }
+        }
 
         // simple crowd avoidance
         for (const other of agents.values()) {
