@@ -806,8 +806,8 @@ const healthBack = new THREE.Mesh(
         dragons.set(id, {
           group,
           team: Number(o.team ?? 1),
-          hp: Number(o.hp ?? 160),
-          maxHp: Number(o.maxHp ?? 160),
+          hp: Number(o.hp ?? 600),
+          maxHp: Number(o.maxHp ?? 600),
           dead: false,
           prev: targetPos.clone(),
           next: targetPos.clone(),
@@ -864,8 +864,8 @@ const healthBack = new THREE.Mesh(
         dragonFlights.set(id, {
           group,
           team: Number(o.team ?? 1),
-          hp: Number(o.hp ?? 160),
-          maxHp: Number(o.maxHp ?? 160),
+          hp: Number(o.hp ?? 600),
+          maxHp: Number(o.maxHp ?? 600),
           dead: false,
           fireCone,
           baseX: num(o.baseX),
@@ -1147,7 +1147,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         if (raw >= 1) {
           spawnSpellExplosion(spell.target);
-          damageDragon(spell.targetState, 22, "wizard_spell");
+          damageDragon(spell.targetState, 6, "wizard_spell");
           root.remove(spell.mesh);
           spell.mesh.geometry?.dispose?.();
           spell.mesh.material?.dispose?.();
