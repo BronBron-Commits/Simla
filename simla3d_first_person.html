@@ -604,7 +604,38 @@
           group.add(shield);
         }
 
-group.userData.parts = {
+const healthBack = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.1, 0.14),
+        new THREE.MeshBasicMaterial({
+          color: "#220000",
+          transparent: true,
+          opacity: 0.9,
+          depthTest: false,
+          depthWrite: false
+        })
+      );
+      healthBack.position.y = 2.05;
+      healthBack.name = "healthBack";
+      group.add(healthBack);
+
+      const healthFill = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.04, 0.09),
+        new THREE.MeshBasicMaterial({
+          color: "#33ff66",
+          transparent: true,
+          opacity: 1,
+          depthTest: false,
+          depthWrite: false
+        })
+      );
+      healthFill.position.set(0, 2.052, 0.01);
+      healthFill.name = "healthFill";
+      group.add(healthFill);
+
+      group.userData.hp = Number(o.hp ?? 100);
+      group.userData.maxHp = Number(o.maxHp ?? 100);
+
+      group.userData.parts = {
         torso,
         head,
         leftArm,
@@ -612,7 +643,9 @@ group.userData.parts = {
         leftLeg,
         rightLeg,
         leftFoot,
-        rightFoot
+        rightFoot,
+        healthBack,
+        healthFill
       };
 
       group.userData.lastPos = group.position.clone();
@@ -1401,6 +1434,19 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         const parts = state.group.userData.parts;
         if (!parts) continue;
+
+        if (parts.healthBack) {
+          parts.healthBack.lookAt(camera.position);
+        }
+
+        if (parts.healthFill) {
+          parts.healthFill.lookAt(camera.position);
+          const hp = Number(state.group.userData.hp ?? 100);
+          const maxHp = Math.max(1, Number(state.group.userData.maxHp ?? 100));
+          const pct = Math.max(0.05, Math.min(1, hp / maxHp));
+          parts.healthFill.scale.x = pct;
+          parts.healthFill.position.x = -0.43 * (1 - pct);
+        }
 
         state.group.userData.walkPhase += 0.08;
         const phaseWalk = state.group.userData.walkPhase;
