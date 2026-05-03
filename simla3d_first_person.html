@@ -806,6 +806,9 @@ const healthBack = new THREE.Mesh(
         dragons.set(id, {
           group,
           team: Number(o.team ?? 1),
+          hp: Number(o.hp ?? 160),
+          maxHp: Number(o.maxHp ?? 160),
+          dead: false,
           prev: targetPos.clone(),
           next: targetPos.clone(),
           prevHeading: targetHeading,
@@ -861,12 +864,42 @@ const healthBack = new THREE.Mesh(
         dragonFlights.set(id, {
           group,
           team: Number(o.team ?? 1),
+          hp: Number(o.hp ?? 160),
+          maxHp: Number(o.maxHp ?? 160),
+          dead: false,
           fireCone,
           baseX: num(o.baseX),
           baseZ: num(o.baseZ),
           phase: num(o.phase),
           scale: num(o.scale, 1),
           lastFire: 0
+        });
+      }
+    }
+
+    function damageAgent(state, amount, reason = "damage") {
+      if (!state || !state.group) return;
+      if (state.group.userData.dead) return;
+
+      const hp = Number(state.group.userData.hp ?? 100);
+      const nextHp = Math.max(0, hp - amount);
+
+      state.group.userData.hp = nextHp;
+      state.group.userData.lastDamageReason = reason;
+      state.group.userData.lastDamageTime = performance.now();
+
+      if (nextHp <= 0) {
+        state.group.userData.dead = true;
+        state.group.userData.deathTime = performance.now();
+
+        state.group.rotation.z = Math.PI / 2;
+        state.group.position.y = 0.25;
+
+        state.group.traverse(child => {
+          if (child.material && child.material.opacity !== undefined) {
+            child.material.transparent = true;
+            child.material.opacity *= 0.45;
+          }
         });
       }
     }
@@ -913,6 +946,12 @@ const healthBack = new THREE.Mesh(
         );
 
         fire.material.opacity = 0.55 + Math.abs(Math.sin(t * 1.8)) * 0.35;
+
+        if (!state.lastBurnTick) state.lastBurnTick = 0;
+        if (now - state.lastBurnTick > 900) {
+          state.lastBurnTick = now;
+          damageAgent(state, 4, "burning");
+        }
       }
     }
 
@@ -941,6 +980,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     // cone in front of dragon
     if (dot > 0.58) {
       igniteAgent(state);
+      damageAgent(state, 18, "dragon_fire");
     }
   }
 }
@@ -962,6 +1002,31 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       }
 
       return best;
+    }
+
+    function damageDragon(state, amount, reason = "hit") {
+      if (!state || !state.group) return;
+      if (state.dead) return;
+
+      state.hp = Math.max(0, Number(state.hp ?? 160) - amount);
+
+      if (state.hp <= 0) {
+        state.dead = true;
+        state.group.userData.dead = true;
+        state.group.rotation.z = Math.PI;
+        state.group.position.y = 1.2;
+
+        state.group.traverse(child => {
+          if (child.material && child.material.opacity !== undefined) {
+            child.material.transparent = true;
+            child.material.opacity *= 0.35;
+          }
+        });
+
+        if (state.fireCone) {
+          state.fireCone.material.opacity = 0;
+        }
+      }
     }
 
     function spawnWizardSpell(wizardState, dragonState) {
@@ -992,6 +1057,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         mesh: bolt,
         start,
         target,
+        targetState: dragonState,
         created: performance.now(),
         duration: 700
       });
@@ -1058,6 +1124,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const now = performance.now();
 
       for (const state of agents.values()) {
+        if (state.group.userData.dead) continue;
+
         const role = String(state.group.userData.role || "");
 
         if (role !== "wizard") continue;
@@ -1079,6 +1147,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         if (raw >= 1) {
           spawnSpellExplosion(spell.target);
+          damageDragon(spell.targetState, 22, "wizard_spell");
           root.remove(spell.mesh);
           spell.mesh.geometry?.dispose?.();
           spell.mesh.material?.dispose?.();
@@ -1103,6 +1172,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const t = performance.now() * 0.001;
 
       for (const state of dragonFlights.values()) {
+        if (state.dead) continue;
+
         const p = state.phase;
 
         const speedX = 0.55 + Math.sin(p + 1) * 0.22;
@@ -1354,6 +1425,10 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const duration = 220;
 
       for (const state of dragons.values()) {
+        if (state.group.userData.dead) {
+          continue;
+        }
+
         const raw = (now - state.time) / duration;
 
         // allow slight extrapolation so dragons never stop between samples
@@ -1443,9 +1518,28 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
           parts.healthFill.lookAt(camera.position);
           const hp = Number(state.group.userData.hp ?? 100);
           const maxHp = Math.max(1, Number(state.group.userData.maxHp ?? 100));
-          const pct = Math.max(0.05, Math.min(1, hp / maxHp));
+          const pct = Math.max(0.03, Math.min(1, hp / maxHp));
+
           parts.healthFill.scale.x = pct;
-          parts.healthFill.position.x = -0.43 * (1 - pct);
+          parts.healthFill.position.x = -0.52 * (1 - pct);
+
+          if (pct > 0.6) {
+            parts.healthFill.material.color.set("#33ff66");
+          } else if (pct > 0.3) {
+            parts.healthFill.material.color.set("#ffd43b");
+          } else {
+            parts.healthFill.material.color.set("#ff3333");
+          }
+
+          const lastDamageTime = Number(state.group.userData.lastDamageTime || 0);
+          const damageAge = performance.now() - lastDamageTime;
+
+          if (damageAge < 180) {
+            parts.healthFill.material.color.set("#ffffff");
+            parts.healthFill.scale.y = 1.8;
+          } else {
+            parts.healthFill.scale.y = 1.0;
+          }
         }
 
         state.group.userData.walkPhase += 0.08;
