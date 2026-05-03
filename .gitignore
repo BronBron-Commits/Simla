@@ -14,3 +14,6 @@ node
 minicompiler@1.0.0
 .tmp/
 *.bak
+*.mjs
+patch_*.js
+fix_*.js
