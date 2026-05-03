@@ -220,7 +220,6 @@
     scene.add(moon);
 
     const root = new THREE.Group();
-    initClouds();
     scene.add(root);
 
     let staticBuilt = false;
@@ -2071,6 +2070,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
     const clouds = [];
     const lightningBolts = [];
+    initClouds();
 
     function initClouds() {
       for (let i = 0; i < 40; i++) {
