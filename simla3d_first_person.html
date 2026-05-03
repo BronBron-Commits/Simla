@@ -223,6 +223,7 @@
     const dragonFlights = new Map();
     const wizardSpells = [];
     const spellExplosions = [];
+    const summons = [];
 
     const keys = new Set();
     let yaw = 0;
@@ -1129,6 +1130,187 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       }
     }
 
+    function spawnPhoenixSummon(wizardState) {
+      if (!wizardState || wizardState.group.userData.dead) return;
+
+      const team = wizardState.team;
+      const base = wizardState.group.position.clone();
+
+      const group = new THREE.Group();
+      group.name = "phoenix_summon";
+      group.position.set(base.x, base.y + 5.5, base.z);
+
+      const bodyMat = new THREE.MeshBasicMaterial({
+        color: "#ff7a18",
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const wingMat = new THREE.MeshBasicMaterial({
+        color: "#ffd45a",
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55, 16, 12),
+        bodyMat
+      );
+      body.name = "phoenix_body";
+      group.add(body);
+
+      const leftWing = new THREE.Mesh(
+        new THREE.ConeGeometry(1.2, 3.4, 4),
+        wingMat
+      );
+      leftWing.name = "phoenix_left_wing";
+      leftWing.position.set(-1.4, 0, 0);
+      leftWing.rotation.z = Math.PI / 2;
+      group.add(leftWing);
+
+      const rightWing = new THREE.Mesh(
+        new THREE.ConeGeometry(1.2, 3.4, 4),
+        wingMat
+      );
+      rightWing.name = "phoenix_right_wing";
+      rightWing.position.set(1.4, 0, 0);
+      rightWing.rotation.z = -Math.PI / 2;
+      group.add(rightWing);
+
+      const aura = new THREE.Mesh(
+        new THREE.SphereGeometry(2.2, 18, 12),
+        new THREE.MeshBasicMaterial({
+          color: "#ff4422",
+          transparent: true,
+          opacity: 0.16,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      );
+      aura.name = "phoenix_aura";
+      group.add(aura);
+
+      const light = new THREE.PointLight("#ff8a22", 3.0, 18);
+      light.name = "phoenix_light";
+      group.add(light);
+
+      root.add(group);
+
+      summons.push({
+        type: "phoenix",
+        team,
+        group,
+        start: group.position.clone(),
+        born: performance.now(),
+        life: 6500,
+        lastPulse: 0,
+        phase: Math.random() * Math.PI * 2
+      });
+
+      spawnSpellExplosion(group.position);
+    }
+
+    function updateSummons() {
+      const now = performance.now();
+
+      for (let i = summons.length - 1; i >= 0; i--) {
+        const summon = summons[i];
+        const age = now - summon.born;
+        const t = age / summon.life;
+
+        if (t >= 1) {
+          spawnSpellExplosion(summon.group.position);
+          root.remove(summon.group);
+          summon.group.traverse(child => {
+            child.geometry?.dispose?.();
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose?.());
+            } else {
+              child.material?.dispose?.();
+            }
+          });
+          summons.splice(i, 1);
+          continue;
+        }
+
+        const rise = Math.min(1, age / 3600);
+        const easeRise = rise * rise * (3 - 2 * rise);
+
+        const start = summon.start || summon.group.position;
+        const spiral = age * 0.006 + summon.phase;
+
+        summon.group.position.set(
+          start.x + Math.cos(spiral) * rise * 4.5,
+          start.y + easeRise * 32.0,
+          start.z + Math.sin(spiral) * rise * 4.5
+        );
+
+        summon.group.rotation.y += 0.22;
+        summon.group.rotation.z = Math.sin(age * 0.018) * 0.75;
+
+        const summonScale = 0.6 + rise * 2.8;
+        summon.group.scale.setScalar(summonScale);
+
+        if (age % 180 < 35) {
+          spawnSpellExplosion(summon.group.position);
+        }
+
+        const leftWing = summon.group.getObjectByName("phoenix_left_wing");
+        const rightWing = summon.group.getObjectByName("phoenix_right_wing");
+        const aura = summon.group.getObjectByName("phoenix_aura");
+
+        const flap = Math.sin(now * 0.012 + summon.phase);
+
+        if (leftWing) {
+          leftWing.rotation.z = Math.PI / 2 + flap * 1.05;
+          leftWing.rotation.x = flap * 0.45;
+        }
+
+        if (rightWing) {
+          rightWing.rotation.z = -Math.PI / 2 - flap * 1.05;
+          rightWing.rotation.x = -flap * 0.45;
+        }
+
+        if (aura) {
+          const pulse = 1.0 + Math.abs(Math.sin(now * 0.006)) * 0.35;
+          aura.scale.setScalar(pulse);
+          aura.material.opacity = 0.10 + Math.abs(Math.sin(now * 0.006)) * 0.12;
+        }
+
+        if (!summon.exploded && age > 4100) {
+          summon.exploded = true;
+
+          for (const state of agents.values()) {
+            if (state.group.userData.dead) continue;
+
+            const dist = summon.group.position.distanceTo(state.group.position);
+            if (dist > 18) continue;
+
+            if (state.team === summon.team) {
+              const maxHp = Number(state.group.userData.maxHp ?? 100);
+              const hp = Number(state.group.userData.hp ?? 100);
+              state.group.userData.hp = Math.min(maxHp, hp + 18);
+              state.group.userData.lastDamageTime = performance.now();
+            } else {
+              damageAgent(state, 22, "phoenix_explosion");
+              igniteAgent(state);
+            }
+          }
+
+          for (let boom = 0; boom < 12; boom++) {
+            spawnSpellExplosion(summon.group.position);
+          }
+
+          summon.group.visible = false;
+        }
+      }
+    }
+
     function updateWizardSpells() {
       const now = performance.now();
 
@@ -1140,6 +1322,12 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         if (role !== "wizard") continue;
 
         if (!state.lastSpell) state.lastSpell = 0;
+        if (!state.lastSummon) state.lastSummon = 0;
+
+        if (now - state.lastSummon > 14000 + Math.abs(Math.sin(state.wanderPhase || 0)) * 4000) {
+          state.lastSummon = now;
+          spawnPhoenixSummon(state);
+        }
 
         if (now - state.lastSpell > 1800 + (state.wanderPhase || 0) * 250) {
           const target = nearestDragonTo(state.group.position.x, state.group.position.z, state.team);
@@ -1609,6 +1797,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       updateDragonFlights();
       updateBurningAgents();
       updateWizardSpells();
+      updateSummons();
       updateSpellExplosions();
       updateInteraction();
       renderer.render(scene, camera);
