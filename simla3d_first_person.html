@@ -2132,8 +2132,61 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       lightningBolts.push({
         bolt,
         light,
+        strikeX: startX,
+        strikeZ: startZ,
+        damaged: false,
         born: performance.now(),
         life: 180
+      });
+    }
+
+    function lightningStrikeDamage(x, z) {
+      const strikePos = new THREE.Vector3(x, 0.15, z);
+
+      spawnDragonShockwave?.(x, 0.15, z, -1);
+
+      for (const state of agents.values()) {
+        if (state.group.userData.dead) continue;
+
+        const dx = state.group.position.x - x;
+        const dz = state.group.position.z - z;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist <= 5) {
+          const damage = Math.round(6 * (1 - dist / 8)) + 2;
+          damageAgent(state, damage, "lightning_strike");
+
+          const push = 0.25 * (1 - dist / 8);
+          state.group.position.x += (dx / (dist || 1)) * push;
+          state.group.position.z += (dz / (dist || 1)) * push;
+
+          spawnSpellExplosion(state.group.position);
+        }
+      }
+
+      const marker = new THREE.Mesh(
+        new THREE.RingGeometry(0.5, 8, 40),
+        new THREE.MeshBasicMaterial({
+          color: "#99ccff",
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        })
+      );
+
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.copy(strikePos);
+      root.add(marker);
+
+      spellExplosions.push({
+        mesh: marker,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        born: performance.now(),
+        life: 420
       });
     }
 
@@ -2162,6 +2215,11 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       for (let i = lightningBolts.length - 1; i >= 0; i--) {
         const l = lightningBolts[i];
         const age = now - l.born;
+
+        if (!l.damaged && age > 35) {
+          l.damaged = true;
+          lightningStrikeDamage(l.strikeX, l.strikeZ);
+        }
 
         if (age > l.life) {
           scene.remove(l.bolt);
