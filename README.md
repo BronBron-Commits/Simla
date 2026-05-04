@@ -2,62 +2,62 @@ Simλ (Simla)
 
 A deterministic simulation language for games and systems.
 
-Simla lets you write logic once and run it across multiple runtimes with identical results.
+Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
 ---
 
 What is Simla?
 
-Simla is a small functional DSL designed for:
+Simla is a small, functional DSL designed for:
 
-- Game logic
-- Simulation systems
-- Deterministic rule execution
+* Game logic
+* Simulation systems
+* Deterministic rule execution
 
-It guarantees that the same .sim program produces the same result across:
+It guarantees that the same .sim program produces identical results across:
 
-- JavaScript VM
-- Native C Interpreter
-- Native C Bytecode VM
+* JavaScript VM
+* Native C Interpreter
+* Native C Bytecode VM
 
 ---
 
 Why Simla?
 
-Game and simulation logic is usually:
+Game and simulation logic is typically:
 
-- duplicated across client/server
-- tightly coupled to engine code
-- hard to test deterministically
+* duplicated across client and server
+* tightly coupled to engine code
+* difficult to test deterministically
 
 Simla solves this by making logic:
 
-- portable
-- testable
-- runtime-independent
+* portable
+* deterministic
+* testable
+* runtime-independent
 
-.sim file → same result everywhere
+Write once → run anywhere → same result
 
 ---
 
-Features
+Core Features
 
-- Deterministic execution
-- Functional style (no side effects)
-- Cross-runtime parity (JS + C)
-- Bytecode compilation path
-- Built-in list + functional primitives
-- Conformance + error test suites
+* Deterministic execution (same inputs → same outputs)
+* Functional style (no hidden side effects)
+* Cross-runtime parity (JS + C)
+* Bytecode compilation pipeline
+* Built-in list and functional primitives
+* Conformance and error test suites
+* Replay-friendly simulation model
 
 ---
 
 Example
 
-(if (and (gt 6 3) (lt 2 5))
-10
-7)
+(if (and (gt 6 3) (lt 2 5)) 10 7)
 
-Run it:
+Run:
 
 ./simla.sh example.sim
 
@@ -69,6 +69,8 @@ Output:
 
 CLI
 
+Run a simulation file:
+
 ./simla.sh file.sim
 
 ---
@@ -79,11 +81,12 @@ Run full validation:
 
 ./tools/check_all.sh
 
-This runs:
+This executes:
 
-- conformance tests (spec correctness)
-- error tests (invalid program handling)
-- C build verification
+* Conformance tests (spec correctness)
+* Error tests (invalid program handling)
+* C build verification
+* Cross-runtime parity checks
 
 ---
 
@@ -93,20 +96,37 @@ Architecture
 ↓
 Parser / AST
 ↓
-JS VM ──────┐
-C Interpreter │ → identical result
-C Bytecode VM┘
+Compiler (optional → bytecode)
+
+Execution targets:
+
+* JavaScript VM
+* C Interpreter
+* C Bytecode VM
+
+All runtimes are expected to produce identical outputs.
 
 ---
 
 Project Structure
 
-c-simla/    → C interpreter + bytecode VM
-src/        → JS VM + compiler
-spec/       → language definition
-tests/      → conformance + error tests
-tools/      → test runners
-examples/   → usage examples
+c-simla/
+→ C interpreter and bytecode VM
+
+src/
+→ JavaScript VM, compiler, runtime
+
+spec/
+→ language specification
+
+tests/
+→ conformance and error tests
+
+tools/
+→ runners, validation scripts
+
+examples/
+→ sample simulation programs
 
 ---
 
@@ -116,29 +136,30 @@ Current version: 0.1.0
 
 Core guarantees:
 
-- deterministic execution
-- cross-runtime parity
-- stable core primitives
+* Deterministic execution
+* Cross-runtime parity
+* Stable core primitives
 
 ---
 
 Philosophy
 
-Simla is not trying to be a general-purpose language.
+Simla is not a general-purpose language.
 
 It is a deterministic logic layer:
 
-- define rules
-- simulate outcomes
-- keep results consistent across systems
+* define rules
+* simulate outcomes
+* guarantee consistency across systems
 
 ---
 
 Next Direction
 
-- integrate with game engine (Three.js / WebXR)
-- expand standard library (not core language)
-- build higher-level simulation systems
+* Integration with rendering engines (Three.js / WebXR)
+* Higher-level simulation systems (AI, combat, world logic)
+* Expanded standard library (kept separate from core)
+* Tooling for replay, debugging, and visualization
 
 ---
 
