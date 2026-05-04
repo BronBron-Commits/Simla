@@ -2419,7 +2419,13 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     }
 
     loadScene();
-    setInterval(loadScene, isDragonScene ? 180 : 400);
+
+    setInterval(() => {
+      if (simulationStarted) {
+        loadScene();
+      }
+    }, isDragonScene ? 180 : 400);
+
     animate();
   </script>
 </body>
