@@ -943,6 +943,41 @@ const healthBack = new THREE.Mesh(
       part(-5.2, 0.2 + flap * 1.2, -0.8, 7.2, 0.25, 8.5, matA);
       part(5.2, 0.2 + flap * 1.2, -0.8, 7.2, 0.25, 8.5, matA);
 
+      const hpBar = new THREE.Group();
+      hpBar.name = "dragon_health_bar";
+      hpBar.position.y = 4.2;
+
+      const hpBack = new THREE.Mesh(
+        new THREE.PlaneGeometry(5.5, 0.35),
+        new THREE.MeshBasicMaterial({
+          color: "#240000",
+          transparent: true,
+          opacity: 0.95,
+          depthTest: false,
+          depthWrite: false
+        })
+      );
+      hpBack.name = "dragon_hp_back";
+      hpBar.add(hpBack);
+
+      const hpFill = new THREE.Mesh(
+        new THREE.PlaneGeometry(5.25, 0.24),
+        new THREE.MeshBasicMaterial({
+          color: "#ff3333",
+          transparent: true,
+          opacity: 1,
+          depthTest: false,
+          depthWrite: false
+        })
+      );
+      hpFill.position.z = 0.02;
+      hpFill.name = "dragon_hp_fill";
+      hpBar.add(hpFill);
+
+      group.add(hpBar);
+      group.userData.hpBar = hpBar;
+      group.userData.hpFill = hpFill;
+
       return group;
     }
 
@@ -1108,7 +1143,7 @@ const healthBack = new THREE.Mesh(
         if (!state.lastBurnTick) state.lastBurnTick = 0;
         if (now - state.lastBurnTick > 900) {
           state.lastBurnTick = now;
-          damageAgent(state, 4, "burning");
+          damageAgent(state, 1, "burning");
         }
       }
     }
@@ -1138,7 +1173,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     // cone in front of dragon
     if (dot > 0.58) {
       igniteAgent(state);
-      damageAgent(state, 18, "dragon_fire");
+      damageAgent(state, 8, "dragon_fire");
     }
   }
 }
@@ -1770,6 +1805,38 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       camera.rotation.x = pitch;
     }
 
+    function updateDragonHealthBars() {
+      for (const state of dragons.values()) {
+        const bar = state.group.userData.hpBar;
+        const fill = state.group.userData.hpFill;
+        if (!bar || !fill) continue;
+
+        bar.lookAt(camera.position);
+
+        const hp = Number(state.hp ?? 1200);
+        const maxHp = Math.max(1, Number(state.maxHp ?? 1200));
+        const pct = Math.max(0.03, Math.min(1, hp / maxHp));
+
+        fill.scale.x = pct;
+        fill.position.x = -2.62 * (1 - pct);
+      }
+
+      for (const state of dragonFlights.values()) {
+        const bar = state.group.userData.hpBar;
+        const fill = state.group.userData.hpFill;
+        if (!bar || !fill) continue;
+
+        bar.lookAt(camera.position);
+
+        const hp = Number(state.hp ?? 1200);
+        const maxHp = Math.max(1, Number(state.maxHp ?? 1200));
+        const pct = Math.max(0.03, Math.min(1, hp / maxHp));
+
+        fill.scale.x = pct;
+        fill.position.x = -2.62 * (1 - pct);
+      }
+    }
+
     function updateDragons() {
       const now = performance.now();
       const duration = 220;
@@ -2197,7 +2264,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
             state.group.position.z += (dz / (dist || 1)) * force;
 
             // damage
-            damageAgent(state, 18, "dragon_roar");
+            damageAgent(state, 6, "dragon_roar");
 
             // small explosion feedback
             spawnSpellExplosion(state.group.position);
