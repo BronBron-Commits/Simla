@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>Simla3D First Person</title>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <style>
     html, body {
       margin: 0;
@@ -480,6 +482,11 @@
       renderer.setSize(innerWidth, innerHeight);
     });
 
+    window.addEventListener("wheel", e => {
+      if (viewMode !== "iso") return;
+      isoHeight = Math.max(6, Math.min(120, isoHeight + e.deltaY * 0.05));
+    }, { passive: true });
+
     function num(v, fallback = 0) {
       const n = Number(v);
       return Number.isFinite(n) ? n : fallback;
@@ -781,8 +788,8 @@ const healthBack = new THREE.Mesh(
       healthFill.name = "healthFill";
       group.add(healthFill);
 
-      group.userData.hp = Number(o.hp ?? 100);
-      group.userData.maxHp = Number(o.maxHp ?? 100);
+      group.userData.hp = Number(o.hp ?? 500);
+      group.userData.maxHp = Number(o.maxHp ?? 500);
 
       group.userData.parts = {
         torso,
@@ -1698,6 +1705,11 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     async function loadScene() {
       try {
         const res = await fetch("/api/scene?file=" + encodeURIComponent(sceneFile) + "&cacheBust=" + Date.now());
+
+        if (!res.ok) {
+          throw new Error("Scene API returned " + res.status + " " + res.statusText);
+        }
+
         const data = await res.json();
 
         if (!Array.isArray(data)) {
@@ -1805,14 +1817,37 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     talkPrompt.addEventListener("click", () => openDialogue(nearestNpc));
     dialogueClose.addEventListener("click", closeDialogue);
 
+    const isoTarget = { x: 42, z: 42 };
+    let isoHeight = 34;
+    let jumpVY = 0;
+    let jumpY = 1.7;
+    const GROUND_Y = 1.7;
+    const GRAVITY = 0.012;
+    const JUMP_FORCE = 0.22;
+
     function updateCamera() {
       if (viewMode === "iso") {
-        const t = Date.now() * 0.00008;
-        const cx = Math.sin(t) * 8;
-        const cz = Math.cos(t * 0.8) * 8;
+        const speed = keys.has("shift") ? 0.55 : 0.22;
 
-        camera.position.set(cx + 42, 34, cz + 42);
-        camera.lookAt(cx, 0, cz);
+        let mx = 0;
+        let mz = 0;
+
+        if (keys.has("w")) mz -= 1;
+        if (keys.has("s")) mz += 1;
+        if (keys.has("d")) mx += 1;
+        if (keys.has("a")) mx -= 1;
+
+        mx += moveStick.x;
+        mz += moveStick.y;
+
+        const mag = Math.hypot(mx, mz);
+        if (mag > 1) { mx /= mag; mz /= mag; }
+
+        isoTarget.x += mx * speed;
+        isoTarget.z += mz * speed;
+
+        camera.position.set(isoTarget.x, isoHeight, isoTarget.z + isoHeight * 0.24);
+        camera.lookAt(isoTarget.x, 0, isoTarget.z);
         return;
       }
 
@@ -1844,7 +1879,18 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       camera.position.addScaledVector(forward, moveForward * speed);
       camera.position.addScaledVector(right, moveRight * speed);
 
-      camera.position.y = 1.7;
+      // jump
+      if (keys.has(" ") && jumpY <= GROUND_Y + 0.01) {
+        jumpVY = JUMP_FORCE;
+      }
+      jumpVY -= GRAVITY;
+      jumpY += jumpVY;
+      if (jumpY <= GROUND_Y) {
+        jumpY = GROUND_Y;
+        jumpVY = 0;
+      }
+
+      camera.position.y = jumpY;
       camera.rotation.order = "YXZ";
       camera.rotation.y = yaw;
       camera.rotation.x = pitch;
@@ -2527,7 +2573,129 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       updateSummons();
       updateSpellExplosions();
       updateInteraction();
+      updatePlayerCharacter();
       renderer.render(scene, camera);
+    }
+
+    // ===== PLAYER CHARACTER =====
+
+    function makePlayerGroup() {
+      const group = new THREE.Group();
+
+      const skinMat = new THREE.MeshStandardMaterial({ color: "#f0c8a0", roughness: 0.8 });
+      const tunicMat = new THREE.MeshStandardMaterial({ color: "#2d8a3e", roughness: 0.75, metalness: 0.02 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: "#8b6914", roughness: 0.8 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: "#c8a832", roughness: 0.7 });
+      const bootMat = new THREE.MeshStandardMaterial({ color: "#3b2510", roughness: 0.85 });
+      const beltMat = new THREE.MeshStandardMaterial({ color: "#5a3a10", roughness: 0.8 });
+      const shieldMat = new THREE.MeshStandardMaterial({ color: "#c8a832", metalness: 0.5, roughness: 0.4 });
+      const swordMat = new THREE.MeshStandardMaterial({ color: "#d0d8e0", metalness: 0.85, roughness: 0.2 });
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.72, 0.26), tunicMat);
+      torso.position.y = 0.46;
+      group.add(torso);
+
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.25), tunicMat);
+      skirt.position.y = 0.02;
+      group.add(skirt);
+
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.09, 0.28), beltMat);
+      belt.position.y = 0.12;
+      group.add(belt);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), skinMat);
+      head.position.y = 0.99;
+      group.add(head);
+
+      const hair = new THREE.Mesh(
+        new THREE.SphereGeometry(0.23, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        hairMat
+      );
+      hair.position.y = 1.06;
+      hair.rotation.x = Math.PI;
+      group.add(hair);
+
+      const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 12), tunicMat);
+      hatBrim.position.y = 1.24;
+      group.add(hatBrim);
+      const hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.52, 10), tunicMat);
+      hatCone.position.y = 1.55;
+      group.add(hatCone);
+
+      const armGeo = new THREE.BoxGeometry(0.13, 0.55, 0.13);
+      const leftArm = new THREE.Mesh(armGeo, tunicMat);
+      leftArm.position.set(-0.35, 0.44, 0);
+      group.add(leftArm);
+      const rightArm = new THREE.Mesh(armGeo, tunicMat);
+      rightArm.position.set(0.35, 0.44, 0);
+      group.add(rightArm);
+
+      const legGeo = new THREE.BoxGeometry(0.15, 0.55, 0.15);
+      const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+      leftLeg.position.set(-0.12, -0.19, 0);
+      group.add(leftLeg);
+      const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+      rightLeg.position.set(0.12, -0.19, 0);
+      group.add(rightLeg);
+
+      const bootGeo = new THREE.BoxGeometry(0.18, 0.16, 0.28);
+      const leftBoot = new THREE.Mesh(bootGeo, bootMat);
+      leftBoot.position.set(-0.12, -0.5, 0.04);
+      group.add(leftBoot);
+      const rightBoot = new THREE.Mesh(bootGeo, bootMat);
+      rightBoot.position.set(0.12, -0.5, 0.04);
+      group.add(rightBoot);
+
+      const shield = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.44, 0.36), shieldMat);
+      shield.position.set(-0.52, 0.38, 0);
+      group.add(shield);
+      const emblem = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.16),
+        new THREE.MeshStandardMaterial({ color: "#cc2222", roughness: 0.6 }));
+      emblem.position.set(-0.56, 0.42, 0);
+      group.add(emblem);
+
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.9, 0.07), swordMat);
+      blade.position.set(0.52, 0.55, 0);
+      group.add(blade);
+      const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.08),
+        new THREE.MeshStandardMaterial({ color: "#8b6914", roughness: 0.6 }));
+      hilt.position.set(0.52, 0.14, 0);
+      group.add(hilt);
+
+      const glow = new THREE.PointLight("#88ffaa", 1.2, 6);
+      glow.position.y = 1.0;
+      group.add(glow);
+
+      group.userData.parts = { torso, leftArm, rightArm, leftLeg, rightLeg, leftBoot, rightBoot };
+      group.userData.walkPhase = 0;
+
+      return group;
+    }
+
+    const playerGroup = makePlayerGroup();
+    playerGroup.position.set(0, 1, 12);
+    root.add(playerGroup);
+
+    function updatePlayerCharacter() {
+      playerGroup.position.set(camera.position.x, camera.position.y - 1.7, camera.position.z);
+      playerGroup.rotation.y = yaw + Math.PI;
+      playerGroup.visible = viewMode === "iso";
+
+      if (!playerGroup.visible) return;
+
+      const parts = playerGroup.userData.parts;
+      const moving = keys.has("w") || keys.has("s") || keys.has("a") || keys.has("d")
+        || Math.hypot(moveStick.x, moveStick.y) > 0.1;
+
+      if (moving) playerGroup.userData.walkPhase += 0.1;
+      const swing = Math.sin(playerGroup.userData.walkPhase) * (moving ? 0.32 : 0);
+      const bob = Math.abs(Math.sin(playerGroup.userData.walkPhase)) * (moving ? 0.04 : 0);
+
+      parts.leftArm.rotation.x = swing;
+      parts.rightArm.rotation.x = -swing;
+      parts.leftLeg.rotation.x = -swing * 0.8;
+      parts.rightLeg.rotation.x = swing * 0.8;
+      parts.torso.position.y = 0.46 + bob;
     }
 
     loadScene();
