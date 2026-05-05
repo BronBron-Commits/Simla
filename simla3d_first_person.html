@@ -1695,9 +1695,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       root.add(line);
     }
 
-    async function loadScene() {
       try {
-        const res = await fetch("/api/scene?file=" + encodeURIComponent(sceneFile) + "&cacheBust=" + Date.now());
         const data = await res.json();
 
         if (!Array.isArray(data)) {
@@ -2530,11 +2528,9 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       renderer.render(scene, camera);
     }
 
-    loadScene();
 
     setInterval(() => {
       if (simulationStarted) {
-        loadScene();
       }
     }, isDragonScene ? 180 : 400);
 
@@ -2542,3 +2538,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
   </script>
 </body>
 </html>
+
+function loadScene(){
+  console.log("Restored pre-API behavior");
+}
