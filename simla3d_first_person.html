@@ -365,7 +365,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 3.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 
@@ -376,9 +376,9 @@
     // Bloom: makes fire, spells, lightning and emissives glow
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(innerWidth, innerHeight),
-      /*strength*/ 0.55,
-      /*radius*/   0.55,
-      /*threshold*/ 0.38
+      /*strength*/ 0.35,
+      /*radius*/   0.5,
+      /*threshold*/ 0.75
     );
     composer.addPass(bloomPass);
 
@@ -387,9 +387,9 @@
       uniforms: {
         tDiffuse: { value: null },
         time:     { value: 0.0 },
-        uVigStrength: { value: 0.52 },
+        uVigStrength: { value: 0.06 },
         uSaturation:  { value: 1.18 },
-        uContrast:    { value: 1.08 },
+        uContrast:    { value: 1.04 },
         uGrain:       { value: 0.032 },
         uAberration:  { value: 0.0022 },
         // warm highlights, cool shadows colour grade
@@ -459,10 +459,10 @@
       camera.updateProjectionMatrix();
     });
 
-    const hemiLight = new THREE.HemisphereLight("#ffffff", "#6b8a6f", 1.6);
+    const hemiLight = new THREE.HemisphereLight("#ffffff", "#6b8a6f", 2.8);
     scene.add(hemiLight);
 
-    const sun = new THREE.DirectionalLight("#fff5e0", 2.2);
+    const sun = new THREE.DirectionalLight("#fff5e0", 3.5);
     sun.position.set(12, 22, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -2235,11 +2235,32 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         // allow slight extrapolation so dragons never stop between samples
         const t = Math.min(raw, 1.35);
 
-        state.group.position.set(
-          state.prev.x + (state.next.x - state.prev.x) * t,
-          state.prev.y + (state.next.y - state.prev.y) * t,
-          state.prev.z + (state.next.z - state.prev.z) * t
-        );
+        let drx = state.prev.x + (state.next.x - state.prev.x) * t;
+        let dry = state.prev.y + (state.next.y - state.prev.y) * t;
+        let drz = state.prev.z + (state.next.z - state.prev.z) * t;
+
+        // ── Dragon structure avoidance ──
+        // Push dragon away from any structure within its collision radius
+        for (const b of defenseBarriers) {
+          if (!b.built) continue;
+          const bx = b.mesh.position.x, bz = b.mesh.position.z;
+          // collision radius = rough half-footprint of structure at 3× scale
+          const stType = b.structureType;
+          const colR = stType === 'gatehouse' ? 10 : stType === 'wall_section' ? 9
+            : stType === 'palisade_row' ? 9 : stType === 'sandbag_nest' ? 7
+            : stType === 'covered_shelter' ? 7 : stType === 'watch_tower' ? 5 : 6;
+          const ddx = drx - bx, ddz = drz - bz;
+          const ddist = Math.hypot(ddx, ddz);
+          if (ddist < colR && ddist > 0.01) {
+            // Also push up so dragons fly over rather than through
+            const push = (colR - ddist) * 0.4;
+            drx += (ddx / ddist) * push;
+            drz += (ddz / ddist) * push;
+            if (dry < b.mesh.position.y + 8) dry += push * 0.5;
+          }
+        }
+
+        state.group.position.set(drx, dry, drz);
 
         let delta = state.nextHeading - state.prevHeading;
         while (delta > Math.PI) delta -= Math.PI * 2;
@@ -2256,6 +2277,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
       for (const state of agents.values()) {
         if (state.group.userData.dead) {
+          // release any claimed perch so others can use it
+          if (state._perch) { state._perch.slot.occupant = null; state._perch = null; }
           continue;
         }
 
@@ -2280,37 +2303,155 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         let finalX = baseX + wanderX;
         let finalZ = baseZ + wanderZ;
 
-        // teams charge toward the nearest living enemy center
-        let enemyCx = 0;
-        let enemyCz = 0;
-        let enemyCount = 0;
+        const role = String(state.group.userData.role || "");
+        const hp    = Number(state.group.userData.hp   ?? 100);
+        const maxHp = Math.max(1, Number(state.group.userData.maxHp ?? 100));
+        const hpPct = hp / maxHp;
 
-        for (const other of agents.values()) {
-          if (other === state) continue;
-          if (other.group.userData.dead) continue;
-          if (other.team === state.team) continue;
+        // ── Cover-seeking decision ──
+        // Build per-agent threat level: enemy dragons alive + enemy archers alive
+        if (!state._threatTimer) state._threatTimer = 0;
+        if (now - state._threatTimer > 1500) {
+          state._threatTimer = now;
+          let threat = 0;
+          for (const ds of dragons.values()) {
+            if (ds.group && ds.team !== state.team) threat += 1;
+          }
+          for (const other of agents.values()) {
+            if (!other.group.userData.dead && other.team !== state.team &&
+                String(other.group.userData.role || "") === "archer") threat += 0.5;
+          }
+          state._threat = threat;
+        }
+        const threat = state._threat || 0;
 
-          enemyCx += other.group.position.x;
-          enemyCz += other.group.position.z;
-          enemyCount++;
+        const wantsCover = (role === "archer" && threat >= 1)
+                        || (role === "warrior" && hpPct < 0.4 && threat >= 1)
+                        || (role !== "builder" && hpPct < 0.25);
+
+        // ── Release perch if no longer wanting cover or structure destroyed ──
+        if (!wantsCover && state._perch) {
+          state._perch.slot.occupant = null;
+          state._perch = null;
+          state._coverTarget = null;
         }
 
-        if (enemyCount > 0) {
-          enemyCx /= enemyCount;
-          enemyCz /= enemyCount;
+        // ── Re-evaluate cover/perch target every ~2 s ──
+        if (!state._coverLastCheck) state._coverLastCheck = 0;
+        if (wantsCover && now - state._coverLastCheck > 2000) {
+          state._coverLastCheck = now;
 
-          const dxEnemy = enemyCx - finalX;
-          const dzEnemy = enemyCz - finalZ;
-          const distEnemy = Math.hypot(dxEnemy, dzEnemy);
+          // Score every available perch slot; archers strongly favour height
+          let bestScore = -Infinity, bestSlot = null, bestBarrier = null;
+          const ax = state.group.position.x, az = state.group.position.z;
+          const _wp = new THREE.Vector3();
 
-          if (distEnemy > 0.01) {
-            const chargeSpeed = state.team === 1 ? 0.42 : 0.36;
-            finalX += (dxEnemy / distEnemy) * chargeSpeed;
-            finalZ += (dzEnemy / distEnemy) * chargeSpeed;
+          for (const b of defenseBarriers) {
+            if (b.team !== state.team || !b.built) continue;
+            for (const slot of b.perches) {
+              if (slot.occupant !== null && slot.occupant !== state) continue;
+              _wp.set(slot.lx, slot.ly, slot.lz);
+              b.mesh.localToWorld(_wp);
+              const dist = Math.hypot(_wp.x - ax, _wp.z - az);
+              const elevBonus = (role === "archer") ? slot.elevScore * 3 : 0;
+              const score = elevBonus - dist * 0.15;
+              if (score > bestScore) {
+                bestScore = score; bestSlot = slot; bestBarrier = b;
+              }
+            }
+          }
+
+          // Release old perch if switching
+          if (state._perch && state._perch.slot !== bestSlot) {
+            state._perch.slot.occupant = null;
+            state._perch = null;
+          }
+
+          if (bestSlot) {
+            bestSlot.occupant = state;
+            state._perch = { slot: bestSlot, barrier: bestBarrier };
+            state._coverTarget = bestBarrier;
           }
         }
+        if (!wantsCover) state._coverTarget = null;
 
-        // simple crowd avoidance
+        let perchY = null; // set below if on a perch
+
+        if (state._perch) {
+          const { slot, barrier } = state._perch;
+          // Guard: if barrier was evicted from defenseBarriers, release it
+          if (!defenseBarriers.includes(barrier)) {
+            slot.occupant = null;
+            state._perch = null;
+            state._coverTarget = null;
+          } else {
+            const _wp2 = new THREE.Vector3(slot.lx, slot.ly, slot.lz);
+            barrier.mesh.localToWorld(_wp2);
+            // Sanity-clamp: never send an agent higher than 30 world units
+            perchY = Math.min(_wp2.y, 30);
+
+            const ddx = _wp2.x - finalX, ddz = _wp2.z - finalZ;
+            const ddist = Math.hypot(ddx, ddz);
+            if (ddist > 0.4) {
+              const spd = ddist > 6 ? 0.7 : 0.5;
+              finalX += (ddx / ddist) * spd;
+              finalZ += (ddz / ddist) * spd;
+            } else {
+              finalX = _wp2.x; finalZ = _wp2.z;
+            }
+          }
+        } else if (state._coverTarget) {
+          // Ground-level cover — cluster tightly around structure footprint
+          // footprint radius based on structure type (local half-width × 3 scale + small margin)
+          const stType = state._coverTarget.structureType;
+          const footR = stType === 'gatehouse' ? 8 : stType === 'wall_section' ? 7
+            : stType === 'sandbag_nest' ? 5 : stType === 'covered_shelter' ? 5
+            : stType === 'watch_tower' ? 3 : 4; // barricade / palisade
+          const cx = state._coverTarget.mesh.position.x;
+          const cz = state._coverTarget.mesh.position.z;
+          // unique slot angle per agent, ring at edge of footprint
+          const slotAngle = (state.wanderPhase || 0) * 2.5;
+          const destX = cx + Math.cos(slotAngle) * footR;
+          const destZ = cz + Math.sin(slotAngle) * footR;
+          const ddx = destX - finalX, ddz = destZ - finalZ;
+          const ddist = Math.hypot(ddx, ddz);
+          if (ddist > 0.4) {
+            finalX += (ddx / ddist) * 0.58;
+            finalZ += (ddz / ddist) * 0.58;
+          } else {
+            finalX = destX; finalZ = destZ;
+          }
+        } else {
+          // Normal: charge toward nearest living enemy center
+          let enemyCx = 0;
+          let enemyCz = 0;
+          let enemyCount = 0;
+
+          for (const other of agents.values()) {
+            if (other === state) continue;
+            if (other.group.userData.dead) continue;
+            if (other.team === state.team) continue;
+            enemyCx += other.group.position.x;
+            enemyCz += other.group.position.z;
+            enemyCount++;
+          }
+
+          if (enemyCount > 0) {
+            enemyCx /= enemyCount;
+            enemyCz /= enemyCount;
+            const dxEnemy = enemyCx - finalX;
+            const dzEnemy = enemyCz - finalZ;
+            const distEnemy = Math.hypot(dxEnemy, dzEnemy);
+            if (distEnemy > 0.01) {
+              const chargeSpeed = state.team === 1 ? 0.42 : 0.36;
+              finalX += (dxEnemy / distEnemy) * chargeSpeed;
+              finalZ += (dzEnemy / distEnemy) * chargeSpeed;
+            }
+          }
+        } // end cover/perch/charge
+
+        // simple crowd avoidance (skip when on perch — they should stay put)
+        if (!state._perch) {
         for (const other of agents.values()) {
           if (other === state) continue;
 
@@ -2328,11 +2469,14 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
             finalZ += (dzAway / dist) * push;
           }
         }
+        } // end crowd avoidance
 
         const oldX = state.group.position.x;
         const oldZ = state.group.position.z;
 
-        state.group.position.set(finalX, baseY, finalZ);
+        // Use perchY override when standing on a structure, else normal baseY
+        const finalY = (perchY !== null) ? perchY : baseY;
+        state.group.position.set(finalX, finalY, finalZ);
 
         const dx = state.group.position.x - oldX;
         const dz = state.group.position.z - oldZ;
@@ -2643,7 +2787,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     // ===== BUILDER DEFENSE SYSTEM =====
 
     const defenseBarriers = []; // { mesh, team, hp, maxHp, born, built, structureType, coverRadius, lodMesh }
-    const MAX_STRUCTURES_PER_TEAM = 12; // hard cap — oldest evicted when exceeded
+    const MAX_STRUCTURES_PER_TEAM = 22; // hard cap — oldest evicted when exceeded
     let lodFrameCounter = 0;
 
     // track which structure type each builder builds next (cycles through variety)
@@ -2657,7 +2801,14 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
     function spawnBarrier(x, z, team, structureType, faceAngle) {
       // don't stack structures too close — check ALL structures, not just same team
-      const minDist = structureType === "watch_tower" ? 6.5 : structureType === "gatehouse" ? 7.0 : structureType === "covered_shelter" ? 5.0 : structureType === "palisade_row" ? 4.5 : 3.8;
+      // minDist accounts for 3x world scale so structures don't clip through each other
+      const minDist = structureType === "gatehouse" ? 22.0
+        : structureType === "palisade_row" ? 20.0
+        : structureType === "wall_section" ? 18.0
+        : structureType === "sandbag_nest" ? 16.0
+        : structureType === "covered_shelter" ? 14.0
+        : structureType === "watch_tower" ? 10.0
+        : 12.0; // barricade
       for (const b of defenseBarriers) {
         if (Math.hypot(b.mesh.position.x - x, b.mesh.position.z - z) < minDist) return;
       }
@@ -2994,8 +3145,19 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       }
 
       group.position.set(x, 0, z);
-      // face toward the enemy: faceAngle = atan2 to enemy, snap perpendicular structures to that line
-      group.rotation.y = (faceAngle !== undefined) ? faceAngle : Math.random() * Math.PI * 2;
+      // faceAngle puts local +Z toward enemy.
+      // Structures that are WALLS (extend along X) are already correct — their flat face fronts the enemy.
+      // sandbag_nest has its front row at local -Z, so flip it PI so the bags face the enemy.
+      const typeYOffset = {
+        barricade:       0,
+        palisade_row:    0,
+        wall_section:    0,
+        sandbag_nest:    Math.PI,
+        watch_tower:     0,
+        covered_shelter: 0,
+        gatehouse:       0,
+      };
+      group.rotation.y = (faceAngle ?? 0) + (typeYOffset[structureType] ?? 0);
       group.scale.set(3, 0.12, 3); // 3x size; starts flat, rises in update
       root.add(group);
 
@@ -3021,7 +3183,51 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       lodMesh.visible = false;
       group.add(lodMesh);
 
-      defenseBarriers.push({ mesh: group, team, hp: maxHp, maxHp, born: performance.now(), built: false, structureType, coverRadius, lodMesh });
+      defenseBarriers.push({ mesh: group, team, hp: maxHp, maxHp, born: performance.now(), built: false, structureType, coverRadius, lodMesh,
+        // Perch slots in LOCAL (unscaled) geometry space — localToWorld handles the 3× scale at runtime.
+        // Each slot: { lx, ly, lz, elevScore, occupant }
+        // elevScore drives archer preference (higher = better sniper spot)
+        perches: ({
+          watch_tower:     [
+            { lx:  0.5, ly: 5.6, lz:  0,   elevScore: 10 },
+            { lx: -0.5, ly: 5.6, lz:  0,   elevScore: 10 },
+            { lx:  0,   ly: 5.6, lz:  0.5, elevScore: 10 },
+            { lx:  0,   ly: 5.6, lz: -0.5, elevScore: 10 },
+          ],
+          wall_section:    [
+            { lx: -1.5, ly: 2.6, lz: 0.4, elevScore: 7 },
+            { lx: -0.5, ly: 2.6, lz: 0.4, elevScore: 7 },
+            { lx:  0.5, ly: 2.6, lz: 0.4, elevScore: 7 },
+            { lx:  1.5, ly: 2.6, lz: 0.4, elevScore: 7 },
+          ],
+          gatehouse:       [
+            { lx: -2.2, ly: 4.3, lz: -0.3, elevScore: 9 },
+            { lx: -2.2, ly: 4.3, lz:  0.3, elevScore: 9 },
+            { lx:  2.2, ly: 4.3, lz: -0.3, elevScore: 9 },
+            { lx:  2.2, ly: 4.3, lz:  0.3, elevScore: 9 },
+          ],
+          covered_shelter: [
+            { lx: -0.8, ly: 0.2, lz:  0,   elevScore: 1 },
+            { lx:  0,   ly: 0.2, lz:  0,   elevScore: 1 },
+            { lx:  0.8, ly: 0.2, lz:  0,   elevScore: 1 },
+          ],
+          sandbag_nest:    [
+            { lx: -0.6, ly: 0.5, lz: 0.3, elevScore: 2 },
+            { lx:  0,   ly: 0.5, lz: 0.3, elevScore: 2 },
+            { lx:  0.6, ly: 0.5, lz: 0.3, elevScore: 2 },
+          ],
+          barricade:       [
+            { lx: -0.6, ly: 0.2, lz: -0.4, elevScore: 1 },
+            { lx:  0,   ly: 0.2, lz: -0.4, elevScore: 1 },
+            { lx:  0.6, ly: 0.2, lz: -0.4, elevScore: 1 },
+          ],
+          palisade_row:    [
+            { lx: -1.5, ly: 0.1, lz: 0.6, elevScore: 1 },
+            { lx:  0,   ly: 0.1, lz: 0.6, elevScore: 1 },
+            { lx:  1.5, ly: 0.1, lz: 0.6, elevScore: 1 },
+          ],
+        }[structureType] || []).map(p => ({ ...p, occupant: null })),
+      });
     }
 
     function updateBuilderDefenses() {
@@ -3041,9 +3247,9 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         // vary interval by structure type
         const curType = STRUCTURE_TYPES[builderStructureIndex.get(id) % STRUCTURE_TYPES.length];
-        const typeInterval = curType === "watch_tower" ? 2500 : curType === "gatehouse" ? 4000
-          : curType === "covered_shelter" ? 2200 : curType === "wall_section" ? 1800
-          : curType === "palisade_row" ? 1200 : 900;
+        const typeInterval = curType === "watch_tower" ? 1400 : curType === "gatehouse" ? 2200
+          : curType === "covered_shelter" ? 1200 : curType === "wall_section" ? 900
+          : curType === "palisade_row" ? 600 : 400;
 
         if (now - state.lastBuild > typeInterval + (state.wanderPhase || 0) * 300) {
           state.lastBuild = now;
@@ -3074,7 +3280,13 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
           const faceAngle = Math.atan2(toNx, toNz);
 
           // snap slot along perp axis, centered on builder
-          const gridStep = curType === "palisade_row" ? 5.2 : curType === "wall_section" ? 4.5 : 3.5;
+          // gridStep in world units at 3x scale — just wide enough to avoid overlap
+          const gridStep = curType === "gatehouse" ? 24.0
+            : curType === "palisade_row" ? 22.0
+            : curType === "wall_section" ? 20.0
+            : curType === "sandbag_nest" ? 18.0
+            : curType === "covered_shelter" ? 16.0
+            : 13.0; // barricade / watch_tower
           const buildCount = builderBuildCount.get(id);
           const slot = buildCount === 0 ? 0 : (buildCount % 2 === 1 ? Math.ceil(buildCount/2) : -Math.ceil(buildCount/2));
           // push slightly toward enemy from builder position
@@ -3159,8 +3371,17 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
         if (rise >= 1) b.built = true;
 
-        // remove destroyed barriers
+        // remove destroyed barriers — clear any agent perch references first
         if (b.hp <= 0) {
+          // evict every agent perched on this structure back to ground
+          for (const st of agents.values()) {
+            if (st._perch && st._perch.barrier === b) {
+              st._perch.slot.occupant = null;
+              st._perch = null;
+              st._coverTarget = null;
+              st._coverLastCheck = 0; // force re-eval next frame
+            }
+          }
           spawnSpellExplosion(b.mesh.position);
           root.remove(b.mesh);
           b.mesh.traverse(c => { c.geometry?.dispose?.(); c.material?.dispose?.(); });
@@ -3188,14 +3409,14 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         scene.fog.density = 0.0015 + night * 0.006;
       }
 
-      hemiLight.intensity = 0.35 + day * 1.35;
+      hemiLight.intensity = 1.8 + day * 2.2;
       hemiLight.color.setRGB(
         0.45 + day * 0.55,
         0.50 + day * 0.50,
         0.70 + day * 0.30
       );
 
-      sun.intensity = 0.15 + day * 1.75;
+      sun.intensity = 1.2 + day * 3.8;
       sun.position.set(
         Math.sin(t) * 28,
         8 + day * 26,
@@ -4030,14 +4251,20 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     })();
 
     const builderDefs = [
-      // Team 0 (red) — behind their back line around x:-18...-22, z:0...4
-      { id: "builder_r0", x: -18, z:  0, team: 0 },
-      { id: "builder_r1", x: -21, z:  3, team: 0 },
-      { id: "builder_r2", x: -20, z: -4, team: 0 },
-      // Team 1 (blue) — behind their back line around x:26...30, z:16...20
-      { id: "builder_b0", x: 27, z: 18, team: 1 },
-      { id: "builder_b1", x: 30, z: 16, team: 1 },
-      { id: "builder_b2", x: 28, z: 21, team: 1 },
+      // Team 0 (red) — behind their back line around x:-30...-38
+      { id: "builder_r0", x: -32, z:  0, team: 0 },
+      { id: "builder_r1", x: -35, z:  3, team: 0 },
+      { id: "builder_r2", x: -34, z: -4, team: 0 },
+      { id: "builder_r3", x: -30, z:  6, team: 0 },
+      { id: "builder_r4", x: -37, z: -2, team: 0 },
+      { id: "builder_r5", x: -29, z: -6, team: 0 },
+      // Team 1 (blue) — behind their back line around x:+30...+38
+      { id: "builder_b0", x: 32, z:  0, team: 1 },
+      { id: "builder_b1", x: 35, z:  3, team: 1 },
+      { id: "builder_b2", x: 34, z: -4, team: 1 },
+      { id: "builder_b3", x: 30, z:  6, team: 1 },
+      { id: "builder_b4", x: 37, z: -2, team: 1 },
+      { id: "builder_b5", x: 29, z: -6, team: 1 },
     ];
 
     function spawnBuilderSquads() {
