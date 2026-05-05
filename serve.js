@@ -2,6 +2,7 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import { parseRWX } from "./tools/parse_rwx.js";
 
 const port = 8080;
 const ROOT = process.cwd();
@@ -17,6 +18,24 @@ function injectTick(src, tick) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
+
+  if (url.pathname === "/api/rwx") {
+    try {
+      const file = url.searchParams.get("file");
+      if (!file) { res.writeHead(400); res.end(JSON.stringify({ error: "missing ?file=" })); return; }
+      const abs = path.resolve(ROOT, file);
+      // security: must stay inside project root
+      if (!abs.startsWith(ROOT)) { res.writeHead(403); res.end(JSON.stringify({ error: "forbidden" })); return; }
+      const src = fs.readFileSync(abs, "utf8");
+      const objects = parseRWX(src);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(objects));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err.message || err) }));
+    }
+    return;
+  }
 
   if (url.pathname === "/api/scene") {
     try {
@@ -47,14 +66,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // silence favicon
+  if (url.pathname === "/favicon.ico") { res.writeHead(204); res.end(); return; }
+
   let filePath = "." + (url.pathname === "/" ? "/index.html" : url.pathname);
 
   const ext = path.extname(filePath);
 
   const map = {
-    ".js": "text/javascript",
+    ".js":   "text/javascript",
     ".html": "text/html",
-    ".mc": "text/plain"
+    ".mc":   "text/plain",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png":  "image/png",
+    ".gif":  "image/gif",
+    ".bmp":  "image/bmp"
   };
 
   fs.readFile(filePath, (err, content) => {
@@ -62,7 +89,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(404);
       res.end("Not found");
     } else {
-      res.writeHead(200, { "Content-Type": map[ext] || "text/plain", "Cache-Control": "no-store" });
+      res.writeHead(200, { "Content-Type": map[ext] || "application/octet-stream", "Cache-Control": "no-store" });
       res.end(content);
     }
   });

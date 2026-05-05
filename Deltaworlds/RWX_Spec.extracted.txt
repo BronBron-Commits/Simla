@@ -1,0 +1,1926 @@
+RWX Model Format
+Command Reference & Specification
+Compiled from ActiveWiki — Category:RWX_Commands and Category:Renderware
+Source: https://wiki.activeworlds.com/
+54 commands and reference pages
+
+Table of Contents
+Overview ......................................................................................................................................................  4
+Renderware ...............................................................................................................................................  5
+Model ......................................................................................................................................................  10
+File Structure ............................................................................................................................................  11
+ModelBegin .............................................................................................................................................  12
+ModelEnd ................................................................................................................................................  13
+ClumpBegin ............................................................................................................................................  14
+ClumpEnd ...............................................................................................................................................  16
+ProtoBegin ..............................................................................................................................................  17
+ProtoEnd .................................................................................................................................................  18
+ProtoInstance ..........................................................................................................................................  19
+ProtoInstanceGeometry ..........................................................................................................................  21
+Tag ..........................................................................................................................................................  23
+Geometry Primitives .................................................................................................................................  25
+Vertex ......................................................................................................................................................  26
+Triangle ...................................................................................................................................................  34
+Quad .......................................................................................................................................................  36
+Polygon ...................................................................................................................................................  38
+Block .......................................................................................................................................................  41
+Cone .......................................................................................................................................................  43
+Cylinder ...................................................................................................................................................  45
+Disc .........................................................................................................................................................  47
+Hemisphere .............................................................................................................................................  49
+Sphere ....................................................................................................................................................  51
+Transforms ................................................................................................................................................  53
+Identity ....................................................................................................................................................  54
+Translate .................................................................................................................................................  56
+Rotate .....................................................................................................................................................  57
+Scale .......................................................................................................................................................  59
+Transform ................................................................................................................................................  61
+TransformBegin .......................................................................................................................................  62
+TransformEnd ..........................................................................................................................................  64
+Materials — Scope ...................................................................................................................................  65
+MaterialBegin ..........................................................................................................................................  66
+MaterialEnd .............................................................................................................................................  67
+MaterialMode ..........................................................................................................................................  68
+AddMaterialMode ...................................................................................................................................  70
+RWX Model Format Specification 2 / 103
+
+RemoveMaterialMode .............................................................................................................................  72
+Surface ....................................................................................................................................................  73
+Materials — Color & Lighting Response ................................................................................................  75
+Color .......................................................................................................................................................  76
+Ambient ...................................................................................................................................................  77
+Diffuse .....................................................................................................................................................  78
+Specular ..................................................................................................................................................  79
+Opacity ...................................................................................................................................................  80
+Opacity (RWX) .........................................................................................................................................  81
+OpacityFix ...............................................................................................................................................  82
+Prelight ....................................................................................................................................................  83
+Textures .....................................................................................................................................................  84
+Texture ....................................................................................................................................................  85
+TextureMode ...........................................................................................................................................  86
+AddTextureMode ....................................................................................................................................  87
+RemoveTextureMode ..............................................................................................................................  88
+TextureAddressMode ..............................................................................................................................  89
+TextureMipmapState ...............................................................................................................................  90
+Seamless ................................................................................................................................................  91
+RandomUVs ............................................................................................................................................  94
+Sampling & Lighting .................................................................................................................................  95
+LightSampling .........................................................................................................................................  96
+GeometrySampling .................................................................................................................................  98
+Misc .........................................................................................................................................................  100
+AxisAlignment .......................................................................................................................................  101
+Collision ................................................................................................................................................  102
+RWX Model Format Specification 3 / 103
+
+Overview
+RWX Model Format Specification 4 / 103
+
+Renderware
+SOURCE: RENDERWARE
+Note, this article discusses the 3D file format, not the 3D Render Engine. Nevertheless, parts of 
+Renderware Engine core are currently still used by the Active Worlds Browser. The engine as well as the
+file format were developed by Criterion Software and has been owned by EA Games since 2004. EA
+Games closed the product line in 2007 for 3rd party developers, continuing using the render engine for
+some of their own game titles. 
+The browser uses the legacy ASCII version of Renderware scripts also besides other 3D file formats. ASCII
+means the file are in a human readable form. Such files require the use of the ".rwx" file extension
+(Rendware Exchange format). This allows for creation and editing of RWX objects using a text editor such
+as Notepad. 
+ActiveWorlds has extended the file format's definition with its own extensions. The format is suitable for
+simple models and for jointed avatar (depreciated) structures/hierarchies only. Alternatives: For skinned
+avatars Blender and the DX format (.x file extension) is recommended. TrueSpace .cob file formats are also
+still supported. 
+File structure
+As an ASCII script file format, models are made up with various case-insensitive commands and options
+in a hierarchy, not unlike HTML or XML. No special characters are used to define sections, however for
+human readability clumps are typically indented with spaces or tabs. The following is an example of a
+simple RWX object that uses four verticies with UV definitions to make a centered wall: 
+Note that ModelBegin and ModelEnd may be used at the top and bottom of the file, but are optional
+ ClumpBegin
+   Surface 1 1 0
+   Texture tile1
+   TextureModes Lit
+   Vertex -.2 0 0 UV 0 1
+   Vertex -.2 .4 0 UV 0 0
+   Vertex .2 0 0 UV 1 1
+   Vertex .2 .4 0 UV 1 0
+   Quad 2 1 3 4
+ ClumpEnd
+Line-by-line analysis 
+Script Function 
+ClumpBegin Begins definition of an object 
+RWX Model Format Specification 5 / 103
+
+Surface 1 1 0 Shortcut for defining ambient, diffuse and
+specular respectively 
+Texture tile1
+Name of texture file used for textured surfaces. In
+this case, this makes use of the standard 
+AlphaWorld tile1.jpg texture. 
+TextureModes
+Lit
+Lighting mode of surfaces, of which only "Lit" is
+supported 
+Vertex -.2 0 0
+UV 0 1 First defined point in space with UV values 
+Vertex -.2 .4 0
+UV 0 0 Second defined point 
+Vertex .2 0 0 UV
+1 1 Third defined point 
+Vertex .2 .4 0
+UV 1 0 Fourth defined point 
+Quad 2 1 3 4 Defines a quad surface to render, referencing the
+four above verticies by the order of definition 
+ClumpEnd End of object definition 
+Commands
+Standard commands
+This is a list of the standard RWX script commands that the browser uses to render Renderware models.
+Some may have unsupported or unused options, such as point-cloud rendering for GeometrySampling. 
+Command Function 
+# Allows a comment to be placed within the Renderware file 
+AddMaterialMode Adds the specified material mode to the current material modes 
+AddTextureMode Adds the specified texture mode the the current texture modes 
+Ambient Defines the amount that the polygons will be affected by ambient lighting 
+AxisAlignment Defines if the object is to be a 'facer' 
+Block Creates a block (Cube for example) 
+ClumpBegin Declares the beginning of a clump 
+RWX Model Format Specification 6 / 103
+
+ClumpEnd Defines the end of a clump 
+Collision Determines if the object should be solid or not 
+Color Defines the color of an objects polygons 
+Cone Creates a cone 
+Cylinder Creates a cylinder 
+Diffuse Defines how the objects polygons will be affected by diffuse lighting 
+Disc Creates a flat disc 
+GeometrySampling Defines the geometry sampling mode of the current material 
+Hemisphere Creates a hemisphere 
+Identity Sets the current transformation matrix to the identity matrix 
+LightSampling Defines how lighting should affect an object overall 
+MaterialBegin Sets the beginning of a new material 
+MaterialMode Defines the material mode of the current material 
+MaterialEnd Sets the end of a material, to revert to a previous definition 
+ModelBegin Defines the beginning of a model 
+ModelEnd Defines the end of a model 
+Opacity Sets the opacity (transparency) of the current material 
+Polygon Creates a N sided polygon 
+ProtoBegin Defines the start of a new prototype 
+ProtoEnd Defines the end of a prototype 
+ProtoInstance Calls upon a defined prototype 
+ProtoInstanceGeometryCalls upon a defined prototype, ignoring it's materials 
+Quad Creates a 4 sided polygon 
+RemoveMaterialModeRemoves the specified mode from the current material modes 
+RemoveTextureModeRemoves the specified mode from the current texture modes 
+Rotate Used with a transformation matrix, rotating it to a given angle 
+Scale Used with a transformation matrix, scaling it accordingly 
+Specular
+RWX Model Format Specification 7 / 103
+
+Defines how polygons will be affected by specular lighting, currently not
+used 
+Sphere Creates a sphere 
+Surface Defines ambient, diffuse and specular lighting properties in one
+command 
+Tag Specifies a tag number to be called for special uses 
+Texture Defines the texture and mask used in the current material 
+TextureAddressModeSpecifies the texture addressing mode to be used for all following
+textures 
+TextureMipmapStateSpecifies the mipmap state of all following textures 
+TextureMode Defines the texture mode to be used in the current material 
+Transform Replaces the current transformation matrix with the specified elements 
+TransformBegin Defines the beginning of a new transformation matrix 
+TransformEnd Defines the end of the current transformation matrix 
+Translate Moves the current transformation matrix 
+Triangle Creates a triangle based on 3 indexed vertices 
+Vertex Defines the position of a vertex within the object 
+Extension commands
+Extra RWX commands are supported by the browser for tweaks. Historically, these were added from
+version 3.0. To keep scripts compatiable with other software and older versions, these commands make
+use of a crunchbang "#!" prefix which are otherwise interpeted as comments by non-supported software. 
+Command Function 
+#! OpacityFix on Start separating the following polygons, to fix transparency issues with
+neighbor polygons 
+#! OpacityFix off Stop separating polygons 
+#! Prelight In conjunction with the Vertex command, defines subtle lighting effects on
+objects 
+#! Seamless on Use seamless vertex normals, considering neighbor vertices 
+#! Seamless off Stop seamless vertex normals 
+#! RandomUVs Generate random texture coordinates 
+RWX Model Format Specification 8 / 103
+
+#! 
+TextureAddressModeModifies how repeating textures are rendered 
+Unsupported commands
+The following commands are not supported by the browser. If any of these commands are used in the
+creation of your object they will be ignored by the rendering engine of the software, additionally some may
+cause an error message to be displayed. 
+AddHint
+Hints
+Include
+IncludeGeometry
+RemoveHint
+TextureDithering
+TextureGammaCorrection
+Trace
+TransformJoint
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+RWX Model Format Specification 9 / 103
+
+Model
+SOURCE: MODEL
+Supported 3D Formats
+Renderware Objects (.rwx)
+TrueSpace Objects (.cob)
+DirectX Objects (.x)
+About Object Creation
+Each of the aforementioned object types has it's own advantages and disadvantages, but no particular
+format tends to be a winner over other formats. 
+Renderware files are typically small in size, and can be easily edited with a simple text editor. While this
+provides accessibility for editing and touch-ups, there isn't a large backing of this file type from major
+software producers. As a result you will generally have to create the object in one program then convert it
+into Renderware. 
+TrueSpace cob files have been supported for quite some time, as an alternative to the aging Renderware
+format. Commonly used for avatars and other more complex objects, these files are still seen throughout
+the Active Worlds universe. This particular file type is generally limited to the TrueSpace modeling
+software. 
+DirectX files are the "new kid on the block" with their introduction into the browser being fairly recent.
+These files allow the creation of more modern features such as skinned avatars. Many current 3D
+modeling programs support saving objects directly as .X, either through built in means or with the
+installation of a plug-in exporter. 
+• 
+• 
+• 
+RWX Model Format Specification 10 / 103
+
+File Structure
+RWX Model Format Specification 11 / 103
+
+ModelBegin
+SOURCE: MODELBEGIN
+Usage
+    ModelBegin
+Description
+This command declares the beginning of an object. It is optional and has no effect. Some people like to
+use it for readability of the code. 
+Arguments
+This command has no arguments. 
+Examples
+Modelbegin
+ clumpbegin
+  # model code here
+ clumpend
+Modelend
+RWX Model Format Specification 12 / 103
+
+ModelEnd
+SOURCE: MODELEND
+Usage
+    ModelEnd
+Description
+This command marks the end of the object definition. No further commands after ModelEnd will be
+processed. 
+Arguments
+This command has no arguments. 
+Example
+Modelbegin
+ clumpbegin
+  # model code here
+ clumpend
+Modelend
+RWX Model Format Specification 13 / 103
+
+ClumpBegin
+SOURCE: CLUMPBEGIN
+Usage
+    ClumpBegin 
+Description
+This command declares the beginning of a new clump. All subsequent vertices and polygons are added to
+this clump until a matching ClumpEnd is reached. 
+A clump is a collection of vertices, polygons, and materials. Clumps are the basic building blocks of all
+objects. All .rwx files should have at least one ClumpBegin/ClumpEnd pair. 
+Clumps can be nested (i.e. one ClumpBegin/ClumpEnd pair can be declared inside another). When
+clumps are nested the object becomes hierarchical, and the inner clump is called a child clump. Since
+hierarchical objects can take significantly longer to render than non-hierarchical (or "flat") objects, for best
+performance nested clumps should only be used in RWX files intended for avatars that are to be
+animated. 
+Arguments
+This command has no arguments. 
+Examples
+Example 1
+ Modelbegin
+  ClumpBegin
+   # model code goes in here
+  ClumpEnd
+ ModelEnd
+RWX Model Format Specification 14 / 103
+
+or 
+ Modelbegin
+  ClumpBegin
+   # model 1 code goes in here
+  ClumpEnd
+  ClumpBegin
+   # model 2 code goes in here
+  ClumpEnd
+ ModelEnd
+Example 2
+Another variation required for Collision off 
+ Modelbegin
+  ClumpBegin
+   ClumpBegin
+    # model 1 code goes in here
+   ClumpEnd
+   ClumpBegin
+    collision off
+    # model2 code goes in here
+   ClumpEnd
+  ClumpEnd
+ ModelEnd
+Note the nested master clump. 
+RWX Model Format Specification 15 / 103
+
+ClumpEnd
+SOURCE: CLUMPEND
+Usage
+    ClumpEnd 
+Description
+This command marks the end of the current clump. See ClumpBegin for more information about clumps. 
+Arguments
+This command has no arguments 
+RWX Model Format Specification 16 / 103
+
+ProtoBegin
+SOURCE: PROTOBEGIN
+Usage
+    ProtoBegin name
+Description
+This command declares the beginning of a new prototype. All subsequent vertices and polygons are
+added to this prototype until a matching ProtoEnd is reached. 
+A prototype is a collection of vertices, polygons, and materials which can be used repeatedly in the same
+object, like a macro. They are particularly handy if your object uses the same physical structure more than
+once (e.g. the legs of a table, the tires of a car, etc.) If you put the common structure in a prototype, you
+only have to define it once and then instantiate it repeatedly wherever you want to use it. Use the
+ProtoInstance command to instantiate a prototype. 
+Prototypes cannot be defined within other ProtoBegin/ProtoEnd blocks or within ClumpBegin/ClumpEnd
+blocks. 
+In cases where the model does not contain identical sections, the best use of this is in separating the
+texture layers. The advantage is that all surfaces with the same textures are grouped together, allowing
+easy hand editing to replace the texture name or adding tags, or prelighting. 
+Accutrans can be setup to generate prototypes according to the texture layer structure. 
+Arguments
+name is the name of the prototype, to be referenced by a subsequent ProtoInstance command. 
+Example
+prototype model1 # model1 is the name of the prototype 
+RWX Model Format Specification 17 / 103
+
+ProtoEnd
+SOURCE: PROTOEND
+Usage
+    ProtoEnd
+Description
+This command marks the end of the prototype definition begun with the previous ProtoBegin command. 
+See ProtoBegin for more information. 
+Arguments
+This command has no arguments. 
+RWX Model Format Specification 18 / 103
+
+ProtoInstance
+SOURCE: PROTOINSTANCE
+Usage
+    ProtoInstance name
+Description
+This command instantiates the given prototype. This adds copies of all the polygons in the prototype into
+the current clump under construction. Note that this process does not create a new child clump. 
+See ProtoBegin for more information. 
+Arguments
+name is the name of the prototype, as declared in a previous ProtoBegin command. 
+Example
+ProtoInstance model1 
+Model example utilizing multiple protoinstances. 
+ modelbegin
+  protobegin model1
+   # model code in here
+  protoend
+  protobegin model2
+   # model code in here
+  protoend
+  protobegin model3
+   # model code in here
+  protoend
+  clumpbegin
+   protoinstance model1
+   protoinstance model2
+   protoinstance model3
+RWX Model Format Specification 19 / 103
+
+  clumpend
+ modelend
+RWX Model Format Specification 20 / 103
+
+ProtoInstanceGeometry
+SOURCE: PROTOINSTANCEGEOMETRY
+Usage
+    ProtoInstanceGeometry name
+Description
+This command is similar to the ProtoInstance command except that the materials of the prototype are not
+copied into the current clump. Rather, the new polygons are assigned the current material. 
+This is useful if your object makes multiple uses of the same group of polygons, but you would like
+different groups to use different materials (i.e. appear differently). For example, a colorful bunch of
+balloons could be created by making a single balloon prototype, and then using ProtoInstanceGeometry
+to instantiate the balloon prototype multiple times each with a different color. 
+See ProtoBegin for more discussion of prototypes. 
+Arguments
+name is the name of the prototype, as declared in a previous ProtoBegin command. 
+Example
+Here is an example on how the ProtoInstanceGeometry command can be used. It uses more coding than
+needed but makes it easier to understand 
+ modelbegin
+  protobegin model1
+   color color1
+   # model code in here
+  protoend
+  protobegin Bunch
+   protoinstancegeometry model1
+   color color2
+   protoinstancegeometry model1
+   color color3
+   protoinstancegeometry model1
+RWX Model Format Specification 21 / 103
+
+  protoend
+  clumpbegin
+   protoinstance Bunch
+  clumpend
+ modelend
+RWX Model Format Specification 22 / 103
+
+Tag
+SOURCE: TAG_(RWX_COMMAND)
+The Tag command is an RWX Command that sets the current tag value for a given clump in an avatar
+model. 
+Usage
+    Tag value
+Description
+This command sets the numeric tag value of the current clump. Clump tags are different from surface tags
+used with the tag parameter of Active Worlds action commands such as the texture command and the
+animate command used to enhance building. For information about Surface Tags, see the QUAD, 
+TRIANGLE, and POLYGON help pages. 
+Clump tags are useful for identifying clumps so they can later be found by Active Worlds. Currently, the
+only use for clump tags in Active Worlds is to identify the various joints in animated avatars. They can also
+be used to create animated objects that will respond to sequences applied during the building process in
+world. 
+A list of tag numbers and limb names is at Skinned Avatars. All tag#'s can be used with jointed avatars as
+well. Keep in mind that the number of different limbs/joints used within a single avatar or object must not
+exceed 62 in total.
+Note: Each clump may only be assigned one tag value at a time. Clump tag values higher than 42 are not
+supported in browser versions lower than 4.2, so be sure to test any avatar animation sequences you
+create which use these tag values. 
+Arguments
+value is an integer tag value from the above table. 
+Examples
+RWX Model Format Specification 23 / 103
+
+ .....
+ clumpbegin
+   tag 19
+    protoinstance lu_leg
+    transformbegin
+    translate -.0022 -.0454 .0024
+ ....
+RWX Model Format Specification 24 / 103
+
+Geometry Primitives
+RWX Model Format Specification 25 / 103
+
+Vertex
+SOURCE: VERTEX
+Usage
+    Vertex x y z  [normal nx ny nx] [UV uv] [prelight r g b] 
+Note: [ ] denotes optional arguments. 
+Note: Vertex and VertexExt commands are equivalent and may be used interchangeably. 
+Description
+This command creates a new vertex and adds it to the current clump under construction. The vertex can
+have optional additional parameters. 
+The position of the vertex is transformed by the transformation matrix currently in effect. 
+Argument
+x y z specifies the 3D coordinates of the vertices. 
+normalnx ny nx specifies the normal at this point. Pre-calculated normals may be used for special light
+effects, and safe time loading the geometry and calculating standard normals. 
+uv specifies the texture coordinates for this vertice. uv coordinates determine how textures applied to the
+object are mapped to each particular vertice. A vertice without a uv value will take on the color of the
+current clump. 
+prelight r g b specifies a pre-lit color to be used as a starting point at this vertice before lighting is
+calculated by the browser. Pre-lit colors allow for very subtle control over the effects of lighting on an
+object. The values for color components should be specified in the range 0.0 to 1.0. r is the red value, g is
+the green value, and b is the blue value. 
+Once a vertice in a clump has been assigned a prelight color, all vertices in that clump become pre-lit as
+well. If prelight has not been specified on the other vertices, they default to the last previously specified 
+prelight value on that clump (or 0.0 0.0 0.0 if no previous prelight has been specified). This can be useful
+for assigning multiple sequential vertices the same prelight value without having to individually specify a 
+prelight value for each vertex. 
+The normal and the prelight options are Activeworlds specific extensions to the RenderWare eXchange
+format and can be prefaced with #! in case the RWX file is intended to work with other software. 
+RWX Model Format Specification 26 / 103
+
+Examples
+Vertex Example
+Vertex usage using UV coordinates: 
+ ModelBegin
+  ClumpBegin
+   Surface 0.7 0.9 0.0
+   Color 0.5882 0.5882 0.5882
+   LightSampling Vertex
+   Texture rock001
+   Vertex -0.5 0 0.5 UV 0 1.0 #1
+   Vertex -0.5 0 0 UV 0 0.5 #2
+   Vertex -0.5 0 -0.5 UV 0 0 #3
+   Vertex 0 0 0.5 UV 0.5 1.0 #4
+   Vertex 0 0 0 UV 0.5 0.5 #5
+   Vertex 0 0 -0.5 UV 0.5 0 #6
+   Vertex 0.5 0 0.5 UV 1.0 1.0 #7
+   Vertex 0.5 0 0 UV 1.0 0.5 #8
+   Vertex 0.5 0 -0.5 UV 1.0 0 #9
+   Triangle 2 1 5
+   Triangle 4 5 1
+   Triangle 5 4 8
+   Triangle 7 8 4
+   Triangle 3 2 6
+   Triangle 5 6 2
+   Triangle 6 5 9
+   Triangle 8 9 5
+  ClumpEnd
+ ModelEnd
+Alternate way using prototypes to create the exact same object: 
+ ModelBegin
+  ProtoBegin walkway
+   Ambient 0.7
+   Diffuse 0.9
+   Color 0.5882 0.5882 0.5882
+RWX Model Format Specification 27 / 103
+
+   LightSampling Vertex
+   Texture wrock001
+   Vertex -0.5 0 0.5 UV 0 1.0 #1
+   Vertex -0.5 0 0 UV 0 0.5 #2
+   Vertex -0.5 0 -0.5 UV 0 0 #3
+   Vertex 0 0 0.5 UV 0.5 1.0 #4
+   Vertex 0 0 0 UV 0.5 0.5 #5
+   Vertex 0 0 -0.5 UV 0.5 0 #6
+   Vertex 0.5 0 0.5 UV 1.0 1.0 #7
+   Vertex 0.5 0 0 UV 1.0 0.5 #8
+   Vertex 0.5 0 -0.5 UV 1.0 0 #9
+   Triangle 2 1 5
+   Triangle 4 5 1
+   Triangle 5 4 8
+   Triangle 7 8 4
+   Triangle 3 2 6
+   Triangle 5 6 2
+   Triangle 6 5 9
+   Triangle 8 9 5
+  ProtoEnd
+  ClumpBegin
+   ProtoInstance walkway
+  ClumpEnd
+ ModelEnd
+RWX Model Format Specification 28 / 103
+
+ resulting in 
+Prelight Example 1
+The following example is the same as the previous object except that we have changed the comment(#)
+on the 5th Vertex command to add a prelight with a red value of 0.9. On the 6th Vertex command we
+added a prelight command that changes it back to default values so that the prelight does not leak into
+another vertice. 
+ ModelBegin
+  ClumpBegin
+   Surface 0.7 0.9 0.0
+   Color 0.5882 0.5882 0.5882
+   LightSampling Vertex
+   Texture rock001
+   Vertex -0.5 0 0.5 UV 0 1.0 #1
+   Vertex -0.5 0 0 UV 0 0.5 #2
+   Vertex -0.5 0 -0.5 UV 0 0 #3
+RWX Model Format Specification 29 / 103
+
+   Vertex 0 0 0.5 UV 0.5 1.0 #4
+   Vertex 0 0 0 UV 0.5 0.5 #!prelight .9 0 0
+   Vertex 0 0 -0.5 UV 0.5 0 #!prelight 0 0 0
+   Vertex 0.5 0 0.5 UV 1.0 1.0 #7
+   Vertex 0.5 0 0 UV 1.0 0.5 #8
+   Vertex 0.5 0 -0.5 UV 1.0 0 #9
+   Triangle 2 1 5
+   Triangle 4 5 1
+   Triangle 5 4 8
+   Triangle 7 8 4
+   Triangle 3 2 6
+   Triangle 5 6 2
+   Triangle 6 5 9
+   Triangle 8 9 5
+  ClumpEnd
+ ModelEnd
+ resulting in 
+RWX Model Format Specification 30 / 103
+
+Prelight Example 2
+The following example is the same as the first object except that we have changed the comment(#) on the
+1st Vertex command to add prelight values of 1 to all three colors to create white. On the 2nd Vertex
+command we added a prelight command that changes it back to default values so that the prelight does
+not leak into the next vertice. 
+ ModelBegin
+  ClumpBegin
+   Surface 0.7 0.9 0.0
+   Color 0.5882 0.5882 0.5882
+   LightSampling Vertex
+   Texture rock001
+   Vertex -0.5 0 0.5 UV 0 1.0 #!prelight 1 1 1
+   Vertex -0.5 0 0 UV 0 0.5 #!prelight 0 0 0
+   Vertex -0.5 0 -0.5 UV 0 0 #3
+   Vertex 0 0 0.5 UV 0.5 1.0 #4
+   Vertex 0 0 0 UV 0.5 0.5 #5
+   Vertex 0 0 -0.5 UV 0.5 0 #6
+   Vertex 0.5 0 0.5 UV 1.0 1.0 #7
+   Vertex 0.5 0 0 UV 1.0 0.5 #8
+   Vertex 0.5 0 -0.5 UV 1.0 0 #9
+   Triangle 2 1 5
+   Triangle 4 5 1
+   Triangle 5 4 8
+   Triangle 7 8 4
+   Triangle 3 2 6
+   Triangle 5 6 2
+   Triangle 6 5 9
+   Triangle 8 9 5
+  ClumpEnd
+ ModelEnd
+RWX Model Format Specification 31 / 103
+
+ resulting in 
+Prelight Example 3
+The following example is the same as the first object except that we have changed the comment(#) on the
+6th Vertex command to add prelight values of 1 to all three colors to create white. We did not add any
+additional prelight commands, so each Vertex command after the 6th vertice will also be pre-lit with the
+color white. 
+ ModelBegin
+  ClumpBegin
+   Surface 0.7 0.9 0.0
+   Color 0.5882 0.5882 0.5882
+   LightSampling Vertex
+   Texture rock001
+   Vertex -0.5 0 0.5 UV 0 1.0 #1
+   Vertex -0.5 0 0 UV 0 0.5 #2
+   Vertex -0.5 0 -0.5 UV 0 0 #3
+RWX Model Format Specification 32 / 103
+
+   Vertex 0 0 0.5 UV 0.5 1.0 #4
+   Vertex 0 0 0 UV 0.5 0.5 #5
+   Vertex 0 0 -0.5 UV 0.5 0 #!prelight 1 1 1
+   Vertex 0.5 0 0.5 UV 1.0 1.0 #7
+   Vertex 0.5 0 0 UV 1.0 0.5 #8
+   Vertex 0.5 0 -0.5 UV 1.0 0 #9
+   Triangle 2 1 5
+   Triangle 4 5 1
+   Triangle 5 4 8
+   Triangle 7 8 4
+   Triangle 3 2 6
+   Triangle 5 6 2
+   Triangle 6 5 9
+   Triangle 8 9 5
+  ClumpEnd
+ ModelEnd
+ resulting in 
+RWX Model Format Specification 33 / 103
+
+Triangle
+SOURCE: TRIANGLE
+Usage
+    Triangle v1 v2 v3 [Tag value] 
+Note: [ ] denotes optional arguments 
+Description
+This command creates a new triangle(i.e. a three-sided polygon) and adds it to the current clump under
+construction. The triangle can have an optional numeric tag assigned to it. 
+Vertices are identified by the order in which they were declared in the current clump. The first vertex in the
+clump is vertex 1. Thus, a triangle made of the first three vertices in the clump would be declared as: 
+Triangle 1 2 3 
+Note that this is exactly identical to the command: 
+Polygon 3 1 2 3 
+Please note that the order of the vertices is important as well as the rotational order. triangle 1 2 3 and 
+triangle 3 2 1 create mirror opposites of each other(each is the other side of the same coin/triangle). 
+The triangle can optionally be assigned a numeric tag. The tag serves to mark that polygon for
+identification by Active Worlds. The following tag values have special meaning in Active Worlds: 
+100 - Identifies the polygon as a target for the sign object action(e.g. 'createsign ...') 
+200 - Identifies the polygon as a target for the picture object action(e.g. 'createpicture ...') 
+Arguments
+v1 is the index of vertex 1 
+v2 is the index of vertex 2 
+v3 is the index of vertex 3 
+value is a positive whole number with a likely upper value of 255(needs verification). This tag number
+allows for certain Activeworlds commands to be use on the face of this triangle. 
+RWX Model Format Specification 34 / 103
+
+Example
+triangle 3 2 1
+RWX Model Format Specification 35 / 103
+
+Quad
+SOURCE: QUAD
+Usage
+    Quad v1 v2 v3 v4 [UV u v] [Tag value] 
+Note: [ ] denotes optional arguments 
+Also note: the Quad and QuadExt commands are equivalent and may be used interchangeably. 
+Arguments
+v1 is the index of vertex 1 
+v2 is the index of vertex 2 
+v3 is the index of vertex 3 
+v4 is the index of vertex 4 
+value is a positive whole number with an upper value of 65,536. 
+This is the same as the limit set for a complete model. 
+Description
+This command creates a new quadrilateral (i.e. a four-sided polygon) and adds it to the current clump
+under construction. The quad can have an optional numeric tag assigned to it. 
+Vertices are identified by the order in which they were declared in the current clump. The first vertex in the
+clump is vertex 1. Thus, a quadrangle made of the first four vertices in the clump would be declared as: 
+Quad 1 2 3 4 
+Note that this is exactly identical to the command 
+Polygon 4 1 2 3 4 
+Please note that the order of the vertices is important as well as the rotational order. quad 1 2 3 4 and 
+quad 4 3 2 1 create mirror opposites of each other(each is the other side of the same coin/quad). 
+When rectangular face is defined with the vertex numbers following in a clockwise order, a quad's
+arguments will run counter clockwise in order to be rendered in the direction facing the positive Z axis. 
+RWX Model Format Specification 36 / 103
+
+The quad can optionally be assigned a numeric tag. The tag serves to mark that polygon for identification
+by Active Worlds. The following tag values have special meaning in Active Worlds: 
+100 - Identifies the polygon as a target for the sign object action(e.g. 'createsign ...') 
+200 - Identifies the polygon as a target for the picture object action(e.g. 'createpicture ...') 
+See Tag for a discussion of clump tags for use in avatars. 
+Other Tags
+Quad 1 2 3 4 UV 0 1 tag xxxx where xxxx can be any number between 1 and 65,536. 
+Tags 100 and 200 are reserved for certain action commands in building as described above. This does not
+mean you cannot use them, on the contrary they are available so that create texture texturename can be
+used implicitly without any tag in the action box in the build window. 
+For Models any tags between the lower and higher limit maybe used, even the ones that are used in
+avatars without any concern. Since no more that 3 tags can be accessed at one time, this does not mean
+you cannot have more than that on any given model. The maximum is 64 tags on models or avatars. 
+Discussion
+Please be aware that most 3D software, as well as hardware, use triangles only. 
+The use of Polygon and Quad is discouraged because the browser and hardware have to do additional
+work to store quads and polygons in memory as triangles. The amount of work depends on the number of
+polygons that use more than 3 vertices in a given model. Usually this is only a problem with older models
+or with models converted using older software. This only creates additional work for the browser during
+the initial loading of the model and/or cache refresh. This maybe a minor disadvantage compared to the
+smaller file size that is downloaded from the object path or has to be reloaded from cache. 
+In addition, as the browser tessellates each individual quad from the upper rightmost corner to the
+opposite corner to split it into triangles, you may get unexpected lighting effects, more so when
+lightsampling vertex is used. This is true of non-flat quads, and the effects can be seen on Avatars near
+the noses, some have serious problems with dark shadows there. For any model that is sensitive to this
+effect, it helps to tessellate it by hand to get the shadows to lay the correct way. In Wings3D it is easy, all
+you do is connect the two vertices on how you want the light to fall. 
+Examples
+quad 4 3 2 1 # untextured quad since there are no UV's specified, but color can be applied to it. 
+quad 4 3 2 1 UV 0 1 # this will be able to take texture 
+quad 4 3 2 1 UV 0 1 tag 240 # tagged for use with "create texture texturename tag 240 
+RWX Model Format Specification 37 / 103
+
+Polygon
+SOURCE: POLYGON
+Usage
+    Polygon n v1 v2 v3 ... [Tag t] 
+Note: [ ] denotes optional arguments. 
+Also note: the Polygon and PolygonExt commands are equivalent and may be used interchangeably. 
+Description
+This command creates a new polygon and adds it to the current clump under construction. The polygon
+can have an optional numeric tag assigned to it. 
+The number of vertices specified must match the value of . 
+Vertices are identified by the order in which they were declared in the current clump. The first vertex in the
+clump is vertex 1. Thus, a quadrangle made of the first four vertices in the clump would be declared as: 
+Polygon 4 1 2 3 4 
+The polygon can optionally be assigned a numeric tag. The tag serves to mark that polygon for
+identification by Active Worlds. The following tag values have special meaning in Active Worlds: 
+100 - Identifies the polygon as a target for the sign object action. 200 - Identifies the polygon as a target
+for the picture object action. 
+Be aware that using a polygon command for other than a flat surface is not recommended as it will lead to
+unpredictable visual distortion in world. 
+Arguments
+n specifies the number of sides (and vertices) in the polygon 
+v1 is the index of vertice 1. 
+v2 is the index of vertice 2. 
+v3 is the index of vertice 3. 
+... is additional indices of n-3 vertice vn. 
+RWX Model Format Specification 38 / 103
+
+Examples
+below are two examples of a 8 sided panel, one using the polygon command and the other using the
+triangle command for comparison. When handcoding the model the polygon statement is a lot simpler. 
+'Model using polygon command'
+ModelBegin 
+ ClumpBegin
+  Surface .7 .6 0
+  color .5 .5 .5
+  Vertex0.499 0 0.206 UV 0.00 0.58
+  Vertex0.499 0 -0.206 UV 0.00 1.41
+  Vertex0.206 0 -0.499 UV 0.59 1.99
+  Vertex-0.206 0 -0.499 UV 1.41 1.99
+  Vertex-0.499 0 -0.206 UV 2.00 1.41
+  Vertex-0.499 0 0.206 UV 2.00 0.58
+  Vertex-0.206 0 0.499 UV 1.41 0.0
+  Vertex0.206 0 0.499 UV 0.59 0.0
+  texture floor02 
+  polygon 8  1 2 3 4 5 6 7 8 
+ ClumpEnd 
+ModelEnd
+'Model not using polygon command'
+ModelBegin 
+ ClumpBegin
+  Surface .7 .6 0
+  color .5 .5 .5
+  Vertex0.499 0 0.206 UV 0.00 0.58
+  Vertex0.499 0 -0.206 UV 0.00 1.41
+  Vertex0.206 0 -0.499 UV 0.59 1.99
+  Vertex-0.206 0 -0.499 UV 1.41 1.99
+  Vertex-0.499 0 -0.206 UV 2.00 1.41
+  Vertex-0.499 0 0.206 UV 2.00 0.58
+RWX Model Format Specification 39 / 103
+
+  Vertex-0.206 0 0.499 UV 1.41 0.0
+  Vertex0.206 0 0.499 UV 0.59 0.0
+  texture floor02
+   Triangle 7 8 6
+   Triangle 4 7 6
+   Triangle 2 7 4
+   Triangle 1 7 2
+   Triangle 3 7 1
+   Triangle 3 5 7
+ ClumpEnd 
+ModelEnd
+RWX Model Format Specification 40 / 103
+
+Block
+SOURCE: BLOCK
+The Block command is an RWX Command that creates a "block" of the given dimensions in the current
+clump. 
+Usage
+    Block x y z
+Description
+This command creates a "block" of the given dimensions in the current clump. The block is transformed
+by the current transformation matrix and its surface is assigned the current material. 
+Arguments
+x the width of the block in decameters 
+y the height of the block in decameters 
+z the depth of the block in decameters 
+It is not legal to specify a block dimension of zero. 
+Example
+block 0.1 0.2 0.1 
+This will produce a block with a height of 2m and a width and depth of 1m centered around the origin.
+That means half of it will be below ground. 
+The example below will create a textured box with the above attributes. The texture will be wrapped
+around the block for a reasonable look, but there is no control over it. Make sure that the block command
+is after the surface and texture lines, or you will get a black untextured box 
+ modelbegin 
+  clumpbegin
+   Surface .7 .8 .15
+RWX Model Format Specification 41 / 103
+
+   texture ground34
+   block .1 .2 .1
+  clumpend 
+ modelend
+RWX Model Format Specification 42 / 103
+
+Cone
+SOURCE: CONE
+Usage
+    Cone h r n
+Description
+This command creates a cone of the given dimensions in the current clump. The cone is transformed by
+the current transformation matrix and its surface is assigned the current material. 
+The radius can be either positive or negative. It cannot be zero. A negative radius creates a cone that is
+"inside out" (i.e. only visible from the inside). 
+Arguments
+h the height of the cone 
+r the radius of the base of the cone can be any positive or negative number, except 0(zero) 
+n the number of sides of the cone which must be a number greater than 2 
+Example
+cone 0.1 0.05 8 
+This gives a 1m high 1m diameter 8 sided cone with the center in the middle of the object. 
+The example below will create a textured version of the cone above. Always have the texture command
+preceding the cone command or you will get a textureless black cone. 
+ modelbegin 
+  clumpbegin
+   Surface .7 .8 .15
+   texture ground34
+   cone 0.1 0.05 8
+  clumpend 
+ modelend
+RWX Model Format Specification 43 / 103
+
+RWX Model Format Specification 44 / 103
+
+Cylinder
+SOURCE: CYLINDER
+Usage
+    Cylinder h r1 r2 n
+Description
+This command creates a cylinder of the given dimensions in the current clump. The cylinder is
+transformed by the current transformation matrix and its surface is assigned the current material. 
+The bottom and top radii can be either both positive or both negative. They cannot be zero. Negative radii
+create a cylinder that is "inside out" (i.e. only visible from the inside). 
+Arguments
+h the height of the cylinder 
+r1 the radius of the bottom of the cylinder which can be any number except 0 
+r2the radius of the top of the cylinder which can be any number except 0 
+n the number of sides of the cylinder which must be greater than 2 
+Example
+cylinder 0.1 0.05 0.05 8 
+This gives a 1m high and 1m diameter 8 sided cylinder with the center in the middle of the object. 
+cylinder 0.1 0.05 0.025 8 
+This gives a tapered 1m high, 1m diameter at the bottom and .5m at the top 8 sided cylinder with the
+center in the middle of the object. 
+The example below will create a textured version of the first cylinder above. Always have the texture
+command preceding the cylinder command or you will get a textureless black cylinder. 
+RWX Model Format Specification 45 / 103
+
+ modelbegin 
+  clumpbegin
+   Surface .7 .8 .15
+   texture ground34
+   cylinder 0.1 0.05 0.05 8
+  clumpend 
+ modelend
+RWX Model Format Specification 46 / 103
+
+Disc
+SOURCE: DISC
+Usage
+    Disc v r n
+Description
+This command creates a disc of the given dimensions in the current clump. The disc is transformed by the
+current transformation matrix and its surface is assigned the current material. 
+A disc is a flat (i.e. two-dimensional) circle which is often used to "cap" the ends of cones and cylinders. 
+The radius can be either positive or negative. It cannot be zero. A negative radius create a disc that faces
+downwards. 
+The height(v) of the disc determines how far it is displaced up the Y axis. It is usually set to zero. 
+Arguments
+v is the vertical displacement of the disc 
+r is the radius of the disc which can be any number except 0(zero) 
+n is the number of sides of the disc which must be greater than 2 
+Example
+disc 0.1 0.05 8 
+This gives a disk 1m in diameter and 8 sides with a displacement from the ground of 1m 
+The example below will create a textured version of the disc above. Always have the texture command
+preceding the disc command or you will get a textureless black disc. 
+ modelbegin 
+  clumpbegin
+   Surface .7 .8 .15
+   texture ground34
+RWX Model Format Specification 47 / 103
+
+   disc 0.1 0.05 8
+  clumpend 
+ modelend
+RWX Model Format Specification 48 / 103
+
+Hemisphere
+SOURCE: HEMISPHERE
+Usage
+    Hemisphere r d
+Description
+This command creates a hemisphere of the given dimensions in the current clump. The hemisphere is
+transformed by the current transformation matrix and its surface is assigned the current material. 
+The density controls the number of polygons used to approximate the hemisphere. It cannot be negative.
+A density of 0 results in a pyramid. The number of polygons varies exponentially with the density. This
+mesh is similar to a geodesic dome. 
+The radius can be either positive or negative. It cannot be zero. A negative radius creates a hemisphere
+that is "inside out" (i.e. only visible from the inside). 
+Arguments
+r is the radius and can be any number except 0(zero). 
+d is the density and can be 0(zero) or any positive number. 
+Examples
+Hemisphere 0.05 3 
+This creates a hemisphere with a 1m diameter. 
+The example below will create a textured version of the cone above. Always have the texture command
+preceding the hemisphere command or you will get a textureless black dome. 
+modelbegin 
+ clumpbegin
+  Surface .7 .8 .15
+  texture ground34
+  Hemisphere 0.05 3
+RWX Model Format Specification 49 / 103
+
+ clumpend 
+modelend
+RWX Model Format Specification 50 / 103
+
+Sphere
+SOURCE: SPHERE
+Usage
+    Sphere r d
+Description
+This command creates a sphere of the given dimensions in the current clump. The sphere is transformed
+by the current transformation matrix and its surface is assigned the current material. 
+The density controls the number of polygons used to approximate the sphere. It cannot be negative. A
+density of 0 results in a cube. The number of polygons varies exponentially with the density. This structure
+is similar to that of a geodesic dome. 
+The radius can be either positive or negative. It cannot be zero. A negative radius creates a sphere that is
+"inside out" (i.e. only visible from the inside). 
+Arguments
+r is the radius of sphere and can be any number except 0(zero). 
+d is the density of the sphere and cane be 0(zero) or greater. 
+Example
+Sphere 0.05 3 
+This creates a Sphere with a 1m diameter. 
+The example below will create a textured version of the sphere above. Always have the texture command
+preceding the sphere command or you will get a textureless black sphere. 
+modelbegin 
+ clumpbegin
+  Surface .7 .8 .15
+  texture ground34
+  Sphere 0.05 3
+RWX Model Format Specification 51 / 103
+
+ clumpend 
+modelend
+RWX Model Format Specification 52 / 103
+
+Transforms
+RWX Model Format Specification 53 / 103
+
+Identity
+SOURCE: IDENTITY
+Usage
+    Identity 
+Description
+This command sets the current transformation matrix to the identity matrix. The current transformation
+matrix defaults to the identity matrix if no other transformations have been specified. 
+The identity matrix is that matrix which, when applied to vertex, leaves the vertex unchanged, the same
+way that a number is unchanged when multiplied by one. 
+Arguments
+This command has no argument 
+Example
+This command is useful for resetting the transformations back to the origin. Each translation, rotation or
+scaling is cumulative, the code below shows how the transformation is reset so that translation position
+resets back to the origin on the third instance of the prototype model1. See the respective definition of the
+undefined terms in this section. 
+A word of warning: If multizip is used to zip and upload the model to the path, make sure that under the
+options - removing RWXMod stuff - is not checked. That function will remove the Identity statement,
+making your model literally look like it exploded. 
+modelbegin
+ protobegin model1
+  # model code here
+ protoend
+ clumpbegin
+  protoinstance model1
+  translate 1 0 0
+  protoinstance model1
+  identity               # <--- reset
+RWX Model Format Specification 54 / 103
+
+  translate 1 0 1
+  protoinstance model1
+ clumpend
+modelend
+RWX Model Format Specification 55 / 103
+
+Translate
+SOURCE: TRANSLATE
+Usage
+    Translate x y z
+Description
+This command translates (or "moves") the current transformation matrix by the given amounts along the X,
+Y, and Z axes. A translation factor of 0.0 results in no change along that axis. 
+Arguments
+x is the amount to translate in the X direction. 
+y is the amount to translate in the Y direction. 
+z is the amount to translate in the Z direction. 
+each unit (1.0) will move the protoinstance by 10 meters in the specified direction. 
+Examples
+None. 
+RWX Model Format Specification 56 / 103
+
+Rotate
+SOURCE: ROTATE_(RWX_COMMAND)
+Usage
+    Rotate x y z r
+Description
+This command rotates the current transformation matrix by the given angle around the given vector. Some
+useful rotation vectors are: 
+1 0 0 - rotates around the X axis 0 1 0 - rotates around the Y axis 0 0 1 - rotates around the Z axis 
+Arguments
+x y z specifies the vector to rotate around and can be values of 0 or 1. 
+r is the angle to rotate (in degrees) 
+Examples
+The syntax is different from the one used in building with objects. 
+Rotate 0 1 0 90 # Means that the rotation is 90 degrees around the Y axis. 
+One of the uses would be taking a model and rotating it differently from its original position. 
+Example 1
+modelbegin
+ protobegin model1
+  # model code in here
+ protoend
+ clumpbegin
+  rotate 0 1 0 90
+  protoinstance model1
+RWX Model Format Specification 57 / 103
+
+ clumpend
+modelend
+Example 2
+Here the model is first rotate 90 degrees in the Y axis and then another copy is moved 1m along the x axis
+and rotated another 90 degrees. 
+modelbegin
+ protobegin model1
+  # model code in here
+ protoend
+ clumpbegin
+  rotate 0 1 0 90
+  protoinstance model1
+  translate 1 0 0
+  rotate 0 1 0 90
+  protoinstance model1
+ clumpend
+modelend
+RWX Model Format Specification 58 / 103
+
+Scale
+SOURCE: SCALE_(RWX_COMMAND)
+Usage
+    Scale x y z
+Description
+This command scales the current transformation matrix by the given amounts along the X, Y, and Z axes.
+A scale factor of 1.0 results in no change along that axis. A scale factor of 0(zero) would result in that
+dimension being flattened. 
+Arguments
+x is the amount to scale in the X direction 
+y is the amount to scale in the Y direction 
+z is the amount to scale in the Z direction 
+Examples
+Scale 1 2 1 # Means that the object is scaled twice as big in height and no change in the other
+dimensions. 
+One of the uses would be taking a model and scaling it from its original size. 
+Example 1
+modelbegin
+ protobegin model1
+  # model code in here
+ protoend
+ clumpbegin
+  scale 1 2 1
+RWX Model Format Specification 59 / 103
+
+  protoinstance model1
+ clumpend
+modelend
+Example 2
+Here the model is first scaled two times in height and then another copy is moved 1m along the x axis and
+scaled two times in width, in addition to the height, that is kept from the previous scaling. If you wanted to
+cancel the first scaling, then the Identity command would need to be inserted before the translate
+command. 
+modelbegin
+ protobegin model1
+  # model code in here
+ protoend
+ clumpbegin
+  scale 1 2 1
+  protoinstance model1
+  translate 1 0 0
+  scale 2 1 1
+  protoinstance model1
+ clumpend
+modelend
+RWX Model Format Specification 60 / 103
+
+Transform
+SOURCE: TRANSFORM
+Usage
+    Transform 
+Description
+This command Replaces the elements of the current transformation matrix with the specified matrix
+elements. 
+"A shortcut for applying the translate, rotate, and scale commands in a single command; only use this if
+you understand matrix algebra (finite math)." 
+"Take[s] a 4 x 4 transformation matrix as an argument, e.g., Transform, require[s] the matrix to be specified
+by a sequence of sixteen real numbers (separated by spaces) representing its elements. The Transform
+and TransformJoint scripting keywords expect the matrix elements to be specified in row-major order, i.e.,
+the first four elements specify the first row of the matrix, and so on. " 
+Arguments
+the sixteen elements of the matrix, separated by spaces 
+Example
+Transform 1. 0. 0. 0. 0. 1. 0. 0. 0. 0. 1. 0. 0. 0. 1. 1. 
+transform scale x rotate # rotate # 0 rotate # scale y rotate # 0 rotate # rotate # scale z 0 translate x
+translate y translate z 1 
+RWX Model Format Specification 61 / 103
+
+TransformBegin
+SOURCE: TRANSFORMBEGIN
+Usage
+    TransformBegin 
+Description
+This command saves a copy of the current transformation matrix so that it can be restored at a later point.
+Use this command when you want to make changes to the current matrix and then be able to return to its
+original values later. The original values are restored by the TransformEnd command. 
+TransformBegin/TransformEnd blocks can be nested arbitrarily deep. 
+Arguments
+This command has no arguments. 
+Examples
+In the example below the translation is reset to 0 in the second transformbegin clause. The other option
+would be to use Identity command to reset the displacement, but I think the TransformBegin/
+TransformEnd makes the code more readable. 
+Example 1
+Modelbegin
+ ....
+ clumpbegin
+  transformbegin
+   translate 4 0 0
+   ProtoInstance Support
+  transformend
+  transformbegin
+   translate -.1 .06  0.01
+   ProtoInstance Cube1
+   translate  .2 0  0
+RWX Model Format Specification 62 / 103
+
+   ProtoInstance Cube1
+  transformend
+ clumpend
+Modelend
+Example 2
+In this nested example the ProtoInstance Support is translated from the origin, unaffected by the
+translation applied to Cube1, where as the following Cube2 is translated relative to the position of Cube1.
+In this case, Identity will not work, one would have to re-arrange the order of the code. 
+Modelbegin
+ ....
+ clumpbegin
+  transformbegin
+    translate .2 0  0
+    ProtoInstance Cube1
+   transformbegin
+    translate 4 0 0
+    ProtoInstance Support
+   transformend    
+    translate -.1 .06  0.01
+    ProtoInstance Cube2
+  transformend
+ clumpend
+Modelend
+RWX Model Format Specification 63 / 103
+
+TransformEnd
+SOURCE: TRANSFORMEND
+Usage
+    TransformEnd 
+Description
+This command resets the current transformation matrix to the values it had before the previous
+TransformBegin. Any modifications made since the previous TransformBegin are lost. 
+Arguments
+This command has no arguments. 
+Examples
+See TransformBegin for examples 
+RWX Model Format Specification 64 / 103
+
+Materials — Scope
+RWX Model Format Specification 65 / 103
+
+MaterialBegin
+SOURCE: MATERIALBEGIN
+Usage
+    MaterialBegin 
+Description
+This command saves a copy of the current material so that it can be restored at a later point. Use this
+command when you want to make changes to the current material and then be able to return to its original
+settings later. The original settings are restored by the MaterialEnd command. 
+MaterialBegin/MaterialEnd blocks can be nested arbitrarily deep. 
+Arguments
+This command has no arguments 
+RWX Model Format Specification 66 / 103
+
+MaterialEnd
+SOURCE: MATERIALEND
+Usage
+    MaterialEnd 
+Description
+This command resets the current material to the values it had right before the previous MaterialBegin. Any
+modifications made since the previous MaterialBegin are lost. 
+Arguments
+This command has no arguments. 
+RWX Model Format Specification 67 / 103
+
+MaterialMode
+SOURCE: MATERIALMODE
+DEPRECIATED
+Usage
+    MaterialMode value
+Note: the MaterialMode and MaterialModes commands are equivalent. 
+Description
+This command sets the material mode of the current material. Currently the only supported mode is 
+double. 
+Setting the material mode to double causes all polygons to be created double-sided (i.e. it will not be
+necessary to create two polygons for a surface to be visible from both sides). 
+Since it doubles the polygon count for all affected clumps, care should be used with material mode
+double. For best performance, be sure to only apply it to polygons that are actually visible from both sides.
+Arguments
+value is the material mode which can be double or NULL
+Examples
+MaterialMode double 
+Makes both sides of the polygon visible from both sides which is useful when a single sided panel needs
+to be visible from both sides. 
+A model example that uses it is shown below. The benefit in using it is if you are handcoding a model and
+feel it's too much work to specify the faces on the opposite side of the model. All modeling software will
+automatically produce the code for each side, unless you have a defective mesh caused by converting a
+model from another format. 
+RWX Model Format Specification 68 / 103
+
+ModelBegin
+ ClumpBegin
+ Color 1 1 1
+   Surface .8 .8 0
+   MaterialMode Double
+   Texture wall01
+   Vertex -.2 0 0 UV 0 1
+   Vertex -.2 .4 0 UV 0 0
+   Vertex .2 0 0 UV 1 1
+   Vertex .2 .4 0 UV 1 0
+   Quad 2 1 3 4
+ ClumpEnd
+ModelEnd
+RWX Model Format Specification 69 / 103
+
+AddMaterialMode
+SOURCE: ADDMATERIALMODE
+DEPRECIATED
+The AddMaterialMode command is an RWX Command that adds the specified material mode to the
+material modes of the current material. 
+Usage
+    AddMaterialMode value
+Description
+This command adds the specified material mode to the material modes of the current material. Currently
+the only supported mode is double. 
+Setting the material mode to double causes all polygons to be created double-sided (i.e. it will not be
+necessary to create two polygons for a surface to be visible from both sides). 
+Since it doubles the polygon count for all affected clumps, care should be used with the double material
+mode. For best performance, be sure to only apply it to polygons that are actually visible from both sides. 
+Arguments
+value of double is the only supported value 
+Examples
+AddMaterialMode double 
+Makes both sides of the polygon visible from both sides which is useful when a single sided panel needs
+to be visible from both sides. 
+A model example that uses it is shown below. The benefit in using it is if you are handcoding a model and
+feel it's too much work to specify the faces on the opposite side of the model. All modeling software will
+automatically produce the code for each side, unless you have a defective mesh caused by converting a
+model from another format. 
+RWX Model Format Specification 70 / 103
+
+ModelBegin
+ ClumpBegin
+ Color 1 1 1
+   Surface .8 .8 0
+   Texture wall01
+   Vertex -.2 0 0 UV 0 1 #1
+   Vertex -.2 .4 0 UV 0 0 #2
+   Vertex .2 0 0 UV 1 1 #3
+   Vertex .2 .4 0 UV 1 0 #4
+   Vertex -.3 0 .1 UV 0 1 #5
+   Vertex -.3 .4 .1 UV 0 0 #6
+   Vertex .3 0 .1 UV 1 1 #7
+   Vertex .3 .4 .1 UV 1 0 #8
+   AddMaterialMode Double
+   Quad 2 1 3 4
+   RemoveMaterialMode Double
+   Quad 6 5 7 8
+ ClumpEnd
+ModelEnd
+RWX Model Format Specification 71 / 103
+
+RemoveMaterialMode
+SOURCE: REMOVEMATERIALMODE
+Usage
+    RemoveMaterialMode value
+Description
+This command removes the specified material mode to the material modes of the current material.
+Currently the only supported mode is double. 
+Arguments
+value is the material mode to remove and can only be double, other values will be ignored. 
+Example
+RemoveMaterialMode double 
+RWX Model Format Specification 72 / 103
+
+Surface
+SOURCE: SURFACE
+The Surface command is an RWX Command that sets the current surface lighting properties. 
+Usage
+    Surface a d s
+Description
+This command sets the current surface lighting properties. All components should be specified in the
+range 0.0 to 1.0. It is a more convenient way to specify all the values at once, rather than multiple
+statements using ambient and diffuse separately. 
+The ambient component specifies how much the world's ambient light source "shines" on polygons. The
+ambient light source shines equally on all polygons in all directions. Consider the ambient light to be what
+gives an object the simulated shadow side brightness, away from direct light. 
+The diffuse component specifies how much the world's directional light source "shines" on polygons. It
+also specifies how much individual light sources placed within the world shine on the polygons. A light
+source shines more brightly on polygons facing the light source. It does not shine at all on polygons that
+face away from the light source. 
+Currently Active Worlds does not support specular lighting, so the specular component has no effect.
+Specular lighting may be supported in a future version of Active Worlds. 
+All objects are illuminated by the lightsource in the world. The brightness of the ambient and diffuse are
+set in the world options under then "Lighting" option. The options specify Ambient and Directional values
+and the combined effect of those settings and the ambient and diffuse settings of the model determine the
+final brightness of each surface. Consider it to be an additive effect. The recommended setting by AWI are
+to set the world values for Directional light to 255 for all colors and for Ambient light values to 128 for all
+colors. The models are then set to have an ambient and diffuse value of 1 for both. 
+In actuality virtually (no pun intended) no world owner sets their worlds to those values, so modelers have
+set their model lighting to varies different ambient and diffuse values to make them look good under
+different settings. 
+As a rule, setting the ambient value lower than the diffuse, will make the model look more contrasty,
+generally acknowledged to be better looking to the viewer, similar to what TV manufacturers strive for. The
+closer the diffuse is set to 1.0, the brighter the model will appear. Bear in mind that applying the same
+texture to models that do not have identical lighting values, will make the texture look either brighter or
+RWX Model Format Specification 73 / 103
+
+darker. If the ambient values don't match, then the area facing away from the world light source will now
+vary with world lighting, especially if a day and night illumination is used. 
+Multizip is an easy way to modify all the models to a different lighting value and upload the changed
+models to your path, all in one step. 
+Arguments
+a is the ambient lighting value to set and may be in the range of 0.0 to 1.0. 
+d is the diffuse lighting value to set and may be in the range of 0.0 to 1.0. 
+s is the specular lighting value to set, but this will currently have no effect. 
+Example
+Surface .6 .8 .15 # Sets the ambient, diffuse and specular in that order. 
+RWX Model Format Specification 74 / 103
+
+Materials — Color & Lighting Response
+RWX Model Format Specification 75 / 103
+
+Color
+SOURCE: COLOR_(RWX_COMMAND)
+Usage
+    Color r g b
+Description
+This command sets the color of the current material. 
+Arguments
+r is the red component of the color and may be in the range of 0.0 to 1.0 
+g is the green component of the color and may be in the range of 0.0 to 1.0 
+b is the blue component of the color and may be in the range of 0.0 to 1.0 
+Important: When the model has textured surfaces, the Renderware Manual recommends that the
+default color should be set to color 1 1 1. This will speed up the rendering.
+Examples
+color 0.5 0.5 0.5 
+The color elements are in the order of rgb(red, green, blue). This combination will give a neutral gray. 
+color 1 0 0 
+This will give a completely red color and is equivalent to the build command 'createcolor red' 
+RWX Model Format Specification 76 / 103
+
+Ambient
+SOURCE: AMBIENT
+The Ambient command sets the ambient component of the current surface lighting properties. 
+Usage
+    Ambient value
+Description
+This command sets the ambient component of the current surface lighting properties. The ambient
+component specifies how much the world's ambient light source "shines" on polygons. The ambient light
+source shines equally on all polygons in all directions. 
+Arguments
+value can be in the range of 0.0 to 1.0 
+The higher the value the more light is reflected off the surface. 
+Example
+Ambient .5 
+This will illuminate the texture by half the amount of the ambient world light. 
+RWX Model Format Specification 77 / 103
+
+Diffuse
+SOURCE: DIFFUSE
+Usage
+    Diffuse value
+Description
+This command sets the diffuse component of the current surface lighting properties. The diffuse
+component specifies how much the world's directional light source "shines" on polygons. It also specifies
+how much individual light sources placed within the world shine on the polygons. A light source shines
+more brightly on polygons facing the light source. It does not shine at all on polygons that face away from
+the light source. 
+Arguments
+value is in the range 0.0 to 1.0 
+Example
+Diffuse .5 
+This will create a diffuse value of half of the direct light. 
+Diffuse 0 
+This will create a black object if Ambient is also 0. 
+See the Surface command for a more efficient way to specify this. 
+RWX Model Format Specification 78 / 103
+
+Specular
+SOURCE: SPECULAR
+Usage
+    Specular value
+Description
+This command sets the specular component of the current surface lighting properties. However, currently
+Active Worlds does not support specular lighting, so setting this component has no effect. Specular
+lighting may be supported in a future version of Active Worlds. 
+Arguments
+value is the specular lighting value to set, but will currently have absolutely no effect. 
+RWX Model Format Specification 79 / 103
+
+Opacity
+SOURCE: OPACITY
+Opacity may refer to: 
+Opacity (RWX), a RWX command for setting a material's transparency
+Opacity (command), a command used in object scripting to set an object's transparency
+This disambiguation page lists articles associated with the same title. If an internal link led you here,
+you may wish to change the link to point directly to the intended article.
+• 
+• 
+RWX Model Format Specification 80 / 103
+
+Opacity (RWX)
+SOURCE: OPACITY_(RWX)
+Usage
+    Opacity value
+Description
+This command sets the opacity of the current material. In other words, how transparent the material is, or
+how much you can see through the material. 
+Arguments
+value is a range of 0.0 to 1.0. 
+The default value for a clump is 1.0 which is fully opaque(solid). If value is set to 0.0, you will be unable to
+see the object, but if collision is On, you can still bump into the object. 
+Examples
+opacity 1 # totally opaque and the default for any surface. 
+opacity 0 # totally invisible, useful for making collision boxes. 
+opacity .5 # the object can be seen as well as seen through. Used for simulation of glass 
+RWX Model Format Specification 81 / 103
+
+OpacityFix
+SOURCE: OPACITYFIX
+Usage
+    [#!]OpacityFix state
+Description
+When creating models with transparent or semi-transparent textures, or the opacity is set to smaller than
+1, it might be useful to seperate tranparent polygons from each other, to avoid transparency issues. 
+Argument
+state represents if the command is active(On) or inactive(Off, default value). 
+The opacity command is an RWX extension and should be prefaced with #! when used in RWX files that
+are intended to work with other software. 
+Notes
+February 2008 Newsletter article by Stacee [1]
+RWX Model Format Specification 82 / 103
+
+Prelight
+SOURCE: PRELIGHT
+See the Vertex command for more information. 
+This article is a stub. You can help ActiveWiki by expanding it.
+Description
+This command is an argument for the Vertex command. Please see the VERTEX help page for a
+description of it. 
+RWX Model Format Specification 83 / 103
+
+Textures
+RWX Model Format Specification 84 / 103
+
+Texture
+SOURCE: TEXTURE_(RWX_COMMAND)
+Usage
+    Texture name [mask|bumpvalue]
+Note: [ ] denotes optional arguments. 
+Also note: the Texture and TextureExt commands are equivalent and may be used interchangeably. 
+Description
+This command sets the texture of the current material, or clears the texture if NULL is specified. The
+texture may be masked by an optional mask argument. 
+Texture names are now assumed to be .jpg when no file extension is given. Other popular formats such
+as .gif and .png may be used, but their file extensions are required. Supported image formats also include
+tif, emf, wmf and ico. 
+Masks are in .bmp format and are typically used with .jpg textures. Bitmap masks are always zipped when
+stored in the textures folder of the object path(OP). Two different naming conventions for masks have been
+traditionally used which include a ! or an m as the last character of the filename, however there is no
+requirement to use either convention. 
+Bumpmaps can be in any supported image format and are typically used with .jpg textures. 
+Arguments
+name is the name of the texture or NULL to specify no texture. 
+mask is the name of the optional mask. 
+value is the name of the mask or bumpmap texture. 
+Examples
+Texture grasso # uses the grasso.jpg texture 
+Texture glass.png # uses a png texture 
+Texture glass mask glass! # uses glass.jpg and glass!.bmp for the mask. 
+Texture glass bump reflect.png # uses glass.jpg and reflect.png for the bumpmap. 
+RWX Model Format Specification 85 / 103
+
+TextureMode
+SOURCE: TEXTUREMODE
+Usage
+    TextureMode lit | null
+Note: the TextureMode and TextureModes commands are equivalent and may be used interchangeably. 
+Description
+This command sets the texture modes of the current clump. The modes were a combination of lit, 
+foreshorten, or filter in previous versions of Renderware. However, beginning with Renderwate 3.0 and
+Activeworlds v3.0, the browser only supports the lit texture mode. 
+Texture mode lit is on by default. It causes textures to be lit by any light sources in the world and to be
+affected by the surface properties of the current material. If texture lighting is off, textured surfaces are lit
+only by the current ambient light source in the world. 
+Arguments
+value can be null or lit, other values are ignored by the browser. 
+You will often find Textmodelit foreshorten in older models. It is safe to remove foreshorten when the
+object will only be used in Activeworlds. 
+Examples
+TextureMode lit # default value 
+Also See
+addTextureModeremoveTextureMode
+RWX Model Format Specification 86 / 103
+
+AddTextureMode
+SOURCE: ADDTEXTUREMODE
+The AddTextureMode command is an RWX Command that adds the specified mode to the set of texture
+modes of the current clump. 
+Usage
+    AddTextureMode  lit
+Description
+This command adds the specified mode to the set of texture modes of the current clump. The mode can
+be either lit, foreshorten, or filter, however Activeworlds v3.0+ only supports the lit texture mode. 
+Texture mode lit is on by default. It causes textures to be lit by any light sources in the world and to be
+affected by the surface properties of the current material. If texture lighting is off, textured surfaces are lit
+only by the current ambient light source in the world. 
+Arguments
+value can be lit, all other values are ignored. 
+Example
+AddTextureMode lit # This is no longer needed as the lit option is default. 
+Also See
+removeTextureModeTextureMode
+RWX Model Format Specification 87 / 103
+
+RemoveTextureMode
+SOURCE: REMOVETEXTUREMODE
+Usage
+    RemoveTextureMode  lit
+Description
+This command removes the specified mode from the set of texture modes of the current clump. The mode
+can be either lit, foreshorten, or filter, however beginning with version 3.0, Activeworlds now only supports
+the lit texture mode. 
+Arguments
+value is the mode to remove and lit is the only possible value. Other values will be ignored. 
+Example
+RemoveTextureMode lit # This is equivalent to 'TextureMode null' 
+Also See
+addTextureModeTextureMode
+RWX Model Format Specification 88 / 103
+
+TextureAddressMode
+SOURCE: TEXTUREADDRESSMODE
+Usage
+    [#!]TextureAddressMode value
+Note: [ ] denotes an optional arguement. 
+Description
+Specifies the texture addressing mode to be applied to all following textures. The texture addressing
+mode influences how textures are rendered for vertices with UV values outside the range of 0 to 1. The
+default is wrap. The following modes are available: 
+wrap - textures are tiled. This is the default mode. 
+mirror - textures are tiled, but alternate tiles are flipped relative to their neighbors. Unfortunately, many
+video cards do not support this mode, so using textureaddressmode mirror is not recommended. 
+clamp - the texture is "clamped" to the edge color where UV coordinates fall outside the range 0 to 1. To
+avoid certain rendering artifacts, clamp mode should be used on any objects that use masked textures
+with UV coordinates that vary exactly from 0 to 1. 
+Note that TextureAddressMode is an extended RWX command and should be prefaced with "#!" when
+used in RWX files that are intended to work with software other than Active Worlds 3.0 or later. 
+Also note that the addressing mode is a property of the texture, not the object containing the texture. Thus
+the same texture cannot be used with different addressing modes in different objects at the same time in
+the same world. 
+Arguments
+value is either wrap, mirror, or clamp
+Examples
+None. 
+RWX Model Format Specification 89 / 103
+
+TextureMipmapState
+SOURCE: TEXTUREMIPMAPSTATE
+Usage
+    TextureMipmapState value
+Description
+Specifies whether or not all textures following this command should be mipmapped. By default, mipmaps
+are on. 
+Note that since textures are shared between objects, the mipmap state of a particular texture is global. In
+other words, a single texture cannot appear both mipmapped and non-mipmapped at the same time in a
+world, neither on the same object nor across different objects. 
+Arguments
+value is either On or Off
+Example
+TextureMipmapState Off # Turns off Mipmap for the current material 
+RWX Model Format Specification 90 / 103
+
+Seamless
+SOURCE: SEAMLESS
+Usage
+    [#!]Seamless state
+Note: [ ] denotes optional arguments. 
+Description
+The command tells the engine how to calculate vertex normals, if they are not already provided by the
+vertex definition. Seamless normal calculation uses face normals and considers all neighbour faces to
+determine an interpolated average of all triangles sharing a vertex. 
+When creating models where textures wrap around an object, there is often a seam that shows up where
+the tail of the texture meets it beginning. This command was created to minimize or avoid that seam.
+Prominent examples of this show up on avatars and sphere objects. 
+Argument
+state represents if the command is active(On) or inactive(Off, default value). 
+The seamless command is an RWX extension and should be prefaced with #! when used in RWX files that
+are intended to work with other software. 
+Example
+For the example of a sphere shown in the picture: 
+ ModelBegin 
+   ClumpBegin
+     Surface .7 .8 .15
+     Texture ground34
+     Seamless On
+     Sphere 0.05 3
+   ClumpEnd 
+ ModelEnd
+RWX Model Format Specification 91 / 103
+
+ A generic example: 
+ ModelBegin
+  ...
+  ClumpBegin
+   Rotate 0 1 0 180
+   Rotate 1 0 0 -90
+   Scale .1 .1 .1
+   Seamless On
+   ProtoInstance object_002_1_6
+   ProtoInstance _6_5
+   ProtoInstance _5_4
+   ProtoInstance _4_3
+   ProtoInstance _3_2
+   ProtoInstance _2_1
+   ProtoInstance _1_0
+   ClumpBegin
+    ProtoInstance cylinder_0_8
+    ProtoInstance cylinder_2_7
+   ClumpEnd
+  ClumpEnd
+ ModelEnd
+These pictures demonstrate how the "Seamless On" command can improve the look of an object with
+"seams". Note the cement orb in the lower left of each picture. 
+RWX Model Format Specification 92 / 103
+
+Notes
+February 2008 Newsletter article by Stacee [1]
+RWX Model Format Specification 93 / 103
+
+RandomUVs
+SOURCE: RANDOMUVS
+Usage
+    RandomUVs 
+Description
+This command causes a pair of random UV texture coordinates between 0 and 1 to be assigned to each
+vertex in the object that does not have a UV specified. This produces a random and unpredictable pattern
+when a texture is applied to the object. It is intended for use with objects that have no UVs which
+produced a similar effect when they had textures applied to them in Active Worlds 3.0 and 3.1. 
+Note that RandomUVs is an extended RWX command and should be prefaced with "#!" when used in
+RWX files that are intended to work with software other than Active Worlds 3.2. 
+Arguments
+This command has no arguments. 
+RWX Model Format Specification 94 / 103
+
+Sampling & Lighting
+RWX Model Format Specification 95 / 103
+
+LightSampling
+SOURCE: LIGHTSAMPLING
+The LightSampling command is an RWX Command that sets the light sampling type of the current
+material. 
+Usage
+    LightSampling value
+Description
+This command sets the light sampling type of the current material. Valid light sampling types are either 
+facet or vertex. 
+Facet-based light sampling (the default) means that each polygon is lit individually by the light source(s) in
+the world, with a "hard edge" visible from one polygon to the next if the polygons face in different
+directions. Use facet-based lighting when you want boundaries between the individual polygons making
+up the object to be visible, for example if you are making an object with lots of right angles, such as a
+cube. 
+Vertex-based light sampling causes polygons to be lit continuously from one polygon to the next, so that
+the surface appears "smooth" and the boundaries between polygons are not visible. Use vertex-based
+lighting when you are using polygons to approximate a smooth surface, such as a human face. 
+It should be noted that facet-based light sampling is less efficient than vertex-based light sampling and
+can lead to substantially lower frame rates on complex objects. The reason for this is that facet-based
+lighting requires each polygon to have its own private set of vertices whereas vertex-based lighting allows
+polygons to share vertices. 
+Arguments
+value is the light sampling type which is either facet or vertex
+Examples
+LightSampling facet # this is the default 
+LightSampling vertex # this smooths the edges of the model 
+RWX Model Format Specification 96 / 103
+
+The following code shows how a model can be segmented by rendering part of it smooth and the other
+part not. This can be useful when the model has both curves and rectangular sections that need to be
+rendered differently. 
+ modelbegin
+  protoinstance model1
+   lightsampling vertex # <--- vertex
+   # model code here
+  protoend
+  protoinstance model2
+   lightsampling facet # <--- facet
+   # model code here
+  protoend
+  clumpbegin
+   protoinstance model1
+   protoinstance model2
+  clumpend
+ modelend
+RWX Model Format Specification 97 / 103
+
+GeometrySampling
+SOURCE: GEOMETRYSAMPLING
+Usage
+    GeometrySampling value
+Description
+This command sets the geometry sampling type of the current material. Valid geometry sampling types are
+solid, wireframe, and pointcloud. However, Activeworlds v3.0+ no longer supports "pointcloud" geometry
+sampling. The default is solid. 
+Note: contrary to popular belief, wireframe objects do not usually render any faster than solid objects. In
+fact, they often render slower! 
+Arguments
+value is either solid or wireframe, all other values will be ignored. 
+Example
+GeometrySampling wireframe 
+This following will produce a panel like wiremesh model. 
+ModelBegin
+ ClumpBegin
+   Color 1 0 0
+   Surface 1 1 1
+   GeometrySampling wireframe
+   AddMaterialMode Double
+   Vertex -.2 0 0 UV 0 1
+   Vertex -.2 .4 0 UV 0 0
+   Vertex .2 0 0 UV 1 1
+   Vertex .2 .4 0 UV 1 0
+   Quad 2 1 3 4
+RWX Model Format Specification 98 / 103
+
+ ClumpEnd
+ModelEnd
+Note that the color is bright red and it is viewable from both sides. 
+RWX Model Format Specification 99 / 103
+
+Misc
+RWX Model Format Specification 100 / 103
+
+AxisAlignment
+SOURCE: AXISALIGNMENT
+The AxisAlignment command is an RWX Command that sets the axis alignment for the current object. 
+Usage
+    AxisAlignment alignment
+Description
+This command sets the axis alignment for the current object. It can be one of none, zorientx, zorienty, and 
+xyz. 
+Beginning with Active Worlds 3.0, the browser only distinguishes between axis alignment or no axis
+alignment. Thus, zorientx and zorienty are considered equivalent (i.e. axis alignment is on), and xyz is not
+supported. The effect of turning on axis alignment anywhere in the object is that the entire object is always
+rotated to face the viewer; it becomes what is sometimes called a facer. The trees and plants in 
+AlphaWorld are examples of facers. 
+Arguments
+alignment can be set to zorientx, zorienty or none(default value). 
+Examples
+AxisAlignment zorientx 
+AxisAlignment zorienty 
+Both will make the object face the viewer regardless of the angle the model is placed in the world. 
+RWX Model Format Specification 101 / 103
+
+Collision
+SOURCE: COLLISION
+Usage
+    [#!]Collision value
+Note: [ ] denotes an optional argument. 
+Description
+This command specifies whether the current clump under construction should be included in collision
+tests. The mode can either be on or off. The collision mode applies to all child clumps of the current clump
+as well, unless additional collision commands are specified for the child clumps. 
+The collision attribute is inherited to children and siblings. When used, but only should get applied to a
+certain group of faces, it must be switched on for children and siblings explicitly again, like the example
+shows. 
+Note that Collision is an extended RWX command and can be prefaced with "#!" when used in RWX files
+that are intended to work with software other than Active Worlds v3.0+. 
+Possible use
+Theoretically, using this command in an object can enable a user to create a separate collision mesh,
+reducing some calculation in the engine. 
+Arguments
+value is either On or Off
+Example
+Modelbegin 
+ ClumpBegin
+   ClumpBegin
+     collision off
+     # vertices and faces of geometry1 go here
+     # e.g. leaves of a tree
+RWX Model Format Specification 102 / 103
+
+   ClumpEnd
+   ClumpBegin
+     collision on
+     # vertices and faces of geometry2 go here
+     # e.g. trunk of a tree
+   ClumpEnd
+ ClumpEnd
+ModelEnd
+Part of the model has collision turned off. Note the nested master clump. 
+RWX Model Format Specification 103 / 103

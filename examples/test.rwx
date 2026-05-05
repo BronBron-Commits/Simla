@@ -1,0 +1,127 @@
+# test.rwx — Simla RWX renderer test model
+# Exercises: clumps, vertices, triangles, quads, polygons,
+#            prototypes, protoinstance, transforms, materials,
+#            block/sphere/cylinder/cone primitives
+
+ModelBegin
+
+  # ── prototype: a unit floor tile (0.1 × 0.1 square) ────────────────────────
+  ProtoBegin tile
+    Surface 0.7 0.9 0.0
+    Color 0.45 0.6 0.45
+    Vertex -0.05  0  0.05  UV 0 1
+    Vertex -0.05  0 -0.05  UV 0 0
+    Vertex  0.05  0 -0.05  UV 1 0
+    Vertex  0.05  0  0.05  UV 1 1
+    Quad 1 2 3 4
+  ProtoEnd
+
+  # ── floor: 3 × 3 grid of tiles ──────────────────────────────────────────────
+  # Translate is cumulative, so each step is a delta from the previous position.
+  ClumpBegin
+    # row z = -0.1
+    TransformBegin
+      Translate -0.1 0 -0.1
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+    TransformEnd
+    # row z = 0
+    TransformBegin
+      Translate -0.1 0  0
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+    TransformEnd
+    # row z = +0.1
+    TransformBegin
+      Translate -0.1 0  0.1
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+      Translate  0.1 0  0
+      ProtoInstance tile
+    TransformEnd
+  ClumpEnd
+
+  # ── four corner pillars (Block directly in clump) ────────────────────────────
+  ClumpBegin
+    Surface 0.6 0.8 0.1
+    Color 0.55 0.45 0.35
+    TransformBegin
+      Translate -0.1 0.075  0.1
+      Block 0.04 0.15 0.04
+    TransformEnd
+    TransformBegin
+      Translate  0.1 0.075  0.1
+      Block 0.04 0.15 0.04
+    TransformEnd
+    TransformBegin
+      Translate -0.1 0.075 -0.1
+      Block 0.04 0.15 0.04
+    TransformEnd
+    TransformBegin
+      Translate  0.1 0.075 -0.1
+      Block 0.04 0.15 0.04
+    TransformEnd
+  ClumpEnd
+
+  # ── centre wall panel (hand-coded quad, double-sided) ───────────────────────
+  ClumpBegin
+    Surface 0.7 0.9 0.0
+    Color 0.85 0.82 0.75
+    MaterialMode Double
+
+    Vertex -0.06  0     0  UV 0 1
+    Vertex -0.06  0.08  0  UV 0 0
+    Vertex  0.06  0.08  0  UV 1 0
+    Vertex  0.06  0     0  UV 1 1
+    Quad 1 2 3 4
+  ClumpEnd
+
+  # ── sphere on top of centre ──────────────────────────────────────────────────
+  ClumpBegin
+    Surface 0.5 0.8 0.3
+    Color 0.3 0.6 0.9
+    TransformBegin
+      Translate 0 0.12 0
+      Sphere 0.025 3
+    TransformEnd
+  ClumpEnd
+
+  # ── cylinder and cone at the sides ──────────────────────────────────────────
+  ClumpBegin
+    Surface 0.6 0.7 0.0
+    Color 0.8 0.4 0.2
+    TransformBegin
+      Translate -0.18 0.04 0
+      Cylinder 0.08 0.025 0.025 12
+    TransformEnd
+    TransformBegin
+      Translate  0.18 0 0
+      Cone 0.1 0.04 10
+    TransformEnd
+  ClumpEnd
+
+  # ── octagonal pad (polygon command) ─────────────────────────────────────────
+  ClumpBegin
+    Surface 0.7 0.6 0.0
+    Color 0.5 0.5 0.55
+
+    Vertex  0.049  0.001  0.020  UV 0.00 0.58
+    Vertex  0.049  0.001 -0.020  UV 0.00 1.41
+    Vertex  0.020  0.001 -0.049  UV 0.59 1.99
+    Vertex -0.020  0.001 -0.049  UV 1.41 1.99
+    Vertex -0.049  0.001 -0.020  UV 2.00 1.41
+    Vertex -0.049  0.001  0.020  UV 2.00 0.58
+    Vertex -0.020  0.001  0.049  UV 1.41 0.0
+    Vertex  0.020  0.001  0.049  UV 0.59 0.0
+
+    Polygon 8  1 2 3 4 5 6 7 8
+  ClumpEnd
+
+ModelEnd

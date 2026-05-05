@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>RWX Viewer — Simla</title>
+  <style>
+    html, body {
+      margin: 0; width: 100%; height: 100%;
+      overflow: hidden;
+      background: #0a0e14;
+      color: #eaf6ff;
+      font-family: system-ui, sans-serif;
+    }
+    #hud {
+      position: fixed; left: 16px; top: 16px; z-index: 10;
+      max-width: 420px; padding: 14px 16px; border-radius: 18px;
+      background: rgba(5,12,20,0.80);
+      border: 1px solid rgba(120,180,255,0.25);
+      backdrop-filter: blur(10px);
+    }
+    #hud h1 { margin: 0 0 6px; font-size: 18px; }
+    #hud p  { margin: 4px 0; color: #b8cce0; font-size: 13px; }
+    #status { margin-top: 8px; color: #88ffcc; font-size: 12px; white-space: pre-wrap; }
+    #error  { margin-top: 8px; color: #ff7777; font-size: 12px; white-space: pre-wrap; }
+    #fileinput { margin-top: 10px; }
+    #fileinput label { font-size: 13px; color: #b8cce0; }
+    #fileinput input[type=text] {
+      width: 100%; box-sizing: border-box; margin-top: 4px;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(120,180,255,0.3);
+      color: #eaf6ff; border-radius: 8px; padding: 5px 10px; font-size: 13px;
+    }
+    #fileinput button {
+      margin-top: 6px; padding: 5px 14px; border-radius: 8px;
+      background: rgba(80,160,255,0.25); border: 1px solid rgba(80,160,255,0.5);
+      color: #eaf6ff; cursor: pointer; font-size: 13px;
+    }
+    #fileinput button:hover { background: rgba(80,160,255,0.45); }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <h1>RWX Viewer</h1>
+    <p>Drag to orbit · Scroll to zoom · WASD to pan</p>
+    <div id="fileinput">
+      <label>RWX file path (relative to project root):</label>
+      <input type="text" id="rwxpath" value="examples/test.rwx" />
+      <button id="loadbtn">Load</button>
+    </div>
+    <div id="status">ready</div>
+    <div id="error"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+    const statusEl = document.getElementById("status");
+    const errorEl  = document.getElementById("error");
+    const pathEl   = document.getElementById("rwxpath");
+    const loadBtn  = document.getElementById("loadbtn");
+
+    // ── scene setup ──────────────────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#101820");
+    scene.fog = new THREE.FogExp2("#101820", 0.003);
+
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 2000);
+    camera.position.set(0, 5, 15);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    document.body.appendChild(renderer.domElement);
+
+    const hemi = new THREE.HemisphereLight("#ffffff", "#334466", 1.2);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight("#ffffff", 2.0);
+    sun.position.set(10, 20, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    scene.add(sun);
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    // A simple grid for orientation
+    const grid = new THREE.GridHelper(50, 50, "#223344", "#1a2a3a");
+    scene.add(grid);
+
+    // ── orbit / pan / zoom ──────────────────────────────────────────────────
+    let yaw = 0, pitch = -0.35, radius = 15;
+    let orbitTarget = new THREE.Vector3(0, 0, 0);
+    let dragging = false, lastX = 0, lastY = 0;
+    const keys = new Set();
+
+    window.addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
+    window.addEventListener("keyup",   e => keys.delete(e.key.toLowerCase()));
+
+    renderer.domElement.addEventListener("pointerdown", e => {
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
+    });
+    window.addEventListener("pointerup",   () => dragging = false);
+    window.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      yaw   -= (e.clientX - lastX) * 0.006;
+      pitch -= (e.clientY - lastY) * 0.004;
+      pitch  = Math.max(-1.4, Math.min(-0.05, pitch));
+      lastX  = e.clientX; lastY = e.clientY;
+    });
+    window.addEventListener("wheel", e => {
+      radius = Math.max(0.5, radius + e.deltaY * 0.01);
+    }, { passive: true });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    function updateCamera() {
+      const spd = 0.1;
+      const fwd   = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if (keys.has("w") || keys.has("arrowup"))    orbitTarget.addScaledVector(fwd,   spd);
+      if (keys.has("s") || keys.has("arrowdown"))  orbitTarget.addScaledVector(fwd,  -spd);
+      if (keys.has("a") || keys.has("arrowleft"))  orbitTarget.addScaledVector(right,-spd);
+      if (keys.has("d") || keys.has("arrowright")) orbitTarget.addScaledVector(right, spd);
+      camera.position.x = orbitTarget.x + Math.sin(yaw) * Math.cos(pitch) * radius;
+      camera.position.z = orbitTarget.z + Math.cos(yaw) * Math.cos(pitch) * radius;
+      camera.position.y = orbitTarget.y + Math.sin(-pitch) * radius;
+      camera.lookAt(orbitTarget);
+    }
+
+    // ── texture cache ────────────────────────────────────────────────────────
+    const texCache = {};
+    const texLoader = new THREE.TextureLoader();
+
+    function getTexture(name) {
+      if (!name) return null;
+      if (texCache[name]) return texCache[name];
+      // Try common image extensions; fall back gracefully if missing
+      const tex = texLoader.load(
+        `/textures/${name}.jpg`,
+        undefined,
+        undefined,
+        () => texLoader.load(`/textures/${name}.png`, undefined, undefined, () => {})
+      );
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      texCache[name] = tex;
+      return tex;
+    }
+
+    // ── build Three.js material from parsed object ────────────────────────────
+    function buildMaterial(obj) {
+      const doubleSide = (obj.materialMode || "").toLowerCase() === "double";
+      const tex = obj.texture ? getTexture(obj.texture) : null;
+      const mat = new THREE.MeshStandardMaterial({
+        color:       new THREE.Color(obj.color || "#cccccc"),
+        map:         tex,
+        roughness:   1.0 - (obj.specular || 0),
+        metalness:   0.0,
+        transparent: (obj.opacity || 1) < 0.999,
+        opacity:     obj.opacity ?? 1.0,
+        side:        doubleSide ? THREE.DoubleSide : THREE.FrontSide
+      });
+      return mat;
+    }
+
+    // ── build Three.js mesh from a rwx_clump object ───────────────────────────
+    function buildClumpMesh(obj) {
+      const group = new THREE.Group();
+      group.name = String(obj.id || "");
+
+      if (obj.vertices && obj.vertices.length && obj.faces && obj.faces.length) {
+        const geo  = new THREE.BufferGeometry();
+        const pos  = [];
+        const uv   = [];
+
+        for (const face of obj.faces) {
+          for (const vi of face.indices) {
+            const v = obj.vertices[vi];
+            if (!v) continue;
+            pos.push(v.x, v.y, v.z);
+            uv.push(v.u ?? 0, v.v ?? 0);
+          }
+        }
+
+        geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute("uv",       new THREE.Float32BufferAttribute(uv,  2));
+        geo.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(geo, buildMaterial(obj));
+        mesh.castShadow    = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      }
+
+      // apply stored transform matrix (row-major → Three.js column-major)
+      if (obj.matrix4 && obj.matrix4.length === 16) {
+        const m = new THREE.Matrix4();
+        m.set(
+          obj.matrix4[0],  obj.matrix4[1],  obj.matrix4[2],  obj.matrix4[3],
+          obj.matrix4[4],  obj.matrix4[5],  obj.matrix4[6],  obj.matrix4[7],
+          obj.matrix4[8],  obj.matrix4[9],  obj.matrix4[10], obj.matrix4[11],
+          obj.matrix4[12], obj.matrix4[13], obj.matrix4[14], obj.matrix4[15]
+        );
+        // matrix4 already baked into vertices by parser, so we skip applying it again
+      }
+
+      // recurse children
+      for (const child of (obj.children || [])) {
+        group.add(buildClumpMesh(child));
+      }
+
+      return group;
+    }
+
+    // ── build Three.js mesh from a rwx_primitive object ───────────────────────
+    function buildPrimitiveMesh(obj) {
+      const { kind, params } = obj;
+      const mat = buildMaterial(obj);
+
+      // RWX dimensions are in native RWX units — same coordinate space as Vertex commands
+      let geo;
+
+      if (kind === "block") {
+        geo = new THREE.BoxGeometry(params.x, params.y, params.z);
+      } else if (kind === "sphere") {
+        const segs = Math.max(4, params.d * 4 + 4);
+        geo = new THREE.SphereGeometry(Math.abs(params.r), segs, segs);
+      } else if (kind === "hemisphere") {
+        const segs = Math.max(4, params.d * 4 + 4);
+        geo = new THREE.SphereGeometry(Math.abs(params.r), segs, segs, 0, Math.PI * 2, 0, Math.PI / 2);
+      } else if (kind === "cylinder") {
+        geo = new THREE.CylinderGeometry(Math.abs(params.r2), Math.abs(params.r1), params.h, Math.max(3, params.n));
+      } else if (kind === "cone") {
+        geo = new THREE.ConeGeometry(Math.abs(params.r), params.h, Math.max(3, params.n));
+      } else if (kind === "disc") {
+        geo = new THREE.CircleGeometry(Math.abs(params.r), Math.max(3, params.n));
+      } else {
+        geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+      }
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow    = true;
+      mesh.receiveShadow = true;
+
+      // apply matrix
+      if (obj.matrix4 && obj.matrix4.length === 16) {
+        const m = new THREE.Matrix4();
+        const d = obj.matrix4;
+        m.set(d[0],d[1],d[2],d[3], d[4],d[5],d[6],d[7], d[8],d[9],d[10],d[11], d[12],d[13],d[14],d[15]);
+        mesh.applyMatrix4(m);
+      }
+
+      return mesh;
+    }
+
+    // ── clear and rebuild the scene root ─────────────────────────────────────
+    function clearRoot() {
+      while (root.children.length) {
+        const c = root.children[0];
+        root.remove(c);
+        c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      }
+    }
+
+    // ── load an RWX file via the server API ───────────────────────────────────
+    async function loadRWX(filepath) {
+      errorEl.textContent  = "";
+      statusEl.textContent = "loading…";
+      clearRoot();
+
+      try {
+        const res = await fetch("/api/rwx?file=" + encodeURIComponent(filepath));
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        if (!Array.isArray(data)) throw new Error(JSON.stringify(data));
+
+        let clumpCount = 0, primCount = 0;
+        for (const obj of data) {
+          if (obj.type === "rwx_clump") {
+            root.add(buildClumpMesh(obj));
+            clumpCount++;
+          } else if (obj.type === "rwx_primitive") {
+            root.add(buildPrimitiveMesh(obj));
+            primCount++;
+          }
+        }
+
+        // auto-fit camera
+        const box = new THREE.Box3().setFromObject(root);
+        if (!box.isEmpty()) {
+          const size   = box.getSize(new THREE.Vector3()).length();
+          const center = box.getCenter(new THREE.Vector3());
+          radius = size * 1.2;
+          orbitTarget.copy(center);
+        }
+
+        statusEl.textContent = `loaded — ${clumpCount} clump(s), ${primCount} primitive(s)`;
+      } catch (err) {
+        errorEl.textContent  = String(err.message || err);
+        statusEl.textContent = "load failed";
+      }
+    }
+
+    loadBtn.addEventListener("click", () => loadRWX(pathEl.value.trim()));
+
+    // ── URL param auto-load: rwx_viewer.html?file=path/to/model.rwx ───────────
+    const autoFile = new URLSearchParams(location.search).get("file");
+    if (autoFile) { pathEl.value = autoFile; loadRWX(autoFile); }
+
+    // ── render loop ─────────────────────────────────────────────────────────
+    function animate() {
+      requestAnimationFrame(animate);
+      updateCamera();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
