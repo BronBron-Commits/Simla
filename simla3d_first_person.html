@@ -251,8 +251,21 @@
     <div class="knob"></div>
   </div>
 
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
   <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+    import * as THREE from "three";
+    import { EffectComposer }  from "three/addons/postprocessing/EffectComposer.js";
+    import { RenderPass }      from "three/addons/postprocessing/RenderPass.js";
+    import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+    import { ShaderPass }      from "three/addons/postprocessing/ShaderPass.js";
+    import { GammaCorrectionShader } from "three/addons/shaders/GammaCorrectionShader.js";
 
     window.addEventListener("error", e => {
       console.warn("Simla3D runtime warning:", e.message);
@@ -346,18 +359,120 @@
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
     camera.position.set(0, 1.7, 12);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
-    renderer.shadowMap.enabled = false;
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
+
+    // ── Post-processing stack ──
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    // Bloom: makes fire, spells, lightning and emissives glow
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(innerWidth, innerHeight),
+      /*strength*/ 0.55,
+      /*radius*/   0.55,
+      /*threshold*/ 0.38
+    );
+    composer.addPass(bloomPass);
+
+    // Custom cinematic screen-space pass: vignette + colour grade + grain + chromatic aberration
+    const cinematicShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        time:     { value: 0.0 },
+        uVigStrength: { value: 0.52 },
+        uSaturation:  { value: 1.18 },
+        uContrast:    { value: 1.08 },
+        uGrain:       { value: 0.032 },
+        uAberration:  { value: 0.0022 },
+        // warm highlights, cool shadows colour grade
+        uHighlightTint: { value: new THREE.Color(1.04, 0.98, 0.88) },
+        uShadowTint:    { value: new THREE.Color(0.82, 0.90, 1.08) },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float uVigStrength;
+        uniform float uSaturation;
+        uniform float uContrast;
+        uniform float uGrain;
+        uniform float uAberration;
+        uniform vec3  uHighlightTint;
+        uniform vec3  uShadowTint;
+        varying vec2 vUv;
+
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+
+        void main() {
+          vec2 uv = vUv;
+          vec2 off = (uv - 0.5) * uAberration;
+          float r = texture2D(tDiffuse, uv - off).r;
+          float g = texture2D(tDiffuse, uv      ).g;
+          float b = texture2D(tDiffuse, uv + off).b;
+          vec3 col = vec3(r, g, b);
+
+          // contrast
+          col = (col - 0.5) * uContrast + 0.5;
+
+          // saturation
+          float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+          col = mix(vec3(lum), col, uSaturation);
+
+          // colour grade: warm highlights, cool shadows
+          float bright = clamp(lum, 0.0, 1.0);
+          vec3 tint = mix(uShadowTint, uHighlightTint, bright);
+          col *= tint;
+
+          // vignette
+          vec2 vig = uv - 0.5;
+          float v = 1.0 - dot(vig, vig) * uVigStrength * 2.8;
+          col *= clamp(v, 0.0, 1.0);
+
+          // film grain
+          float grain = hash(uv + fract(time * 0.01731)) * 2.0 - 1.0;
+          col += grain * uGrain;
+
+          gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+        }
+      `
+    };
+    const cinematicPass = new ShaderPass(cinematicShader);
+    cinematicPass.renderToScreen = true;
+    composer.addPass(cinematicPass);
+
+    window.addEventListener("resize", () => {
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+      bloomPass.resolution.set(innerWidth, innerHeight);
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+    });
 
     const hemiLight = new THREE.HemisphereLight("#ffffff", "#6b8a6f", 1.6);
     scene.add(hemiLight);
 
-    const sun = new THREE.DirectionalLight("#ffffff", 1.6);
+    const sun = new THREE.DirectionalLight("#fff5e0", 2.2);
     sun.position.set(12, 22, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 120;
+    sun.shadow.camera.left = -50;
+    sun.shadow.camera.right = 50;
+    sun.shadow.camera.top = 50;
+    sun.shadow.camera.bottom = -50;
+    sun.shadow.bias = -0.001;
     scene.add(sun);
 
     const moon = new THREE.DirectionalLight("#9fb7ff", 0.25);
@@ -523,13 +638,97 @@
     }
 
     function addFloor(o) {
-      const geo = new THREE.BoxGeometry(num(o.w, 80), 0.12, num(o.d, 80));
-      const mesh = new THREE.Mesh(geo, mat(o, "#2e5a3a", 0.95));
-      mesh.position.set(num(o.x), -0.06, num(o.z));
+      const fw = num(o.w, 80), fd = num(o.d, 80);
+      // Custom ground shader: hex tile pattern + specular wetness + painted grass colour variance
+      const groundMat = new THREE.ShaderMaterial({
+        uniforms: {
+          time:       { value: 0 },
+          uColorA:    { value: new THREE.Color("#2a5230") },
+          uColorB:    { value: new THREE.Color("#3e6a42") },
+          uColorC:    { value: new THREE.Color("#1e3e24") },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vWorldPos;
+          void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform vec3 uColorA;
+          uniform vec3 uColorB;
+          uniform vec3 uColorC;
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vWorldPos;
+
+          // hash for variety
+          float h21(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }
+
+          // axial hex grid
+          vec2 hexCell(vec2 p) {
+            vec2 q = vec2(p.x * 1.1547, p.y + p.x * 0.5774);
+            vec2 pi = floor(q), pf = fract(q);
+            float v = mod(pi.x + pi.y, 3.0);
+            float ca = step(1.0, v), cb = step(2.0, v);
+            vec2 ma = step(pf.xy, pf.yx);
+            return pi + ca * (1.0 - ma) + cb * ma;
+          }
+
+          void main() {
+            vec2 world = vWorldPos.xz * 0.22;
+            vec2 cell  = hexCell(world);
+            float n    = h21(cell);
+
+            // tri-colour grass blend
+            vec3 col = mix(uColorA, uColorB, smoothstep(0.3, 0.7, n));
+            col = mix(col, uColorC, smoothstep(0.65, 1.0, n));
+
+            // subtle hex edge darkening
+            vec2 q2 = vec2(vWorldPos.x * 1.1547 * 0.22, vWorldPos.z * 0.22 + vWorldPos.x * 0.22 * 0.5774);
+            vec2 pf2 = fract(q2);
+            float edge = min(min(pf2.x, pf2.y), min(1.0-pf2.x, 1.0-pf2.y));
+            col *= 0.82 + edge * 0.20;
+
+            // specular wetness (Blinn-Phong approximation for directional light)
+            vec3 L = normalize(vec3(0.55, 1.0, 0.45));
+            vec3 V = normalize(vec3(0.0, 1.0, 0.0)); // approx view from above
+            vec3 H = normalize(L + V);
+            float spec = pow(max(dot(vNormal, H), 0.0), 28.0) * 0.18 * n;
+            col += vec3(spec);
+
+            // slight time-based shimmer on wet patches
+            float shimmer = sin(time * 1.8 + vWorldPos.x * 3.1 + vWorldPos.z * 2.7) * 0.012 * n;
+            col += shimmer;
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `,
+        side: THREE.FrontSide,
+      });
+
+      const geo = new THREE.PlaneGeometry(fw, fd, 1, 1);
+      const mesh = new THREE.Mesh(geo, groundMat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(num(o.x), 0, num(o.z));
+      mesh.userData.isGround = true;
       root.add(mesh);
 
-      const grid = new THREE.GridHelper(Math.max(num(o.w, 80), num(o.d, 80)), 70, "#5d8a62", "#3e6546");
-      grid.position.y = 0.02;
+      // store ref so animate loop can tick time uniform
+      if (!window._groundMats) window._groundMats = [];
+      window._groundMats.push(groundMat);
+
+      // thin grid overlay still shows pathfinding readability
+      const grid = new THREE.GridHelper(Math.max(fw, fd), 70, "#4a7a50", "#3a6040");
+      grid.position.y = 0.01;
+      grid.material.transparent = true;
+      grid.material.opacity = 0.22;
       root.add(grid);
     }
 
@@ -3345,8 +3544,12 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
     function animate() {
 
+      const _now = performance.now() * 0.001;
       if (skyDome?.material?.uniforms?.time) {
-        skyDome.material.uniforms.time.value = performance.now() * 0.001;
+        skyDome.material.uniforms.time.value = _now;
+      }
+      if (window._groundMats) {
+        for (const gm of window._groundMats) gm.uniforms.time.value = _now;
       }
       requestAnimationFrame(animate);
       updateDayNightCycle();
@@ -3369,7 +3572,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       updateCivilians();
       updateInteraction();
       updatePlayerCharacter();
-      renderer.render(scene, camera);
+      cinematicPass.uniforms.time.value = _now;
+      composer.render();
     }
 
     // ===== PLAYER CHARACTER =====
