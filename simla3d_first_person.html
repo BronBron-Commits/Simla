@@ -1702,7 +1702,6 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       root.add(line);
     }
 
-    async function loadScene() {
       try {
         const res = await fetch("/api/scene?file=" + encodeURIComponent(sceneFile) + "&cacheBust=" + Date.now());
 
