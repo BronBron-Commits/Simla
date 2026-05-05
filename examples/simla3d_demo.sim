@@ -17,6 +17,16 @@
       (agent "r_a08" -16 -6 "plaza_center" "#ccaa66" 0)
       (agent "r_a09" -18 1 "plaza_center" "#aa88ff" 0)
       (agent "r_a10" -20 -3 "plaza_center" "#aaffaa" 0)
+      (agent "r_a11" -5 -5 "plaza_center" "#55ccff" 0)
+      (agent "r_a12" -3 -3 "plaza_center" "#ffaa44" 0)
+      (agent "r_a13" -1 -7 "plaza_center" "#ff66cc" 0)
+      (agent "r_a14" -9  1 "plaza_center" "#99ff99" 0)
+      (agent "r_a15" -11 3 "plaza_center" "#ddddff" 0)
+      (agent "r_a16" -13 -1 "plaza_center" "#88ddff" 0)
+      (agent "r_a17" -15 5 "plaza_center" "#ff88aa" 0)
+      (agent "r_a18" -17 -5 "plaza_center" "#ccaa66" 0)
+      (agent "r_a19" -19 2 "plaza_center" "#aa88ff" 0)
+      (agent "r_a20" -21 -2 "plaza_center" "#aaffaa" 0)
 
       ;; roles
       (role_agent "r_wiz_01" -5 3 "plaza_center" "#7755ff" "wizard" 0)
@@ -26,10 +36,19 @@
       (role_agent "r_archer_01" -13 8 "plaza_center" "#2f8f4e" "archer" 0)
       (role_agent "r_archer_02" -15 6 "plaza_center" "#3faa5f" "archer" 0)
       (role_agent "r_archer_03" -17 4 "plaza_center" "#55cc77" "archer" 0)
+      (role_agent "r_wiz_03" -6 4 "plaza_center" "#9966ff" "wizard" 0)
+      (role_agent "r_wiz_04" -10 6 "plaza_center" "#bb77ff" "wizard" 0)
+      (role_agent "r_war_03" -8 8 "plaza_center" "#bb3333" "warrior" 0)
+      (role_agent "r_war_04" -12 7 "plaza_center" "#dd6644" "warrior" 0)
+      (role_agent "r_archer_04" -14 9 "plaza_center" "#1f7f3e" "archer" 0)
+      (role_agent "r_archer_05" -16 7 "plaza_center" "#2f9a4f" "archer" 0)
+      (role_agent "r_archer_06" -18 5 "plaza_center" "#44bb66" "archer" 0)
 
       ;; dragons
       (dragon_flight "r_dragon_01" -8 -2 0 0.55 "#244c2a" "#2a5f31" 0)
       (dragon_flight "r_dragon_02" -16 3 2 0.50 "#2f4c24" "#3a6f2a" 0)
+      (dragon_flight "r_dragon_03" -6 -8 4 0.52 "#1f3c22" "#254f29" 0)
+      (dragon_flight "r_dragon_04" -14 6 6 0.48 "#2a4020" "#365830" 0)
 
       ;; ===== TEAM 1 (BLUE) =====
       ;; agents
@@ -43,6 +62,16 @@
       (agent "b_a08" 22 9 "plaza_center" "#ccaa66" 1)
       (agent "b_a09" 24 11 "plaza_center" "#aa88ff" 1)
       (agent "b_a10" 26 8 "plaza_center" "#aaffaa" 1)
+      (agent "b_a11" 11 11 "plaza_center" "#55ccff" 1)
+      (agent "b_a12" 13 10 "plaza_center" "#ffaa44" 1)
+      (agent "b_a13" 10 12 "plaza_center" "#ff66cc" 1)
+      (agent "b_a14" 15 13 "plaza_center" "#99ff99" 1)
+      (agent "b_a15" 17 9 "plaza_center" "#ddddff" 1)
+      (agent "b_a16" 19 11 "plaza_center" "#88ddff" 1)
+      (agent "b_a17" 21 13 "plaza_center" "#ff88aa" 1)
+      (agent "b_a18" 23 10 "plaza_center" "#ccaa66" 1)
+      (agent "b_a19" 25 12 "plaza_center" "#aa88ff" 1)
+      (agent "b_a20" 27 9 "plaza_center" "#aaffaa" 1)
 
       ;; roles
       (role_agent "b_wiz_01" 11 13 "plaza_center" "#7755ff" "wizard" 1)
@@ -52,10 +81,19 @@
       (role_agent "b_archer_01" 19 17 "plaza_center" "#2f8f4e" "archer" 1)
       (role_agent "b_archer_02" 21 15 "plaza_center" "#3faa5f" "archer" 1)
       (role_agent "b_archer_03" 23 13 "plaza_center" "#55cc77" "archer" 1)
+      (role_agent "b_wiz_03" 12 14 "plaza_center" "#9966ff" "wizard" 1)
+      (role_agent "b_wiz_04" 16 15 "plaza_center" "#bb77ff" "wizard" 1)
+      (role_agent "b_war_03" 14 17 "plaza_center" "#bb3333" "warrior" 1)
+      (role_agent "b_war_04" 18 16 "plaza_center" "#dd6644" "warrior" 1)
+      (role_agent "b_archer_04" 20 18 "plaza_center" "#1f7f3e" "archer" 1)
+      (role_agent "b_archer_05" 22 16 "plaza_center" "#2f9a4f" "archer" 1)
+      (role_agent "b_archer_06" 24 14 "plaza_center" "#44bb66" "archer" 1)
 
       ;; dragons
       (dragon_flight "b_dragon_01" 14 10 1 0.55 "#243a4c" "#2a4c5f" 1)
       (dragon_flight "b_dragon_02" 22 12 3 0.50 "#24404c" "#2a6f5f" 1)
+      (dragon_flight "b_dragon_03" 12 16 5 0.52 "#1f2f3c" "#253a50" 1)
+      (dragon_flight "b_dragon_04" 20 8 7 0.48 "#202040" "#2a2a60" 1)
 
       ;; ===== SHARED WORLD =====
       (location "plaza_center" 4 0 "#ffee88")

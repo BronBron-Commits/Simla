@@ -853,6 +853,54 @@ const healthBack = new THREE.Mesh(
         group.add(quiver);
       }
 
+      // === BUILDER VISUALS ===
+      if (role === "builder") {
+        // tint clothes brown/earthy
+        group.traverse(obj => {
+          if (obj.isMesh && obj.material && obj.material.color) {
+            obj.material.color.set("#7a5c38");
+          }
+        });
+
+        // hard hat
+        const hatBrim = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12),
+          new THREE.MeshStandardMaterial({ color: "#f5c400", roughness: 0.5 })
+        );
+        hatBrim.position.y = 1.22;
+        group.add(hatBrim);
+        const hatTop = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.2, 0.28, 0.22, 12),
+          new THREE.MeshStandardMaterial({ color: "#f5c400", roughness: 0.5 })
+        );
+        hatTop.position.y = 1.36;
+        group.add(hatTop);
+
+        // hammer (right hand)
+        const handle = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.035, 0.035, 0.7, 6),
+          new THREE.MeshStandardMaterial({ color: "#6b4a2f", roughness: 0.8 })
+        );
+        handle.position.set(0.52, 0.58, 0.1);
+        handle.rotation.z = 0.5;
+        group.add(handle);
+        const hammerHead = new THREE.Mesh(
+          new THREE.BoxGeometry(0.18, 0.32, 0.18),
+          new THREE.MeshStandardMaterial({ color: "#888888", metalness: 0.7, roughness: 0.3 })
+        );
+        hammerHead.position.set(0.72, 0.82, 0.1);
+        group.add(hammerHead);
+
+        // plank on shoulder
+        const plank = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.1, 1.1),
+          new THREE.MeshStandardMaterial({ color: "#9b6b3a", roughness: 0.9 })
+        );
+        plank.position.set(-0.28, 1.1, 0);
+        plank.rotation.y = 0.2;
+        group.add(plank);
+      }
+
       return group;
     }
 
@@ -1702,6 +1750,7 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       root.add(line);
     }
 
+    async function loadScene() {
       try {
         const res = await fetch("/api/scene?file=" + encodeURIComponent(sceneFile) + "&cacheBust=" + Date.now());
 
@@ -1728,6 +1777,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         if (!staticBuilt) {
           clearRoot();
           agents.clear();
+          root.add(playerGroup);
+          spawnBuilderSquads();
         }
 
         for (const item of data) {
@@ -1765,6 +1816,11 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     }
 
     function npcLine(id, target) {
+      if (id.startsWith("civ_")) {
+        const idx = parseInt(id.split("_")[1]) || 0;
+        return CIVILIAN_DIALOGUES[idx % CIVILIAN_DIALOGUES.length];
+      }
+      if (id.startsWith("builder_")) return `I'm building defenses as fast as I can. Stand clear!`;
       if (id.startsWith("m")) return `I'm just hanging around the mall. It has been busy today.`;
       if (id.startsWith("n")) return `North mall is quieter, but I like walking over there.`;
       if (id.startsWith("p")) return `The park is the best place to slow down for a minute.`;
@@ -1798,11 +1854,13 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       for (const state of agents.values()) {
         const npc = state.group;
         const dist = camera.position.distanceTo(npc.position);
+        if (dist < bestDist) { bestDist = dist; nearestNpc = npc; }
+      }
 
-        if (dist < bestDist) {
-          bestDist = dist;
-          nearestNpc = npc;
-        }
+      // also check civilians
+      for (const civ of civilians) {
+        const dist = camera.position.distanceTo(civ.group.position);
+        if (dist < bestDist) { bestDist = dist; nearestNpc = civ.group; }
       }
 
       if (nearestNpc) {
@@ -1816,11 +1874,34 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     talkPrompt.addEventListener("click", () => openDialogue(nearestNpc));
     dialogueClose.addEventListener("click", closeDialogue);
 
+    // left-click sword attack (only in 3rd-person mode)
+    document.addEventListener("click", (e) => {
+      if (viewMode === "iso") return;
+      if (e.target === talkPrompt || e.target === dialogueClose) return;
+      playerGroup.userData.attackTime = performance.now();
+
+      // deal damage to nearest enemy agent within reach
+      const REACH = 4.5;
+      let closest = null;
+      let closestDist = REACH;
+      for (const state of agents.values()) {
+        if (state.group.userData.dead) continue;
+        const dist = playerGroup.position.distanceTo(state.group.position);
+        if (dist < closestDist) { closestDist = dist; closest = state; }
+      }
+      if (closest) {
+        damageAgent(closest, 35, "player_sword");
+        spawnMeleeSlash(closest.group.position, -1);
+      }
+    });
+
     const isoTarget = { x: 42, z: 42 };
     let isoHeight = 34;
     let jumpVY = 0;
-    let jumpY = 1.7;
-    const GROUND_Y = 1.7;
+    let jumpY = 1;
+    let jumpsLeft = 2;
+    let spaceWasDown = false;
+    const GROUND_Y = 1;
     const GRAVITY = 0.012;
     const JUMP_FORCE = 0.22;
 
@@ -1875,21 +1956,35 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         moveRight /= mag;
       }
 
-      camera.position.addScaledVector(forward, moveForward * speed);
-      camera.position.addScaledVector(right, moveRight * speed);
+      // move the player in the world
+      playerGroup.position.addScaledVector(forward, moveForward * speed);
+      playerGroup.position.addScaledVector(right, moveRight * speed);
 
-      // jump
-      if (keys.has(" ") && jumpY <= GROUND_Y + 0.01) {
+      // double jump
+      const spaceDown = keys.has(" ");
+      if (spaceDown && !spaceWasDown && jumpsLeft > 0) {
         jumpVY = JUMP_FORCE;
+        jumpsLeft--;
       }
+      spaceWasDown = spaceDown;
       jumpVY -= GRAVITY;
       jumpY += jumpVY;
       if (jumpY <= GROUND_Y) {
         jumpY = GROUND_Y;
         jumpVY = 0;
+        jumpsLeft = 2;
       }
 
-      camera.position.y = jumpY;
+      playerGroup.position.y = jumpY;
+      playerGroup.rotation.y = yaw + Math.PI;
+
+      // 3rd-person camera: sit 5 units behind and 2.5 units above player
+      const camBack = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      camera.position.set(
+        playerGroup.position.x + camBack.x * 5,
+        playerGroup.position.y + 2.5,
+        playerGroup.position.z + camBack.z * 5
+      );
       camera.rotation.order = "YXZ";
       camera.rotation.y = yaw;
       camera.rotation.x = pitch;
@@ -2188,6 +2283,693 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     }
 
 
+    // ===== ARCHER ARROW SYSTEM =====
+
+    const archerArrows = [];
+
+    function spawnArrow(from, toState, team) {
+      const arrowGroup = new THREE.Group();
+
+      // shaft
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 0.9, 6),
+        new THREE.MeshStandardMaterial({ color: "#8b6914", roughness: 0.8 })
+      );
+      arrowGroup.add(shaft);
+
+      // tip
+      const tip = new THREE.Mesh(
+        new THREE.ConeGeometry(0.045, 0.2, 6),
+        new THREE.MeshStandardMaterial({ color: "#c0c0c0", metalness: 0.8, roughness: 0.2 })
+      );
+      tip.position.y = 0.55;
+      arrowGroup.add(tip);
+
+      // fletching
+      const fletchMat = new THREE.MeshBasicMaterial({
+        color: team === 0 ? "#cc3333" : "#3366cc",
+        side: THREE.DoubleSide
+      });
+      for (let i = 0; i < 3; i++) {
+        const fletch = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.14, 0.22),
+          fletchMat
+        );
+        fletch.position.y = -0.38;
+        fletch.rotation.y = (i / 3) * Math.PI * 2;
+        fletch.rotation.x = 0.3;
+        arrowGroup.add(fletch);
+      }
+
+      arrowGroup.position.copy(from);
+      arrowGroup.position.y += 0.9;
+      root.add(arrowGroup);
+
+      archerArrows.push({
+        group: arrowGroup,
+        targetState: toState,
+        start: arrowGroup.position.clone(),
+        born: performance.now(),
+        duration: 480 + from.distanceTo(toState.group.position) * 14,
+        team,
+        hit: false
+      });
+    }
+
+    function updateArcherArrows() {
+      const now = performance.now();
+
+      // fire new arrows from archers
+      for (const state of agents.values()) {
+        if (state.group.userData.dead) continue;
+        const role = String(state.group.userData.role || "");
+        if (role !== "archer") continue;
+
+        if (!state.lastArrow) state.lastArrow = Math.random() * 1200;
+
+        if (now - state.lastArrow > 1200 + (state.wanderPhase || 0) * 300) {
+          const target = nearestEnemyAgentTo(
+            state.group.position.x,
+            state.group.position.z,
+            state.team,
+            28
+          );
+          if (target) {
+            state.lastArrow = now;
+            // face target
+            const dx = target.group.position.x - state.group.position.x;
+            const dz = target.group.position.z - state.group.position.z;
+            state.group.rotation.y = Math.atan2(dx, dz);
+            spawnArrow(state.group.position, target, state.team);
+
+            // animate bow string pull
+            const bow = state.group.getObjectByName("archer_bow");
+            if (bow) {
+              const str = bow.getObjectByName("archer_bow_string");
+              if (str) {
+                str.scale.x = 0.6;
+                setTimeout(() => { if (str) str.scale.x = 1; }, 200);
+              }
+            }
+          }
+        }
+      }
+
+      // move arrows in flight
+      for (let i = archerArrows.length - 1; i >= 0; i--) {
+        const arrow = archerArrows[i];
+        const age = now - arrow.born;
+        const t = age / arrow.duration;
+
+        if (t >= 1 || arrow.hit) {
+          root.remove(arrow.group);
+          arrow.group.traverse(c => { c.geometry?.dispose?.(); c.material?.dispose?.(); });
+          archerArrows.splice(i, 1);
+
+          if (!arrow.hit && arrow.targetState && !arrow.targetState.group.userData.dead) {
+            damageAgent(arrow.targetState, 18, "arrow");
+            spawnSpellExplosion(arrow.targetState.group.position);
+          }
+          continue;
+        }
+
+        const targetPos = arrow.targetState.group.position.clone();
+        targetPos.y += 0.9;
+
+        // arc: lerp x/z, parabola on y
+        const x = arrow.start.x + (targetPos.x - arrow.start.x) * t;
+        const z = arrow.start.z + (targetPos.z - arrow.start.z) * t;
+        const arcY = arrow.start.y + (targetPos.y - arrow.start.y) * t
+          + Math.sin(t * Math.PI) * 3.5;
+
+        arrow.group.position.set(x, arcY, z);
+
+        // orient arrow along velocity
+        const nx = targetPos.x - arrow.start.x;
+        const nz = targetPos.z - arrow.start.z;
+        const ny = (targetPos.y - arrow.start.y) + Math.cos(t * Math.PI) * 3.5 * (Math.PI / arrow.duration) * arrow.duration;
+        arrow.group.rotation.y = Math.atan2(nx, nz);
+        arrow.group.rotation.x = -Math.atan2(arcY - (t > 0.01 ? (arrow.start.y + (targetPos.y - arrow.start.y) * (t - 0.01) + Math.sin((t - 0.01) * Math.PI) * 3.5) : arrow.start.y), Math.hypot(nx, nz) * 0.01 + 0.001);
+
+        // barrier hit detection: arrows blocked by enemy-team's barriers
+        if (!arrow.hit) {
+          for (const b of defenseBarriers) {
+            if (b.team === arrow.team) continue; // only block arrows heading toward this team's barriers
+            if (!b.built) continue;
+            const dist = Math.hypot(
+              arrow.group.position.x - b.mesh.position.x,
+              arrow.group.position.z - b.mesh.position.z
+            );
+            if (dist < 1.4 && arcY < 2.2) {
+              arrow.hit = true;
+              b.hp -= 18;
+              spawnSpellExplosion(arrow.group.position);
+              break;
+            }
+          }
+        }
+
+        // hit detection: within 1.2 units
+        if (arrow.targetState && !arrow.targetState.group.userData.dead) {
+          const dist = arrow.group.position.distanceTo(arrow.targetState.group.position);
+          if (dist < 1.2) {
+            arrow.hit = true;
+            damageAgent(arrow.targetState, 18, "arrow");
+            spawnSpellExplosion(arrow.group.position);
+          }
+        }
+      }
+    }
+
+    // ===== BUILDER DEFENSE SYSTEM =====
+
+    const defenseBarriers = []; // { mesh, team, hp, maxHp, born, built, structureType, coverRadius, lodMesh }
+    const MAX_STRUCTURES_PER_TEAM = 12; // hard cap — oldest evicted when exceeded
+    let lodFrameCounter = 0;
+
+    // track which structure type each builder builds next (cycles through variety)
+    const builderStructureIndex = new Map();
+    // track how many structures each builder has placed (for grid snapping)
+    const builderBuildCount = new Map();
+
+    const STRUCTURE_TYPES = ["barricade", "palisade_row", "wall_section", "sandbag_nest", "watch_tower", "covered_shelter", "gatehouse"];
+    // structures that provide overhead cover against lightning/spells
+    const COVER_STRUCTURES = new Set(["covered_shelter", "gatehouse"]);
+
+    function spawnBarrier(x, z, team, structureType, faceAngle) {
+      // don't stack structures too close — check ALL structures, not just same team
+      const minDist = structureType === "watch_tower" ? 6.5 : structureType === "gatehouse" ? 7.0 : structureType === "covered_shelter" ? 5.0 : structureType === "palisade_row" ? 4.5 : 3.8;
+      for (const b of defenseBarriers) {
+        if (Math.hypot(b.mesh.position.x - x, b.mesh.position.z - z) < minDist) return;
+      }
+
+      const woodMat  = new THREE.MeshStandardMaterial({ color: team === 0 ? "#7a3e12" : "#1a3a6a", roughness: 0.88 });
+      const darkMat  = new THREE.MeshStandardMaterial({ color: "#3a200a", roughness: 0.95 });
+      const stoneMat = new THREE.MeshStandardMaterial({ color: team === 0 ? "#8a7a6a" : "#5a6a8a", roughness: 0.92 });
+      const sandMat  = new THREE.MeshStandardMaterial({ color: "#c8b87a", roughness: 0.98 });
+      const ropeMat  = new THREE.MeshStandardMaterial({ color: "#8a7040", roughness: 0.97 });
+      const metalMat = new THREE.MeshStandardMaterial({ color: "#555566", roughness: 0.6, metalness: 0.5 });
+
+      const group = new THREE.Group();
+      group.name = "structure_" + structureType;
+
+      let maxHp = 120;
+
+      if (structureType === "barricade") {
+        // ── angled spike barricade with cross-planks, stakes and rope lashings ──
+        maxHp = 110;
+        const planks = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.5, 0.22), woodMat);
+        planks.name = "planks"; planks.position.y = 0.75; group.add(planks);
+
+        // diagonal brace planks
+        for (const [ang, side] of [[0.4, -1], [-0.4, 1]]) {
+          const diag = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.12, 0.2), darkMat);
+          diag.position.set(side * 0.2, 0.75, 0); diag.rotation.z = ang; group.add(diag);
+        }
+        // wooden spikes along top
+        for (let i = -1.1; i <= 1.1; i += 0.55) {
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.55, 5), darkMat);
+          spike.position.set(i, 1.62, 0); group.add(spike);
+        }
+        // side support posts
+        for (const side of [-1.3, 1.3]) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.9, 0.26), darkMat);
+          post.position.set(side, 0.95, 0); group.add(post);
+          // angled foot brace
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 0.22), darkMat);
+          foot.position.set(side, 0.45, 0.4); foot.rotation.x = -0.55; group.add(foot);
+        }
+        // rope lashings (small cylinders crossing the planks)
+        for (const yp of [0.45, 1.05]) {
+          const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.9, 6), ropeMat);
+          rope.rotation.z = Math.PI / 2; rope.position.y = yp; group.add(rope);
+        }
+
+      } else if (structureType === "watch_tower") {
+        // ── tall watch tower with open platform, roof, and ladder ──
+        maxHp = 280;
+        const towerH = 5.5;
+        // four corner pillars
+        for (const [px, pz] of [[-0.65,-0.65],[-0.65,0.65],[0.65,-0.65],[0.65,0.65]]) {
+          const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.22, towerH, 0.22), stoneMat);
+          pillar.position.set(px, towerH / 2, pz); group.add(pillar);
+        }
+        // horizontal ring beams at base, mid, top
+        for (const yb of [0.55, towerH * 0.5, towerH - 0.18]) {
+          for (const [rx, rz, rw, rh] of [
+            [0, -0.65, 1.5, 0.14], [0, 0.65, 1.5, 0.14],
+            [-0.65, 0, 0.14, 1.5], [0.65, 0, 0.14, 1.5]
+          ]) {
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.14, rh), woodMat);
+            beam.position.set(rx, yb, rz); group.add(beam);
+          }
+        }
+        // diagonal cross-bracing (two sides)
+        for (const [px, ang] of [[-0.65, 0.45],[0.65, -0.45]]) {
+          const xbrace = new THREE.Mesh(new THREE.BoxGeometry(0.1, towerH * 0.72, 0.1), darkMat);
+          xbrace.position.set(px, towerH * 0.5, 0); xbrace.rotation.x = ang; group.add(xbrace);
+        }
+        // platform floor
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, 1.6), woodMat);
+        floor.name = "planks"; floor.position.y = towerH; group.add(floor);
+        // platform railings
+        for (const [rox, roz, rw, rh] of [
+          [0, -0.75, 1.6, 0.08], [0, 0.75, 1.6, 0.08],
+          [-0.75, 0, 0.08, 1.6], [0.75, 0, 0.08, 1.6]
+        ]) {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.5, rh), woodMat);
+          rail.position.set(rox, towerH + 0.35, roz); group.add(rail);
+        }
+        // crenellations along the top railing
+        for (let ci = -0.6; ci <= 0.6; ci += 0.4) {
+          for (const [csx, csz] of [[ci, -0.75],[ci, 0.75],[-0.75, ci],[0.75, ci]]) {
+            const merlonW = csx === ci ? 0.18 : 0.08;
+            const merlonD = csz === ci ? 0.08 : 0.18;
+            const merlon = new THREE.Mesh(new THREE.BoxGeometry(merlonW, 0.28, merlonD), stoneMat);
+            merlon.position.set(csx, towerH + 0.64, csz); group.add(merlon);
+          }
+        }
+        // pyramid roof
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(1.18, 1.4, 4), woodMat);
+        roof.position.y = towerH + 0.85; roof.rotation.y = Math.PI / 4; group.add(roof);
+        // ladder rungs
+        for (let r = 0.4; r < towerH - 0.3; r += 0.55) {
+          const rung = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, 0.06), darkMat);
+          rung.position.set(0.65, r, 0.7); group.add(rung);
+        }
+        // torch at top
+        const torchBody = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.32, 6), darkMat);
+        torchBody.position.set(0.5, towerH + 0.3, 0.5); group.add(torchBody);
+        const flame = new THREE.PointLight(team === 0 ? "#ff8844" : "#4488ff", 1.8, 9);
+        flame.position.set(0.5, towerH + 0.6, 0.5); flame.name = "build_glow"; group.add(flame);
+
+      } else if (structureType === "wall_section") {
+        // ── stone wall segment with battlement crenellations and arrow slits ──
+        maxHp = 220;
+        // main wall body
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.8, 0.6), stoneMat);
+        wall.name = "planks"; wall.position.y = 1.4; group.add(wall);
+        // rubble base reinforcement
+        const base = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.4, 0.85), stoneMat);
+        base.position.y = 0.2; group.add(base);
+        // crenellations (merlons) along top
+        for (let cx = -1.6; cx <= 1.6; cx += 0.8) {
+          const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.7, 0.64), stoneMat);
+          merlon.position.set(cx, 3.15, 0); group.add(merlon);
+        }
+        // arrow slits
+        for (const slitX of [-1.2, 0, 1.2]) {
+          const slit = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.65), darkMat);
+          slit.position.set(slitX, 1.6, 0); group.add(slit);
+        }
+        // side buttress piers
+        for (const side of [-2.0, 2.0]) {
+          const buttress = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.85, 0.95), stoneMat);
+          buttress.position.set(side, 1.42, 0); group.add(buttress);
+          const buttTop = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 1.0), stoneMat);
+          buttTop.position.set(side, 2.99, 0); group.add(buttTop);
+        }
+        // walk-behind ledge on inside face
+        const ledge = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.16, 0.55), woodMat);
+        ledge.position.set(0, 2.55, 0.38); group.add(ledge);
+        // rope-and-lantern detail
+        const glow = new THREE.PointLight(team === 0 ? "#ffcc66" : "#6688ff", 0.9, 7);
+        glow.name = "build_glow"; glow.position.y = 2.2; group.add(glow);
+
+      } else if (structureType === "sandbag_nest") {
+        // ── layered sandbag fighting position with stakes and planked floor ──
+        maxHp = 90;
+        // planked floor
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 2.8), woodMat);
+        floor.position.y = 0.05; group.add(floor);
+        // sandbag layers — outer ring then inner partial ring
+        const bagPositions = [
+          // front row
+          [-1.2,0.3,-1.0],[-0.4,0.3,-1.0],[0.4,0.3,-1.0],[1.2,0.3,-1.0],
+          // front second layer
+          [-0.8,0.72,-1.0],[0,0.72,-1.0],[0.8,0.72,-1.0],
+          // side rows
+          [-1.45,0.3,-0.45],[-1.45,0.3,0.2],[-1.45,0.3,0.85],
+          [1.45,0.3,-0.45],[1.45,0.3,0.2],[1.45,0.3,0.85],
+          // back row partial
+          [-1.0,0.3,1.15],[0,0.3,1.15],[1.0,0.3,1.15],
+        ];
+        for (const [bx, by, bz] of bagPositions) {
+          const bag = new THREE.Mesh(new THREE.BoxGeometry(0.68 + Math.random()*0.1, 0.38, 0.52 + Math.random()*0.08), sandMat);
+          bag.position.set(bx, by, bz);
+          bag.rotation.y = (Math.random()-0.5)*0.3;
+          group.add(bag);
+        }
+        // name one bag as planks for HP colouring
+        group.children[1].name = "planks";
+        // pointed wooden stakes in front
+        for (let si = -1.2; si <= 1.2; si += 0.6) {
+          const stake = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.05, 5), darkMat);
+          stake.position.set(si, 0.52, -1.55); stake.rotation.x = -0.35; group.add(stake);
+        }
+        // small crate inside
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.4, 0.42), woodMat);
+        crate.position.set(0.7, 0.45, 0.4); group.add(crate);
+        // ammo barrel
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 10), woodMat);
+        barrel.position.set(-0.6, 0.5, 0.5); group.add(barrel);
+        const barrelTop = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 0.04, 10), metalMat);
+        barrelTop.position.set(-0.6, 0.77, 0.5); group.add(barrelTop);
+        const glow = new THREE.PointLight(team === 0 ? "#ffaa44" : "#4488ff", 0.6, 4);
+        glow.name = "build_glow"; glow.position.set(0, 0.8, 0); group.add(glow);
+
+      } else if (structureType === "covered_shelter") {
+        // ── roofed bunker: four posts, angled plank roof, reinforced walls, protects from lightning ──
+        maxHp = 200;
+        const postH = 2.8;
+        // corner posts
+        for (const [px, pz] of [[-1.3,-1.0],[-1.3,1.0],[1.3,-1.0],[1.3,1.0]]) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, postH, 0.2), woodMat);
+          post.position.set(px, postH/2, pz); group.add(post);
+          // diagonal foot brace on each post
+          const brace = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), darkMat);
+          brace.position.set(px * 0.7, 0.35, pz * 0.7);
+          brace.rotation.x = pz > 0 ? -0.45 : 0.45;
+          brace.rotation.z = px > 0 ? -0.45 : 0.45;
+          group.add(brace);
+        }
+        // plank floor
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 2.2), woodMat);
+        floor.position.y = 0.05; group.add(floor);
+        // front low wall (open side faces enemy, back and sides protected)
+        for (const [wx, wy, wz, ww, wh, wd] of [
+          // back wall
+          [0, 1.05, -1.0, 2.8, 2.0, 0.22],
+          // left wall
+          [-1.3, 1.05, 0, 0.22, 2.0, 2.2],
+          // right wall
+          [1.3, 1.05, 0, 0.22, 2.0, 2.2],
+          // front half-wall
+          [0, 0.45, 1.0, 2.8, 0.8, 0.2],
+        ]) {
+          const wall = new THREE.Mesh(new THREE.BoxGeometry(ww, wh, wd), stoneMat);
+          wall.name = "planks"; wall.position.set(wx, wy, wz); group.add(wall);
+        }
+        // angled roof planks (3 overlapping slabs sloping from back to front)
+        for (let ri = 0; ri < 4; ri++) {
+          const rz = -0.9 + ri * 0.6;
+          const ry = postH - ri * 0.18;
+          const roofPlank = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.14, 0.7), woodMat);
+          roofPlank.position.set(0, ry, rz);
+          roofPlank.rotation.x = -0.22; // slight pitch
+          group.add(roofPlank);
+        }
+        // ridge beam
+        const ridge = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 0.16), darkMat);
+        ridge.position.set(0, postH + 0.08, -0.9); group.add(ridge);
+        // sandbag reinforcement along base
+        for (const [bx, bz2] of [[-1.0,-0.95],[0,-0.95],[1.0,-0.95],[-1.0,0.95],[0,0.95],[1.0,0.95]]) {
+          const bag = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.38, 0.48), sandMat);
+          bag.position.set(bx, 0.22, bz2); group.add(bag);
+        }
+        // interior brazier for light
+        const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.18,0.3,8), metalMat);
+        brazier.position.set(0, 0.2, 0); group.add(brazier);
+        const glow = new THREE.PointLight(team === 0 ? "#ff8844" : "#4499ff", 1.6, 10);
+        glow.name = "build_glow"; glow.position.set(0, 1.5, 0); group.add(glow);
+
+      } else if (structureType === "palisade_row") {
+        // ── long row of sharpened palisade stakes with crossbar lashing and a forward ditch rim ──
+        maxHp = 140;
+        const stakeCount = 9;
+        const stakeSpacing = 0.52;
+        const rowWidth = stakeCount * stakeSpacing;
+        for (let si = 0; si < stakeCount; si++) {
+          const sx = (si - (stakeCount-1)/2) * stakeSpacing;
+          // vary height slightly for organic look
+          const h = 1.9 + Math.sin(si * 1.4) * 0.22;
+          const stake = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, h, 6), darkMat);
+          stake.position.set(sx, h/2, 0);
+          // slight forward tilt
+          stake.rotation.x = -0.18 + (Math.random()-0.5)*0.08;
+          group.add(stake);
+          // pointed tip
+          const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.28, 5), darkMat);
+          tip.position.set(sx, h + 0.14, 0);
+          tip.rotation.x = stake.rotation.x;
+          group.add(tip);
+          // iron cap band
+          const band = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 6), metalMat);
+          band.position.set(sx, h - 0.06, 0);
+          group.add(band);
+        }
+        // two horizontal crossbars with rope lashing marks
+        for (const yb of [0.55, 1.35]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(rowWidth + 0.1, 0.09, 0.09), woodMat);
+          bar.name = "planks"; bar.position.y = yb; group.add(bar);
+          // lashing knots at each stake
+          for (let si = 0; si < stakeCount; si++) {
+            const lx = (si - (stakeCount-1)/2) * stakeSpacing;
+            const lash = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.022, 5, 8), ropeMat);
+            lash.position.set(lx, yb, 0); lash.rotation.y = Math.PI/2; group.add(lash);
+          }
+        }
+        // forward-angled abatis stakes (shorter, diagonal)
+        for (let ai = 0; ai < 5; ai++) {
+          const ax = (ai - 2) * 1.0;
+          const abatis = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.0, 5), darkMat);
+          abatis.position.set(ax, 0.5, 0.9);
+          abatis.rotation.x = -0.65;
+          group.add(abatis);
+          const abtip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 5), darkMat);
+          abtip.position.set(ax, 0.98, 1.52); abtip.rotation.x = -0.65; group.add(abtip);
+        }
+        const glow = new THREE.PointLight(team === 0 ? "#ffaa44" : "#4488ff", 0.5, 4);
+        glow.name = "build_glow"; glow.position.set(0, 0.8, 0); group.add(glow);
+
+      } else { // gatehouse
+        // ── reinforced gatehouse arch with portcullis, flanking towers, and flag ──
+        maxHp = 340;
+        // flanking tower pillars (L & R)
+        for (const sx of [-2.2, 2.2]) {
+          for (const [px, pz] of [[-0.38,-0.38],[-0.38,0.38],[0.38,-0.38],[0.38,0.38]]) {
+            const col = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.2, 0.22), stoneMat);
+            col.position.set(sx + px, 2.1, pz); group.add(col);
+          }
+          // tower faces
+          const face = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.2, 0.9), stoneMat);
+          face.name = "planks"; face.position.set(sx, 2.1, 0); group.add(face);
+          // tower battlements
+          for (const bz of [-0.3, 0, 0.3]) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.42, 0.28), stoneMat);
+            m.position.set(sx, 4.5, bz); group.add(m);
+          }
+          // flag pole and pennant
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6), metalMat);
+          pole.position.set(sx, 5.1, 0); group.add(pole);
+          const flag = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.04),
+            new THREE.MeshStandardMaterial({ color: team === 0 ? "#cc2222" : "#2244cc", roughness: 0.7 }));
+          flag.position.set(sx + 0.3, 5.5, 0); group.add(flag);
+        }
+        // arch lintel
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.55, 0.6), stoneMat);
+        lintel.position.y = 3.8; group.add(lintel);
+        // arch sides (gate posts)
+        for (const sx of [-1.25, 1.25]) {
+          const gp = new THREE.Mesh(new THREE.BoxGeometry(0.55, 3.8, 0.6), stoneMat);
+          gp.position.set(sx, 1.9, 0); group.add(gp);
+        }
+        // portcullis bars
+        for (let bi = -0.8; bi <= 0.8; bi += 0.4) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.0, 0.08), metalMat);
+          bar.position.set(bi, 1.65, 0); group.add(bar);
+        }
+        // portcullis horizontal cross bars
+        for (const yb of [0.8, 1.8, 2.8]) {
+          const hbar = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.08, 0.08), metalMat);
+          hbar.position.set(0, yb, 0); group.add(hbar);
+        }
+        // base foundation
+        const found = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.3, 1.0), stoneMat);
+        found.position.y = 0.15; group.add(found);
+        // lantern above gate
+        const lanternBody = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.22,0.18), metalMat);
+        lanternBody.position.set(0, 4.15, 0); group.add(lanternBody);
+        const glow = new THREE.PointLight(team === 0 ? "#ffcc44" : "#6699ff", 2.2, 12);
+        glow.name = "build_glow"; glow.position.set(0, 4.1, 0); group.add(glow);
+      }
+
+      group.position.set(x, 0, z);
+      // face toward the enemy: faceAngle = atan2 to enemy, snap perpendicular structures to that line
+      group.rotation.y = (faceAngle !== undefined) ? faceAngle : Math.random() * Math.PI * 2;
+      group.scale.set(3, 0.12, 3); // 3x size; starts flat, rises in update
+      root.add(group);
+
+      const coverRadius = COVER_STRUCTURES.has(structureType) ? 3.5 : 0;
+
+      // --- build a cheap single-box LOD mesh (hidden until far away) ---
+      const lodColor = team === 0 ? "#7a3e12" : "#1a3a6a";
+      const lodSizes = {
+        barricade:       [2.8, 1.5, 0.3],
+        palisade_row:    [4.8, 2.0, 0.3],
+        wall_section:    [4.2, 3.5, 0.7],
+        sandbag_nest:    [3.4, 1.1, 2.8],
+        watch_tower:     [1.4, 5.8, 1.4],
+        covered_shelter: [2.8, 3.0, 2.2],
+        gatehouse:       [5.0, 4.5, 1.0],
+      };
+      const [lw, lh, ld] = lodSizes[structureType] || [2, 2, 2];
+      const lodMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(lw, lh, ld),
+        new THREE.MeshStandardMaterial({ color: lodColor, roughness: 0.9 })
+      );
+      lodMesh.position.y = lh / 2;
+      lodMesh.visible = false;
+      group.add(lodMesh);
+
+      defenseBarriers.push({ mesh: group, team, hp: maxHp, maxHp, born: performance.now(), built: false, structureType, coverRadius, lodMesh });
+    }
+
+    function updateBuilderDefenses() {
+      const now = performance.now();
+
+      // builders place new structures periodically, cycling through variety
+      for (const state of agents.values()) {
+        if (state.group.userData.dead) continue;
+        const role = String(state.group.userData.role || "");
+        if (role !== "builder") continue;
+
+        if (!state.lastBuild) state.lastBuild = Math.random() * 2000;
+
+        const id = state.group.userData.npcId || state.group.uuid;
+        if (!builderStructureIndex.has(id)) builderStructureIndex.set(id, Math.floor(Math.random() * STRUCTURE_TYPES.length));
+        if (!builderBuildCount.has(id)) builderBuildCount.set(id, 0);
+
+        // vary interval by structure type
+        const curType = STRUCTURE_TYPES[builderStructureIndex.get(id) % STRUCTURE_TYPES.length];
+        const typeInterval = curType === "watch_tower" ? 2500 : curType === "gatehouse" ? 4000
+          : curType === "covered_shelter" ? 2200 : curType === "wall_section" ? 1800
+          : curType === "palisade_row" ? 1200 : 900;
+
+        if (now - state.lastBuild > typeInterval + (state.wanderPhase || 0) * 300) {
+          state.lastBuild = now;
+
+          // ── Snap-to-defensive-line placement ──
+          // Find enemy center of mass
+          let enemyCx = 0, enemyCz = 0, enemyCount = 0;
+          for (const other of agents.values()) {
+            if (other.team === state.team || other.group.userData.dead) continue;
+            enemyCx += other.group.position.x;
+            enemyCz += other.group.position.z;
+            enemyCount++;
+          }
+          const myX = state.group.position.x;
+          const myZ = state.group.position.z;
+
+          let toNx = 1, toNz = 0; // default: face +x
+          if (enemyCount > 0) {
+            enemyCx /= enemyCount; enemyCz /= enemyCount;
+            const dx = enemyCx - myX, dz = enemyCz - myZ;
+            const d = Math.hypot(dx, dz) || 1;
+            toNx = dx / d; toNz = dz / d;
+          }
+          // perpendicular (wall line runs along this)
+          const perpX = -toNz, perpZ = toNx;
+
+          // face angle: structure faces toward enemy
+          const faceAngle = Math.atan2(toNx, toNz);
+
+          // snap slot along perp axis, centered on builder
+          const gridStep = curType === "palisade_row" ? 5.2 : curType === "wall_section" ? 4.5 : 3.5;
+          const buildCount = builderBuildCount.get(id);
+          const slot = buildCount === 0 ? 0 : (buildCount % 2 === 1 ? Math.ceil(buildCount/2) : -Math.ceil(buildCount/2));
+          // push slightly toward enemy from builder position
+          const pushDist = curType === "covered_shelter" ? -2.5   // shelters behind the line
+            : curType === "watch_tower" ? 0 : 2.2 + Math.random() * 1.0;
+          const bx = myX + toNx * pushDist + perpX * slot * gridStep;
+          const bz = myZ + toNz * pushDist + perpZ * slot * gridStep;
+
+          // ── Distance cap: don't build more than 18 units from builder's home position ──
+          const builderDef = builderDefs.find(d => d.id === id);
+          const homeX = builderDef ? builderDef.x : myX;
+          const homeZ = builderDef ? builderDef.z : myZ;
+          const MAX_BUILD_RADIUS = 18;
+          if (Math.hypot(bx - homeX, bz - homeZ) > MAX_BUILD_RADIUS) {
+            // clamp onto the radius boundary instead of skipping entirely
+            const clampAngle = Math.atan2(bz - homeZ, bx - homeX);
+            const cbx = homeX + Math.cos(clampAngle) * MAX_BUILD_RADIUS;
+            const cbz = homeZ + Math.sin(clampAngle) * MAX_BUILD_RADIUS;
+            spawnBarrier(cbx, cbz, state.team, curType, faceAngle);
+          } else {
+            spawnBarrier(bx, bz, state.team, curType, faceAngle);
+          }
+
+          // enforce per-team cap — evict oldest if over limit
+          const teamStructures = defenseBarriers.filter(b => b.team === state.team);
+          if (teamStructures.length > MAX_STRUCTURES_PER_TEAM) {
+            const oldest = teamStructures[0];
+            root.remove(oldest.mesh);
+            oldest.mesh.traverse(c => { c.geometry?.dispose?.(); c.material?.dispose?.(); });
+            defenseBarriers.splice(defenseBarriers.indexOf(oldest), 1);
+          }
+
+          // advance structure type and build count
+          builderStructureIndex.set(id, (builderStructureIndex.get(id) + 1) % STRUCTURE_TYPES.length);
+          builderBuildCount.set(id, buildCount + 1);
+        }
+      }
+
+      // animate barriers rising and handle decay
+      lodFrameCounter++;
+      const doLod = lodFrameCounter % 60 === 0;
+      const camPos = camera.position;
+
+      for (let i = defenseBarriers.length - 1; i >= 0; i--) {
+        const b = defenseBarriers[i];
+        const age = now - b.born;
+
+        // rise over 0.5 seconds
+        const rise = Math.min(1, age / 500);
+        b.mesh.scale.y = rise * 3;
+
+        // fade build glow once fully built
+        const glow = b.mesh.getObjectByName("build_glow");
+        if (glow) {
+          glow.intensity = (1 - rise) * 1.2;
+        }
+
+        // LOD: every 60 frames swap between full detail / single box / hidden
+        if (doLod) {
+          const dist = camPos.distanceTo(b.mesh.position);
+          const useLod = dist > 40;
+          const hide   = dist > 110;
+          b.lodMesh.visible = useLod && !hide;
+          // toggle all direct children except the lod mesh
+          b.mesh.children.forEach(c => {
+            if (c === b.lodMesh) return;
+            c.visible = !useLod && !hide;
+          });
+          b.mesh.visible = !hide;
+        }
+
+        // colour the planks to show HP
+        const planks = b.mesh.getObjectByName("planks");
+        if (planks && b.built) {
+          const pct = b.hp / b.maxHp;
+          planks.material.color.setRGB(
+            b.team === 0 ? 0.55 - pct * 0.35 : 0.1,
+            b.team === 0 ? 0.27 - pct * 0.15 : 0.33 + pct * 0.2,
+            b.team === 0 ? 0.075 : 0.67 - pct * 0.35
+          );
+        }
+
+        if (rise >= 1) b.built = true;
+
+        // remove destroyed barriers
+        if (b.hp <= 0) {
+          spawnSpellExplosion(b.mesh.position);
+          root.remove(b.mesh);
+          b.mesh.traverse(c => { c.geometry?.dispose?.(); c.material?.dispose?.(); });
+          defenseBarriers.splice(i, 1);
+        }
+      }
+    }
+
     function updateDayNightCycle() {
       const t = performance.now() * 0.00025;
       const cycle = (Math.sin(t) + 1) * 0.5;
@@ -2468,6 +3250,17 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
         const dist = Math.hypot(dx, dz);
 
         if (dist <= 5) {
+          // check if agent is sheltered under a cover structure (covered_shelter or gatehouse)
+          let sheltered = false;
+          for (const b of defenseBarriers) {
+            if (!b.built || b.coverRadius <= 0) continue;
+            if (b.team !== state.team) continue;
+            const bDist = Math.hypot(b.mesh.position.x - state.group.position.x,
+                                     b.mesh.position.z - state.group.position.z);
+            if (bDist <= b.coverRadius) { sheltered = true; break; }
+          }
+          if (sheltered) continue; // structure roof blocks lightning
+
           const damage = Math.round(6 * (1 - dist / 8)) + 2;
           damageAgent(state, damage, "lightning_strike");
 
@@ -2568,9 +3361,12 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       updateDragonShockwaves();
       updateBurningAgents();
       updateWarriorMelee();
+      updateArcherArrows();
+      updateBuilderDefenses();
       updateWizardSpells();
       updateSummons();
       updateSpellExplosions();
+      updateCivilians();
       updateInteraction();
       updatePlayerCharacter();
       renderer.render(scene, camera);
@@ -2654,12 +3450,13 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       group.add(emblem);
 
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.9, 0.07), swordMat);
-      blade.position.set(0.52, 0.55, 0);
-      group.add(blade);
+      blade.position.set(0, 0.55, 0);
       const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.08),
         new THREE.MeshStandardMaterial({ color: "#8b6914", roughness: 0.6 }));
-      hilt.position.set(0.52, 0.14, 0);
-      group.add(hilt);
+      hilt.position.set(0, 0.14, 0);
+      // sword lives on the right arm so it swings with it
+      rightArm.add(blade);
+      rightArm.add(hilt);
 
       const glow = new THREE.PointLight("#88ffaa", 1.2, 6);
       glow.position.y = 1.0;
@@ -2667,6 +3464,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
       group.userData.parts = { torso, leftArm, rightArm, leftLeg, rightLeg, leftBoot, rightBoot };
       group.userData.walkPhase = 0;
+      group.userData.attackTime = -9999;
+      group.userData.attacking = false;
 
       return group;
     }
@@ -2675,14 +3474,394 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     playerGroup.position.set(0, 1, 12);
     root.add(playerGroup);
 
-    function updatePlayerCharacter() {
-      playerGroup.position.set(camera.position.x, camera.position.y - 1.7, camera.position.z);
-      playerGroup.rotation.y = yaw + Math.PI;
-      playerGroup.visible = viewMode === "iso";
+    // =====================================================================
+    // CIVILIAN SOCIETY SYSTEM
+    // Two towns flanking the battlefield — one behind each army's rear.
+    // Town A (red side): centred around x:-45, z:0
+    // Town B (blue side): centred around x:50, z:14
+    // =====================================================================
 
-      if (!playerGroup.visible) return;
+    const civilians = []; // { group, parts, phase, speed, home, waypoints, wpIdx, idleUntil, dialogue }
+
+    const CIVILIAN_DIALOGUES = [
+      "Have you heard the cannon fire? I hope the walls hold.",
+      "Markets closed early today. Everyone is nervous.",
+      "My cousin fights on the front line. I light a candle every night.",
+      "The smith is working all hours making blades. Terrible times.",
+      "Children have been sent to the upper village. Wise, I think.",
+      "If this goes on much longer I'll have nothing left to sell.",
+      "They say the wizards called down fire from the sky last night.",
+      "I keep a packed bag by the door, just in case.",
+      "The inn is full of refugees. There is not a spare straw to sleep on.",
+      "Trade has dried up. No caravans dare the road any more.",
+      "Some say the dragons are ours. I pray that is true.",
+      "My cellar is stocked. Whatever comes, we endure.",
+    ];
+
+    function makeCivilianGroup(skinTone, shirtHex, pantsHex, hairHex) {
+      const group = new THREE.Group();
+      const skinMat  = new THREE.MeshStandardMaterial({ color: skinTone, roughness: 0.8 });
+      const shirtMat = new THREE.MeshStandardMaterial({ color: shirtHex, roughness: 0.75 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: pantsHex, roughness: 0.78 });
+      const hairMat  = new THREE.MeshStandardMaterial({ color: hairHex,  roughness: 0.8 });
+      const bootMat  = new THREE.MeshStandardMaterial({ color: "#2a1a0a", roughness: 0.85 });
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.65, 0.22), shirtMat);
+      torso.position.y = 0.44; group.add(torso);
+      const head  = new THREE.Mesh(new THREE.SphereGeometry(0.20, 12, 8), skinMat);
+      head.position.y = 0.94; group.add(head);
+      const hair  = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 7, 0, Math.PI*2, 0, Math.PI*0.5), hairMat);
+      hair.position.y = 1.01; hair.rotation.x = Math.PI; group.add(hair);
+      const armGeo = new THREE.BoxGeometry(0.12, 0.50, 0.12);
+      const leftArm  = new THREE.Mesh(armGeo, shirtMat); leftArm.position.set(-0.31, 0.42, 0); group.add(leftArm);
+      const rightArm = new THREE.Mesh(armGeo, shirtMat); rightArm.position.set( 0.31, 0.42, 0); group.add(rightArm);
+      const legGeo   = new THREE.BoxGeometry(0.14, 0.54, 0.14);
+      const leftLeg  = new THREE.Mesh(legGeo, pantsMat); leftLeg.position.set(-0.11, -0.18, 0); group.add(leftLeg);
+      const rightLeg = new THREE.Mesh(legGeo, pantsMat); rightLeg.position.set( 0.11, -0.18, 0); group.add(rightLeg);
+      const footGeo  = new THREE.BoxGeometry(0.16, 0.08, 0.26);
+      const leftFoot  = new THREE.Mesh(footGeo, bootMat); leftFoot.position.set(-0.11, -0.48, 0.05); group.add(leftFoot);
+      const rightFoot = new THREE.Mesh(footGeo, bootMat); rightFoot.position.set( 0.11, -0.48, 0.05); group.add(rightFoot);
+
+      group.userData.parts    = { torso, leftArm, rightArm, leftLeg, rightLeg };
+      group.userData.walkPhase = Math.random() * Math.PI * 2;
+      return group;
+    }
+
+    function addTownBuilding(cx, cz, w, h, d, roofColor, wallColor, hasChimney, hasLight) {
+      const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.88 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.82 });
+      const woodMat = new THREE.MeshStandardMaterial({ color: "#5a3810", roughness: 0.9 });
+      const stoneMat= new THREE.MeshStandardMaterial({ color: "#8a7a6a", roughness: 0.92 });
+
+      // walls
+      const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+      walls.position.set(cx, h/2, cz);
+      root.add(walls);
+
+      // door
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.4, 0.08), woodMat);
+      door.position.set(cx, 0.7, cz + d/2 + 0.02);
+      root.add(door);
+
+      // windows (two on front)
+      for (const wx of [-w*0.28, w*0.28]) {
+        const win = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.07), new THREE.MeshStandardMaterial({ color: "#aaddff", roughness: 0.1, metalness: 0.3 }));
+        win.position.set(cx + wx, h * 0.62, cz + d/2 + 0.02);
+        root.add(win);
+        // shutters
+        for (const sx of [-0.34, 0.34]) {
+          const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 0.06), woodMat);
+          shutter.position.set(cx + wx + sx, h * 0.62, cz + d/2 + 0.025);
+          root.add(shutter);
+        }
+      }
+
+      // gabled roof
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d) * 0.78, h * 0.55, 4), roofMat);
+      roof.position.set(cx, h + h * 0.28, cz);
+      roof.rotation.y = Math.PI / 4;
+      root.add(roof);
+
+      // stone base
+      const base = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.22, d + 0.1), stoneMat);
+      base.position.set(cx, 0.11, cz);
+      root.add(base);
+
+      if (hasChimney) {
+        const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.42, h * 0.55, 0.42), stoneMat);
+        chimney.position.set(cx + w*0.28, h + h*0.15, cz - d*0.28);
+        root.add(chimney);
+        // smoke puff (static visual)
+        const smoke = new THREE.Mesh(new THREE.SphereGeometry(0.35, 7, 5),
+          new THREE.MeshStandardMaterial({ color: "#aaaaaa", transparent: true, opacity: 0.35, roughness: 1.0 }));
+        smoke.position.set(cx + w*0.28, h + h*0.55, cz - d*0.28);
+        smoke.userData.smokeBase = smoke.position.y;
+        smoke.userData.isSmoke = true;
+        root.add(smoke);
+      }
+
+      if (hasLight) {
+        const lantern = new THREE.PointLight("#ffcc88", 1.4, 10);
+        lantern.position.set(cx, h * 0.85, cz + d/2 + 0.5);
+        root.add(lantern);
+      }
+    }
+
+    function addMarketStall(cx, cz, rotation) {
+      const woodMat   = new THREE.MeshStandardMaterial({ color: "#7a4e1a", roughness: 0.9 });
+      const awningMat = new THREE.MeshStandardMaterial({ color: "#cc4422", roughness: 0.75, side: THREE.DoubleSide });
+      const goodsMat  = new THREE.MeshStandardMaterial({ color: "#e8b86a", roughness: 0.8 });
+
+      const g = new THREE.Group();
+      // counter
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.9), woodMat);
+      counter.position.y = 1.0; g.add(counter);
+      // legs
+      for (const [px, pz] of [[-0.95,-0.4],[-0.95,0.4],[0.95,-0.4],[0.95,0.4]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.1), woodMat);
+        leg.position.set(px, 0.5, pz); g.add(leg);
+      }
+      // awning poles
+      for (const px of [-0.9, 0.9]) {
+        const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.5, 0.08), woodMat);
+        pole.position.set(px, 1.8, -0.35); g.add(pole);
+      }
+      // awning cloth
+      const awning = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.06, 1.1), awningMat);
+      awning.position.set(0, 2.5, -0.2); awning.rotation.x = 0.2; g.add(awning);
+      // goods on counter (small boxes)
+      for (const [gx, gz] of [[-0.6,0],[0,0],[0.6,0]]) {
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.28+Math.random()*0.1, 0.22+Math.random()*0.12, 0.24), goodsMat);
+        box.position.set(gx, 1.14, gz); g.add(box);
+      }
+
+      g.position.set(cx, 0, cz);
+      g.rotation.y = rotation;
+      root.add(g);
+    }
+
+    function addWell(cx, cz) {
+      const stoneMat = new THREE.MeshStandardMaterial({ color: "#8a8070", roughness: 0.92 });
+      const woodMat  = new THREE.MeshStandardMaterial({ color: "#5a3010", roughness: 0.9 });
+      const ropeMat  = new THREE.MeshStandardMaterial({ color: "#8a7040", roughness: 0.95 });
+      // base cylinder
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.85, 14), stoneMat);
+      base.position.set(cx, 0.42, cz); root.add(base);
+      // two A-frame posts
+      for (const ox of [-0.7, 0.7]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.4, 0.1), woodMat);
+        post.position.set(cx+ox, 1.4, cz); root.add(post);
+      }
+      // crossbar
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.1), woodMat);
+      bar.position.set(cx, 2.15, cz); root.add(bar);
+      // hanging rope
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), ropeMat);
+      rope.position.set(cx, 1.7, cz); root.add(rope);
+      // bucket
+      const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.28, 8), woodMat);
+      bucket.position.set(cx, 1.1, cz); root.add(bucket);
+    }
+
+    function addTownFence(x1, z1, x2, z2) {
+      const woodMat = new THREE.MeshStandardMaterial({ color: "#6a4020", roughness: 0.9 });
+      const dx = x2 - x1, dz = z2 - z1;
+      const len = Math.hypot(dx, dz);
+      const cx = (x1+x2)/2, cz = (z1+z2)/2;
+      const angle = Math.atan2(dx, dz);
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(len, 0.12, 0.1), woodMat);
+      for (const yp of [0.6, 1.1]) {
+        const p = plank.clone(); p.position.set(cx, yp, cz); p.rotation.y = angle; root.add(p);
+      }
+      const postCount = Math.max(2, Math.round(len / 1.8));
+      for (let i = 0; i <= postCount; i++) {
+        const t = i / postCount;
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.4, 0.1), woodMat);
+        post.position.set(x1 + dx*t, 0.7, z1 + dz*t); root.add(post);
+      }
+    }
+
+    function buildTown(cx, cz, teamColor) {
+      // Ground plaza
+      const plaza = new THREE.Mesh(new THREE.BoxGeometry(38, 0.08, 32),
+        new THREE.MeshStandardMaterial({ color: "#c0a870", roughness: 0.95 }));
+      plaza.position.set(cx, 0.04, cz); root.add(plaza);
+
+      // Houses ring
+      const houseLayouts = [
+        { ox:-10, oz:-10, w:5, h:4.5, d:4, roof:"#8b2020", wall:"#e8d8b0", chimney:true,  light:true  },
+        { ox: 10, oz:-10, w:4, h:4.0, d:3.5,roof:"#1a4a8a", wall:"#ddd4b8", chimney:false, light:true  },
+        { ox:-10, oz: 10, w:4.5,h:5,  d:4, roof:"#3a6020", wall:"#e0cfa8", chimney:true,  light:false },
+        { ox: 10, oz: 10, w:5, h:4.2, d:3.8,roof:"#7a2a10", wall:"#f0e0c0", chimney:true,  light:true  },
+        { ox:  0, oz:-13, w:7, h:5.5, d:5, roof:"#3a2060", wall:"#dcd8d0", chimney:true,  light:true  }, // tavern
+        { ox: 14, oz:  0, w:3.5,h:3.8,d:3, roof:"#5a3010", wall:"#c8bca0", chimney:false, light:false },
+        { ox:-14, oz:  0, w:3, h:3.5, d:3, roof:"#2a5030", wall:"#d8d0b8", chimney:false, light:true  },
+      ];
+      for (const b of houseLayouts) {
+        addTownBuilding(cx+b.ox, cz+b.oz, b.w, b.h, b.d, b.roof, b.wall, b.chimney, b.light);
+      }
+
+      // Market square (3 stalls)
+      addMarketStall(cx - 1, cz + 1, 0);
+      addMarketStall(cx + 2.5, cz + 1, 0.15);
+      addMarketStall(cx - 1, cz + 3.5, Math.PI / 2);
+
+      // Well in centre
+      addWell(cx, cz - 2);
+
+      // Perimeter fences
+      addTownFence(cx-17, cz-15, cx+17, cz-15);
+      addTownFence(cx+17, cz-15, cx+17, cz+15);
+      addTownFence(cx+17, cz+15, cx-17, cz+15);
+      addTownFence(cx-17, cz+15, cx-17, cz-15);
+
+      // Road paving strips
+      const roadMat = new THREE.MeshStandardMaterial({ color: "#a89870", roughness: 0.95 });
+      const roadH = new THREE.Mesh(new THREE.BoxGeometry(38, 0.09, 3.5), roadMat);
+      roadH.position.set(cx, 0.045, cz); root.add(roadH);
+      const roadV = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.09, 32), roadMat);
+      roadV.position.set(cx, 0.045, cz); root.add(roadV);
+    }
+
+    // Waypoint routes for civilians within each town
+    function makeTownWaypoints(cx, cz) {
+      return [
+        new THREE.Vector3(cx,      1, cz),
+        new THREE.Vector3(cx+6,    1, cz-4),
+        new THREE.Vector3(cx+8,    1, cz+3),
+        new THREE.Vector3(cx,      1, cz+7),
+        new THREE.Vector3(cx-7,    1, cz+3),
+        new THREE.Vector3(cx-6,    1, cz-5),
+        new THREE.Vector3(cx+3,    1, cz-8),
+      ];
+    }
+
+    const TOWN_A = { cx: -45, cz: 0  };
+    const TOWN_B = { cx:  50, cz: 14 };
+
+    const CIVILIAN_SKIN_TONES = ["#f0c8a0","#c8903a","#e8b87a","#8a5020","#f8e0c0","#d4945a"];
+    const CIVILIAN_SHIRTS = [
+      "#b05030","#3a6a9a","#4a8a4a","#9a7a20","#8a3a7a","#5a5a9a",
+      "#c06020","#2a7a5a","#aa5050","#6a6a30","#3a8aaa","#aa6030"
+    ];
+    const CIVILIAN_PANTS = ["#2a3a4a","#4a3020","#3a4a2a","#5a4a30","#2a2a4a","#4a3a2a"];
+
+    function spawnCivilians() {
+      const towns = [
+        { ...TOWN_A, count: 16 },
+        { ...TOWN_B, count: 16 },
+      ];
+      let civIdx = 0;
+
+      for (const town of towns) {
+        const waypoints = makeTownWaypoints(town.cx, town.cz);
+        for (let i = 0; i < town.count; i++) {
+          const skin  = CIVILIAN_SKIN_TONES[Math.floor(Math.random() * CIVILIAN_SKIN_TONES.length)];
+          const shirt = CIVILIAN_SHIRTS[Math.floor(Math.random() * CIVILIAN_SHIRTS.length)];
+          const pants = CIVILIAN_PANTS[Math.floor(Math.random() * CIVILIAN_PANTS.length)];
+          const hair  = ["#1a0f08","#3a2510","#8a6020","#a08040","#c8c0b0","#0a0a0a"][Math.floor(Math.random()*6)];
+
+          const group = makeCivilianGroup(skin, shirt, pants, hair);
+          // scatter starting positions around the town
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * 10;
+          group.position.set(town.cx + Math.cos(angle)*r, 1, town.cz + Math.sin(angle)*r);
+          root.add(group);
+
+          const startWp = Math.floor(Math.random() * waypoints.length);
+          civilians.push({
+            group,
+            parts: group.userData.parts,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.018 + Math.random() * 0.014,
+            home: new THREE.Vector3(town.cx, 1, town.cz),
+            waypoints,
+            wpIdx: startWp,
+            idleUntil: performance.now() + Math.random() * 4000,
+            dialogue: CIVILIAN_DIALOGUES[civIdx % CIVILIAN_DIALOGUES.length],
+            npcId: "civ_" + civIdx,
+          });
+          group.userData.npcId = "civ_" + civIdx;
+          group.userData.isCivilian = true;
+          civIdx++;
+        }
+      }
+    }
+
+    let _civFrameSkip = 0;
+    function updateCivilians() {
+      const now = performance.now();
+      _civFrameSkip++;
+      // only animate every other frame to save CPU
+      if (_civFrameSkip % 2 !== 0) return;
+
+      for (const civ of civilians) {
+        const g = civ.group;
+        const parts = civ.parts;
+        const isIdle = now < civ.idleUntil;
+
+        if (!isIdle) {
+          const target = civ.waypoints[civ.wpIdx];
+          const dx = target.x - g.position.x;
+          const dz = target.z - g.position.z;
+          const dist = Math.hypot(dx, dz);
+
+          if (dist < 0.6) {
+            // reached waypoint — idle for a moment then pick next
+            civ.idleUntil = now + 1500 + Math.random() * 3500;
+            civ.wpIdx = (civ.wpIdx + 1) % civ.waypoints.length;
+          } else {
+            const nx = dx / dist, nz = dz / dist;
+            g.position.x += nx * civ.speed;
+            g.position.z += nz * civ.speed;
+            g.rotation.y = Math.atan2(nx, nz);
+          }
+        }
+
+        // walk animation
+        const moving = !isIdle;
+        if (moving) g.userData.walkPhase += 0.09;
+        const wp = g.userData.walkPhase;
+        const swing = Math.sin(wp) * (moving ? 0.26 : 0);
+        const bob   = Math.abs(Math.sin(wp)) * (moving ? 0.03 : 0);
+        parts.leftArm.rotation.x  =  swing;
+        parts.rightArm.rotation.x = -swing;
+        parts.leftLeg.rotation.x  = -swing * 0.7;
+        parts.rightLeg.rotation.x =  swing * 0.7;
+        parts.torso.position.y    = 0.44 + bob;
+
+        // idle gesture: slow arm raise when standing still
+        if (isIdle) {
+          const idleT = (now % 3000) / 3000;
+          parts.rightArm.rotation.x = Math.sin(idleT * Math.PI * 2) * 0.3;
+        }
+      }
+    }
+
+    // Build both towns immediately on startup (static geometry, not in loadScene loop)
+    (function initCivilianWorld() {
+      buildTown(TOWN_A.cx, TOWN_A.cz, 0);
+      buildTown(TOWN_B.cx, TOWN_B.cz, 1);
+      spawnCivilians();
+    })();
+
+    const builderDefs = [
+      // Team 0 (red) — behind their back line around x:-18...-22, z:0...4
+      { id: "builder_r0", x: -18, z:  0, team: 0 },
+      { id: "builder_r1", x: -21, z:  3, team: 0 },
+      { id: "builder_r2", x: -20, z: -4, team: 0 },
+      // Team 1 (blue) — behind their back line around x:26...30, z:16...20
+      { id: "builder_b0", x: 27, z: 18, team: 1 },
+      { id: "builder_b1", x: 30, z: 16, team: 1 },
+      { id: "builder_b2", x: 28, z: 21, team: 1 },
+    ];
+
+    function spawnBuilderSquads() {
+      for (const def of builderDefs) {
+        if (agents.has(def.id)) continue; // already present
+        const o = { id: def.id, x: def.x, y: 1, z: def.z, team: def.team, role: "builder" };
+        const group = makePersonGroup(o);
+        group.position.set(def.x, 1, def.z);
+        group.userData.npcId = def.id;
+        group.userData.role = "builder";
+        root.add(group);
+        agents.set(def.id, {
+          group,
+          team: def.team,
+          prev: new THREE.Vector3(def.x, 1, def.z),
+          next: new THREE.Vector3(def.x, 1, def.z),
+          time: performance.now(),
+          wanderPhase: Math.random() * Math.PI * 2,
+          wanderRadius: 2.5
+        });
+      }
+    }
+
+    function updatePlayerCharacter() {
+      playerGroup.visible = true;
 
       const parts = playerGroup.userData.parts;
+      const now = performance.now();
       const moving = keys.has("w") || keys.has("s") || keys.has("a") || keys.has("d")
         || Math.hypot(moveStick.x, moveStick.y) > 0.1;
 
@@ -2691,10 +3870,28 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const bob = Math.abs(Math.sin(playerGroup.userData.walkPhase)) * (moving ? 0.04 : 0);
 
       parts.leftArm.rotation.x = swing;
-      parts.rightArm.rotation.x = -swing;
       parts.leftLeg.rotation.x = -swing * 0.8;
       parts.rightLeg.rotation.x = swing * 0.8;
       parts.torso.position.y = 0.46 + bob;
+
+      // sword attack swing
+      const attackAge = now - playerGroup.userData.attackTime;
+      const ATTACK_DUR = 320; // ms
+      if (attackAge < ATTACK_DUR) {
+        const t = attackAge / ATTACK_DUR;
+        // swing rightArm forward (positive X direction)
+        parts.rightArm.rotation.x = Math.sin(t * Math.PI) * 2.2;
+        parts.rightArm.rotation.z = 0;
+      } else {
+        parts.rightArm.rotation.x = -swing;
+        parts.rightArm.rotation.z = 0;
+      }
+
+      // In iso mode, player follows camera target
+      if (viewMode === "iso") {
+        playerGroup.position.set(isoTarget.x, 1, isoTarget.z);
+        playerGroup.rotation.y = yaw + Math.PI;
+      }
     }
 
     loadScene();
