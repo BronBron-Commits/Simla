@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simla Streaming Voxel World</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#87ceeb;font-family:system-ui;touch-action:none}
+    #hud{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.65);color:white;padding:12px;border-radius:12px;font:12px monospace;white-space:pre-wrap;max-width:92vw}
+  
+.joy{
+  position:fixed !important;
+  bottom:28px !important;
+  width:300px !important;
+  height:300px !important;
+  border-radius:50% !important;
+  z-index:99999 !important;
+  touch-action:none !important;
+  pointer-events:auto !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(120,180,255,.18), rgba(20,40,80,.36) 62%, rgba(0,0,0,.55)) !important;
+  border:4px solid rgba(160,220,255,.72) !important;
+  box-shadow:
+    0 0 24px rgba(80,180,255,.38),
+    inset 0 0 32px rgba(255,255,255,.12),
+    inset 0 0 80px rgba(80,160,255,.18) !important;
+  backdrop-filter:blur(8px) !important;
+}
+
+.joy .knob{
+  position:absolute !important;
+  left:100px !important;
+  top:100px !important;
+  width:100px !important;
+  height:100px !important;
+  border-radius:50% !important;
+  background:
+    radial-gradient(circle at 35% 30%, white, #9fd3ff 42%, #3366ff) !important;
+  border:3px solid rgba(255,255,255,.82) !important;
+  box-shadow:
+    0 0 26px rgba(100,190,255,.8),
+    0 12px 28px rgba(0,0,0,.45),
+    inset 0 -12px 24px rgba(0,0,80,.25) !important;
+}
+
+#moveJoy{
+  left:24px !important;
+}
+
+#lookJoy{
+  right:24px !important;
+}
+
+
+#jumpBtn{
+  position:fixed;
+  right:88px;
+  bottom:360px;
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  border:4px solid rgba(255,255,255,.82);
+  background:
+    radial-gradient(circle at 35% 30%, #ffe8a8, #ffb347 58%, #ff7a00);
+  color:white;
+  font-weight:900;
+  font-size:32px;
+  letter-spacing:2px;
+  z-index:99999;
+  box-shadow:
+    0 0 24px rgba(255,180,60,.65),
+    inset 0 -12px 24px rgba(120,40,0,.25);
+}
+</style>
+</head>
+<body>
+<div id="hud">loading...</div>
+
+<div id="moveJoy" class="joy">
+  <div class="knob"></div>
+</div>
+
+<button id="jumpBtn">JUMP</button>
+
+<div id="lookJoy" class="joy">
+  <div class="knob"></div>
+</div>
+
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { tokenize } from "./src/tokenizer.js";
+import { parse } from "./src/parser.js";
+import { compile } from "./src/compiler.js";
+import { run } from "./src/vm.js";
+
+const hud = document.getElementById("hud");
+function log(msg){ hud.textContent = msg; console.log(msg); }
+
+window.addEventListener("error", e => log("ERROR: " + e.message));
+window.addEventListener("unhandledrejection", e => log("ASYNC ERROR: " + e.reason));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#87ceeb");
+scene.fog = new THREE.Fog("#87ceeb", 90, 260);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 1200);
+camera.position.set(0, 32, 72);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
+
+document.body.appendChild(renderer.domElement);
+
+
+renderer.domElement.style.touchAction = "none";
+
+scene.add(new THREE.HemisphereLight("#ffffff", "#557755", 1.9));
+
+const sun = new THREE.DirectionalLight("#fff4d8", 2.8);
+sun.position.set(40,90,30);
+scene.add(sun);
+
+const root = new THREE.Group();
+scene.add(root);
+
+const geo = new THREE.BoxGeometry(1,1,1);
+const mats = {
+  grass:new THREE.MeshStandardMaterial({color:"#4caf50"}),
+  dirt:new THREE.MeshStandardMaterial({color:"#7a4a24"}),
+  stone:new THREE.MeshStandardMaterial({color:"#777777"}),
+  wood:new THREE.MeshStandardMaterial({color:"#8b5a2b"}),
+  leaf:new THREE.MeshStandardMaterial({color:"#2e8b3c"}),
+  sand:new THREE.MeshStandardMaterial({color:"#d9c27a"}),
+  water:new THREE.MeshStandardMaterial({color:"#3ba7ff",transparent:true,opacity:.58}),
+  snow:new THREE.MeshStandardMaterial({color:"#eeeeff"}),
+  coal:new THREE.MeshStandardMaterial({color:"#111111"}),
+  iron:new THREE.MeshStandardMaterial({color:"#b8b8b8"}),
+  gold:new THREE.MeshStandardMaterial({color:"#ffd84a"}),
+  diamond:new THREE.MeshStandardMaterial({color:"#55ffff"}),
+  pink_grass:new THREE.MeshStandardMaterial({color:"#f7a8d8"}),
+  cherry_leaf:new THREE.MeshStandardMaterial({color:"#ff9ed8"}),
+  dark_wood:new THREE.MeshStandardMaterial({color:"#5a2b2b"}),
+  cactus:new THREE.MeshStandardMaterial({color:"#1f8f3a"}),
+  crystal_grass:new THREE.MeshStandardMaterial({color:"#6c7cff"}),
+  amethyst:new THREE.MeshStandardMaterial({color:"#a855f7"}),
+  frost_grass:new THREE.MeshStandardMaterial({color:"#bfefff"}),
+  ice_leaf:new THREE.MeshStandardMaterial({color:"#dff8ff", transparent:true, opacity:.85}),
+  white_wood:new THREE.MeshStandardMaterial({color:"#e8f2ff"}),
+  dry_grass:new THREE.MeshStandardMaterial({color:"#b9a14a"})
+};
+
+function num(v,d=0){ const n=Number(v); return Number.isFinite(n)?n:d; }
+
+function pairsToObj(arr){
+  const o = {};
+  for(let i=0;i<arr.length-1;i+=2) o[arr[i]] = arr[i+1];
+  return o;
+}
+
+let chunkSize = 16;
+let renderDistance = 4;
+let seed = 12345;
+const biomes = new Map();
+
+async function loadSimlaConfig(){
+  const file = new URLSearchParams(location.search).get("file") || "examples/voxel/procedural_world.sim";
+  const code = await fetch(file + "?t=" + Date.now()).then(r => r.text());
+  const result = run(compile(parse(tokenize(code))), {});
+  const data =
+    Array.isArray(result) ? result :
+    Array.isArray(result?.result) ? result.result :
+    Array.isArray(result?.value) ? result.value :
+    Array.isArray(result?.stack?.[result.stack.length - 1]) ? result.stack[result.stack.length - 1] :
+    [];
+
+  for(const raw of data){
+    const o = pairsToObj(raw);
+
+    if(o.type === "world"){
+      chunkSize = num(o.chunkSize, 16);
+      renderDistance = num(o.renderDistance, 4);
+      seed = num(o.seed, 12345);
+    }
+
+    if(o.type === "biome"){
+      biomes.set(o.id, o);
+    }
+
+    if(o.type === "camera"){
+      camera.position.set(num(o.x), num(o.y), num(o.z));
+      camera.lookAt(num(o.tx), num(o.ty), num(o.tz));
+    }
+
+    if(o.type === "light"){
+      const l = new THREE.PointLight(o.color || "#ffffff", num(o.intensity,1), 180);
+      l.position.set(num(o.x), num(o.y), num(o.z));
+      scene.add(l);
+    }
+  }
+
+  log("loaded Simla world config");
+}
+
+function hash2(x,z){
+  let n = Math.sin(x * 127.1 + z * 311.7 + seed * 0.013) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function heightAt(x,z){
+  const h =
+    8 +
+    Math.sin(x * 0.055) * 8 +
+    Math.cos(z * 0.047) * 7 +
+    Math.sin((x + z) * 0.026) * 5 +
+    Math.cos((x - z) * 0.019) * 4;
+  return Math.max(1, Math.floor(h));
+}
+
+function moisture(x,z){
+  return Math.sin(x * 0.024) + Math.cos(z * 0.031);
+}
+
+function temperature(x,z){
+  return Math.sin(x * 0.018) + Math.sin(z * 0.021);
+}
+
+function biomeAt(x,z,h){
+  const m = moisture(x,z);
+  const t = temperature(x,z);
+
+  if(h < 5) return "ocean";
+  if(h < 7) return "beach";
+  if(t < -0.95) return "frost";
+  if(h > 19) return "snow";
+  if(m < -0.95) return "desert";
+  if(m > 1.05) return "cherry";
+  if(t > 1.05) return "savanna";
+  if(m > 0.35) return "forest";
+  return "crystal";
+}
+
+function addBlock(list, kind, x, y, z){
+  if(!list.has(kind)) list.set(kind, []);
+  list.get(kind).push([x,y,z]);
+}
+
+function addTree(list, biome, x, h, z){
+  const b = biomes.get(biome) || {};
+  const trunk = b.trunk || "wood";
+  const leaf = b.leaf || "leaf";
+
+  if(biome === "desert"){
+    addBlock(list, "cactus", x, h+1, z);
+    addBlock(list, "cactus", x, h+2, z);
+    addBlock(list, "cactus", x, h+3, z);
+    return;
+  }
+
+  if(biome === "crystal"){
+    addBlock(list, "amethyst", x, h+1, z);
+    addBlock(list, "amethyst", x, h+2, z);
+    addBlock(list, "diamond", x, h+3, z);
+    return;
+  }
+
+  addBlock(list, trunk, x, h+1, z);
+  addBlock(list, trunk, x, h+2, z);
+  addBlock(list, trunk, x, h+3, z);
+
+  addBlock(list, leaf, x, h+4, z);
+  addBlock(list, leaf, x+1, h+4, z);
+  addBlock(list, leaf, x-1, h+4, z);
+  addBlock(list, leaf, x, h+4, z+1);
+  addBlock(list, leaf, x, h+4, z-1);
+  addBlock(list, leaf, x, h+5, z);
+}
+
+function generateChunk(cx,cz){
+  const group = new THREE.Group();
+  group.name = `chunk:${cx},${cz}`;
+
+  const byKind = new Map();
+
+  const startX = cx * chunkSize;
+  const startZ = cz * chunkSize;
+
+  for(let lx=0; lx<chunkSize; lx++){
+    for(let lz=0; lz<chunkSize; lz++){
+      const x = startX + lx;
+      const z = startZ + lz;
+      const h = heightAt(x,z);
+      const biome = biomeAt(x,z,h);
+      const b = biomes.get(biome) || {};
+      const top = b.top || "grass";
+
+      // Render surface and a small skirt only, not every buried cube.
+      addBlock(byKind, "stone", x, h-3, z);
+      addBlock(byKind, "dirt", x, h-2, z);
+      addBlock(byKind, "dirt", x, h-1, z);
+      addBlock(byKind, top, x, h, z);
+
+      if(h < 5){
+        addBlock(byKind, "water", x, 5, z);
+      }
+
+      const r = hash2(x,z);
+      if(r > 0.985 && h >= 7){
+        addTree(byKind, biome, x, h, z);
+      }
+
+      if(r < 0.006 && h > 7){
+        addBlock(byKind, b.accent || "coal", x, h+1, z);
+      }
+    }
+  }
+
+  const dummy = new THREE.Object3D();
+
+  for(const [kind, positions] of byKind.entries()){
+    const mesh = new THREE.InstancedMesh(geo, mats[kind] || mats.stone, positions.length);
+    mesh.frustumCulled = true;
+
+    for(let i=0;i<positions.length;i++){
+      const [x,y,z] = positions[i];
+      dummy.position.set(x,y,z);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    group.add(mesh);
+  }
+
+  root.add(group);
+  return group;
+}
+
+const chunks = new Map();
+
+function chunkKey(cx,cz){ return `${cx},${cz}`; }
+
+function updateChunks(){
+  const ccx = Math.floor(camera.position.x / chunkSize);
+  const ccz = Math.floor(camera.position.z / chunkSize);
+
+  const needed = new Set();
+
+  for(let dx=-renderDistance; dx<=renderDistance; dx++){
+    for(let dz=-renderDistance; dz<=renderDistance; dz++){
+      const cx = ccx + dx;
+      const cz = ccz + dz;
+      const k = chunkKey(cx,cz);
+      needed.add(k);
+      if(!chunks.has(k)){
+        chunks.set(k, generateChunk(cx,cz));
+      }
+    }
+  }
+
+  for(const [k,g] of chunks.entries()){
+    if(!needed.has(k)){
+      root.remove(g);
+      g.traverse(obj => {
+        obj.geometry?.dispose?.();
+        obj.material?.dispose?.();
+      });
+      chunks.delete(k);
+    }
+  }
+}
+
+
+const keys = new Set();
+
+addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
+addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+
+let yaw = Math.PI;
+let pitch = -0.35;
+
+const moveStick = { x:0, y:0 };
+const lookStick = { x:0, y:0 };
+
+function setupStick(id, state){
+  const joy = document.getElementById(id);
+  const knob = joy.querySelector(".knob");
+
+  let activePointer = null;
+
+  function update(clientX, clientY){
+    const r = joy.getBoundingClientRect();
+
+    let dx = clientX - (r.left + r.width * 0.5);
+    let dy = clientY - (r.top + r.height * 0.5);
+
+    const max = 100;
+
+    const len = Math.hypot(dx, dy);
+
+    if(len > max){
+      dx = dx / len * max;
+      dy = dy / len * max;
+    }
+
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    state.x = dx / max;
+    state.y = dy / max;
+  }
+
+  function reset(){
+    activePointer = null;
+    state.x = 0;
+    state.y = 0;
+    knob.style.transform = `translate(0px,0px)`;
+  }
+
+  joy.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    activePointer = e.pointerId;
+    joy.setPointerCapture(e.pointerId);
+    update(e.clientX, e.clientY);
+  });
+
+  joy.addEventListener("pointermove", e => {
+    if(activePointer !== e.pointerId) return;
+    e.preventDefault();
+    update(e.clientX, e.clientY);
+  });
+
+  joy.addEventListener("pointerup", e => {
+    if(activePointer !== e.pointerId) return;
+    reset();
+  });
+
+  joy.addEventListener("pointercancel", reset);
+}
+
+setupStick("moveJoy", moveStick);
+setupStick("lookJoy", lookStick);
+
+document.body.addEventListener("click", () => {
+  document.body.requestPointerLock?.();
+});
+
+document.addEventListener("mousemove", e => {
+  if(document.pointerLockElement !== document.body) return;
+
+  yaw -= e.movementX * 0.0025;
+  pitch -= e.movementY * 0.0025;
+
+  pitch = Math.max(-1.2, Math.min(0.9, pitch));
+});
+
+
+
+
+const player = new THREE.Group();
+
+const skinMat = new THREE.MeshStandardMaterial({ color:"#ffd2a6", roughness:0.7 });
+const tunicMat = new THREE.MeshStandardMaterial({ color:"#315cff", roughness:0.8 });
+const robeMat = new THREE.MeshStandardMaterial({ color:"#243b9f", roughness:0.85 });
+const trimMat = new THREE.MeshStandardMaterial({ color:"#ffd84a", roughness:0.45 });
+const bootMat = new THREE.MeshStandardMaterial({ color:"#1b1520", roughness:0.9 });
+const hairMat = new THREE.MeshStandardMaterial({ color:"#3a2418", roughness:0.8 });
+const glowMat = new THREE.MeshStandardMaterial({
+  color:"#66ccff",
+  emissive:"#2288ff",
+  emissiveIntensity:1.2
+});
+
+const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.15, 0.45), tunicMat);
+torso.position.y = 1.35;
+player.add(torso);
+
+const robe = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.75, 0.52), robeMat);
+robe.position.y = 0.78;
+player.add(robe);
+
+const belt = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.13, 0.56), trimMat);
+belt.position.y = 1.08;
+player.add(belt);
+
+const head = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.58, 0.58), skinMat);
+head.position.y = 2.18;
+player.add(head);
+
+const hair = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.22, 0.64), hairMat);
+hair.position.y = 2.53;
+player.add(hair);
+
+const hatBrim = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.12, 0.95), robeMat);
+hatBrim.position.y = 2.76;
+player.add(hatBrim);
+
+const hatTop = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 4), robeMat);
+hatTop.position.y = 3.26;
+hatTop.rotation.y = Math.PI / 4;
+player.add(hatTop);
+
+const hatBand = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.09, 0.62), trimMat);
+hatBand.position.y = 2.86;
+player.add(hatBand);
+
+const chestGem = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.25, 0.08), glowMat);
+chestGem.position.set(0, 1.55, -0.27);
+player.add(chestGem);
+
+function arm(x){
+  const pivot = new THREE.Group();
+  pivot.position.set(x, 1.9, 0);
+
+  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.62, 0.3), tunicMat);
+  sleeve.position.y = -0.31;
+  pivot.add(sleeve);
+
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.28, 0.26), skinMat);
+  hand.position.y = -0.78;
+  pivot.add(hand);
+
+  player.add(pivot);
+  return pivot;
+}
+
+function leg(x){
+  const hip = new THREE.Group();
+  hip.position.set(x, 0.92, 0);
+
+  const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.62, 0.34), robeMat);
+  thigh.position.y = -0.31;
+  hip.add(thigh);
+
+  const knee = new THREE.Group();
+  knee.position.y = -0.62;
+  hip.add(knee);
+
+  const shin = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.52, 0.31), robeMat);
+  shin.position.y = -0.26;
+  knee.add(shin);
+
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.68), bootMat);
+  foot.position.set(0, -0.58, -0.18);
+  knee.add(foot);
+
+  player.add(hip);
+  return { hip, knee, foot };
+}
+
+const leftArm = arm(-0.72);
+const rightArm = arm(0.72);
+
+const leftLeg = leg(-0.25);
+const rightLeg = leg(0.25);
+
+const staff = new THREE.Group();
+staff.position.set(0.42, 0.02, 0.02);
+
+const staffPole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.9, 0.08), new THREE.MeshStandardMaterial({ color:"#6b3f1f" }));
+staffPole.position.y = 0.15;
+staff.add(staffPole);
+
+const staffGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.22), glowMat);
+staffGem.position.y = 1.18;
+staff.add(staffGem);
+
+rightArm.add(staff);
+
+const aura = new THREE.Mesh(
+  new THREE.TorusGeometry(0.85, 0.025, 8, 48),
+  new THREE.MeshStandardMaterial({
+    color:"#66ccff",
+    emissive:"#2288ff",
+    emissiveIntensity:0.8,
+    transparent:true,
+    opacity:0.75
+  })
+);
+aura.rotation.x = Math.PI / 2;
+aura.position.y = 0.08;
+player.add(aura);
+
+scene.add(player);
+
+player.position.set(0, heightAt(0,0) + 1, 0);
+
+let playerYaw = 0;
+
+let velocityY = 0;
+let grounded = false;
+let jumpPressed = false;
+
+const jumpBtn = document.getElementById("jumpBtn");
+
+jumpBtn.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  jumpPressed = true;
+});
+
+jumpBtn.addEventListener("pointerup", () => {
+  jumpPressed = false;
+});
+
+jumpBtn.addEventListener("pointercancel", () => {
+  jumpPressed = false;
+});
+
+function groundY(x,z){
+  return heightAt(Math.floor(x), Math.floor(z)) + 1;
+}
+
+function updatePlayer(dt){
+
+  yaw -= lookStick.x * dt * 2.8;
+  pitch += lookStick.y * dt * 2.2;
+
+  pitch = Math.max(-1.2, Math.min(0.9, pitch));
+
+  let mx = moveStick.x;
+  let mz = moveStick.y;
+
+  if(keys.has("w")) mz -= 1;
+  if(keys.has("s")) mz += 1;
+  if(keys.has("a")) mx -= 1;
+  if(keys.has("d")) mx += 1;
+
+  const len = Math.hypot(mx, mz);
+
+  const walking = len > 0.05;
+  const walkT = performance.now() * 0.009;
+  const swing = walking ? Math.sin(walkT) * 0.75 : 0;
+
+  leftArm.rotation.x = swing;
+  rightArm.rotation.x = -swing;
+
+  leftLeg.hip.rotation.x = -swing;
+  rightLeg.hip.rotation.x = swing;
+
+  leftLeg.knee.rotation.x = -Math.max(0, swing) * 0.55;
+  rightLeg.knee.rotation.x = -Math.max(0, -swing) * 0.55;
+
+  leftLeg.foot.rotation.x = -0.15;
+  rightLeg.foot.rotation.x = -0.15;
+
+  if(len > 0.05){
+
+    mx /= len;
+    mz /= len;
+
+    const camForward = new THREE.Vector3(
+      Math.sin(yaw),
+      0,
+      Math.cos(yaw)
+    ).normalize();
+
+    const camRight = new THREE.Vector3(
+      camForward.z,
+      0,
+      -camForward.x
+    );
+
+    const move = new THREE.Vector3()
+      .addScaledVector(camRight, mx)
+      .addScaledVector(camForward, mz)
+      .normalize();
+
+    const speed = (keys.has("shift") ? 14 : 7) * dt;
+
+    player.position.addScaledVector(move, speed);
+
+    playerYaw = Math.atan2(move.x, move.z);
+    player.rotation.y = playerYaw + Math.PI;
+  }
+
+  const targetY = groundY(player.position.x, player.position.z);
+
+  if(player.position.y <= targetY + 0.02){
+    grounded = true;
+    player.position.y = targetY;
+
+    if(velocityY < 0) velocityY = 0;
+  } else {
+    grounded = false;
+  }
+
+  if(jumpPressed && grounded){
+    velocityY = 10;
+    grounded = false;
+  }
+
+  velocityY -= 24 * dt;
+  player.position.y += velocityY * dt;
+
+  if(player.position.y < targetY){
+    player.position.y = targetY;
+    velocityY = 0;
+    grounded = true;
+  }
+}
+
+function updateThirdPersonCamera(dt){
+
+  const radius = 10;
+
+  const target = new THREE.Vector3(
+    player.position.x,
+    player.position.y + 1.5,
+    player.position.z
+  );
+
+  const offset = new THREE.Vector3(
+    Math.sin(yaw) * Math.cos(pitch) * radius,
+    Math.sin(pitch) * radius + 4,
+    Math.cos(yaw) * Math.cos(pitch) * radius
+  );
+
+  const desired = target.clone().add(offset);
+
+  camera.position.lerp(
+    desired,
+    Math.min(1, dt * 10)
+  );
+
+  camera.lookAt(target);
+}
+
+function updateCamera(dt){
+  updatePlayer(dt);
+  updateThirdPersonCamera(dt);
+}
+await loadSimlaConfig();
+updateChunks();
+
+let last = performance.now();
+let chunkTimer = 0;
+
+function animate(now){
+  requestAnimationFrame(animate);
+
+  const dt = (now - last) / 1000;
+  last = now;
+
+  updatePlayer(dt);
+  updateThirdPersonCamera(dt);
+
+  chunkTimer += dt;
+  if(chunkTimer > 0.2){
+    chunkTimer = 0;
+    updateChunks();
+  }
+
+  aura.rotation.z += dt * 1.8;
+  chestGem.rotation.y += dt * 2.2;
+  staffGem.rotation.y += dt * 2.8;
+
+  renderer.render(scene,camera);
+
+  log(
+    "streaming voxel world" +
+    "\nchunks loaded: " + chunks.size +
+    "\nchunk size: " + chunkSize +
+    "\nrender distance: " + renderDistance +
+    "\nvirtual world: infinite" +
+    "\npos: " +
+    Math.floor(camera.position.x) + "," +
+    Math.floor(camera.position.y) + "," +
+    Math.floor(camera.position.z)
+  );
+}
+
+animate(performance.now());
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

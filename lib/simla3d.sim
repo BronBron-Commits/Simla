@@ -81,5 +81,22 @@
     )
   )
 
+
+  (let block
+    (fn (id kind x y z)
+      (list
+        "type" "block"
+        "id" id
+        "kind" kind
+        "x" x
+        "y" y
+        "z" z
+        "w" 1
+        "h" 1
+        "d" 1
+      )
+    )
+  )
+
   (let scene (fn (objects) objects))
 )

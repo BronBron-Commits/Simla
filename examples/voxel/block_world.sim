@@ -1,0 +1,50 @@
+(begin
+  (import "../../lib/simla3d.sim")
+
+  (let hillHeight
+    (fn (x z)
+      (add 2
+        (add
+          (mul 2 (sin (mul x 0.35)))
+          (mul 2 (cos (mul z 0.28)))
+        )
+      )
+    )
+  )
+
+  (let column
+    (fn (x z)
+      (begin
+        (let h (hillHeight x z))
+        (list
+          (block "stone" "stone" x 0 z)
+          (block "dirt" "dirt" x 1 z)
+          (block "grass" "grass" x h z)
+        )
+      )
+    )
+  )
+
+  (scene
+    (concat
+      (concat
+        (concat
+          (column -4 -4)
+          (column -4 -3)
+        )
+        (concat
+          (column -4 -2)
+          (column -4 -1)
+        )
+      )
+      (list
+        (block "tree_trunk" "wood" 0 4 0)
+        (block "tree_leaf_1" "leaf" 0 5 0)
+        (block "tree_leaf_2" "leaf" 1 5 0)
+        (block "tree_leaf_3" "leaf" -1 5 0)
+        (light "sun" 10 20 10 1.5 "#ffffff")
+        (camera 0 12 18 0 2 0)
+      )
+    )
+  )
+)

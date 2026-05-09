@@ -1,0 +1,55 @@
+(begin
+  (let world
+    (fn (id chunkSize renderDistance seed)
+      (list
+        "type" "world"
+        "id" id
+        "chunkSize" chunkSize
+        "renderDistance" renderDistance
+        "seed" seed
+      )
+    )
+  )
+
+  (let biome
+    (fn (id top trunk leaf accent)
+      (list
+        "type" "biome"
+        "id" id
+        "top" top
+        "trunk" trunk
+        "leaf" leaf
+        "accent" accent
+      )
+    )
+  )
+
+  (let light
+    (fn (id x y z intensity color)
+      (list "type" "light" "id" id "x" x "y" y "z" z "intensity" intensity "color" color)
+    )
+  )
+
+  (let camera
+    (fn (x y z tx ty tz)
+      (list "type" "camera" "id" "camera" "x" x "y" y "z" z "tx" tx "ty" ty "tz" tz)
+    )
+  )
+
+  (list
+    (world "streaming_voxel_world" 16 4 12345)
+
+    (biome "ocean" "sand" "wood" "leaf" "water")
+    (biome "beach" "sand" "wood" "leaf" "water")
+    (biome "desert" "sand" "cactus" "cactus" "gold")
+    (biome "forest" "grass" "wood" "leaf" "coal")
+    (biome "cherry" "pink_grass" "dark_wood" "cherry_leaf" "amethyst")
+    (biome "frost" "frost_grass" "white_wood" "ice_leaf" "diamond")
+    (biome "snow" "snow" "white_wood" "ice_leaf" "diamond")
+    (biome "crystal" "crystal_grass" "amethyst" "diamond" "diamond")
+    (biome "savanna" "dry_grass" "wood" "leaf" "iron")
+
+    (light "sun" 30 80 30 2.3 "#ffffff")
+    (camera 0 32 72 0 6 0)
+  )
+)

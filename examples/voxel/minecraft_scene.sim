@@ -1,0 +1,57 @@
+(begin
+  (let block
+    (fn (id kind x y z)
+      (list
+        "type" "block"
+        "id" id
+        "kind" kind
+        "x" x
+        "y" y
+        "z" z
+      )
+    )
+  )
+
+  (let light
+    (fn (id x y z intensity color)
+      (list "type" "light" "id" id "x" x "y" y "z" z "intensity" intensity "color" color)
+    )
+  )
+
+  (let camera
+    (fn (x y z tx ty tz)
+      (list "type" "camera" "id" "camera" "x" x "y" y "z" z "tx" tx "ty" ty "tz" tz)
+    )
+  )
+
+  (let scene (fn (objects) objects))
+
+  (scene
+    (list
+      (block "grass_0" "grass" 0 0 0)
+      (block "grass_1" "grass" 1 0 0)
+      (block "grass_2" "grass" 2 0 0)
+      (block "grass_3" "grass" 3 0 0)
+
+      (block "dirt_0" "dirt" 2 1 0)
+      (block "grass_top" "grass" 2 2 0)
+
+      (block "trunk_0" "wood" -2 0 0)
+      (block "trunk_1" "wood" -2 1 0)
+      (block "trunk_2" "wood" -2 2 0)
+
+      (block "leaf_0" "leaf" -2 3 0)
+      (block "leaf_1" "leaf" -1 3 0)
+      (block "leaf_2" "leaf" -3 3 0)
+      (block "leaf_3" "leaf" -2 3 1)
+      (block "leaf_4" "leaf" -2 3 -1)
+
+      (block "stone_0" "stone" 5 0 0)
+      (block "stone_1" "stone" 5 1 0)
+      (block "stone_2" "stone" 5 2 0)
+
+      (light "sun" 10 20 10 1.5 "#ffffff")
+      (camera 0 8 14 0 1 0)
+    )
+  )
+)
