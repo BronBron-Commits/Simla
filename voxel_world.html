@@ -50,6 +50,26 @@
 }
 
 
+#castBtn{
+  position:fixed;
+  right:88px;
+  bottom:520px;
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  border:4px solid rgba(210,240,255,.9);
+  background:
+    radial-gradient(circle at 35% 30%, #e8f7ff, #050509 56%, #2255ff);
+  color:white;
+  font-weight:900;
+  font-size:30px;
+  letter-spacing:2px;
+  z-index:99999;
+  box-shadow:
+    0 0 28px rgba(90,190,255,.85),
+    inset 0 -12px 24px rgba(0,40,160,.28);
+}
+
 #jumpBtn{
   position:fixed;
   right:88px;
@@ -78,7 +98,7 @@
   <div class="knob"></div>
 </div>
 
-<button id="jumpBtn">JUMP</button>
+<button id="castBtn">CAST</button>\n<button id="jumpBtn">JUMP</button>
 
 <div id="lookJoy" class="joy">
   <div class="knob"></div>
@@ -110,6 +130,98 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#87ceeb");
 scene.fog = new THREE.Fog("#87ceeb", 90, 260);
 
+function createSky(){
+  const skyGeo = new THREE.SphereGeometry(700, 48, 24);
+
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      time: { value: 0 },
+      sunDir: { value: new THREE.Vector3(0.45, 0.75, 0.25).normalize() }
+    },
+    vertexShader: `
+      varying vec3 vWorld;
+      void main(){
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorld = normalize(wp.xyz);
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      uniform float time;
+      uniform vec3 sunDir;
+      varying vec3 vWorld;
+
+      float hash(vec2 p){
+        return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+      }
+
+      float noise(vec2 p){
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0,0.0));
+        float c = hash(i + vec2(0.0,1.0));
+        float d = hash(i + vec2(1.0,1.0));
+        vec2 u = f*f*(3.0-2.0*f);
+        return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+      }
+
+      float fbm(vec2 p){
+        float v = 0.0;
+        float a = 0.5;
+        for(int i=0;i<5;i++){
+          v += noise(p) * a;
+          p *= 2.0;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main(){
+        float h = clamp(vWorld.y * 0.5 + 0.5, 0.0, 1.0);
+
+        vec3 horizon = vec3(0.70, 0.88, 1.0);
+        vec3 midSky = vec3(0.32, 0.62, 1.0);
+        vec3 topSky = vec3(0.05, 0.14, 0.38);
+
+        vec3 sky = mix(horizon, midSky, smoothstep(0.08, 0.55, h));
+        sky = mix(sky, topSky, smoothstep(0.55, 1.0, h));
+
+        float sunAmount = max(dot(vWorld, sunDir), 0.0);
+        float sunDisk = pow(sunAmount, 900.0);
+        float sunGlow = pow(sunAmount, 18.0);
+
+        sky += vec3(1.0, 0.72, 0.32) * sunGlow * 0.75;
+        sky += vec3(1.0, 0.90, 0.62) * sunDisk * 2.8;
+
+        vec2 cloudUv = vWorld.xz / max(vWorld.y + 0.25, 0.12);
+        cloudUv += vec2(time * 0.012, time * 0.006);
+
+        float c = fbm(cloudUv * 1.25);
+        float clouds = smoothstep(0.58, 0.78, c) * smoothstep(0.12, 0.55, h) * (1.0 - smoothstep(0.72, 1.0, h));
+
+        vec3 cloudColor = mix(vec3(0.85,0.92,1.0), vec3(1.0), h);
+        sky = mix(sky, cloudColor, clouds * 0.55);
+
+        float haze = 1.0 - smoothstep(0.02, 0.28, h);
+        sky = mix(sky, vec3(0.86,0.93,1.0), haze * 0.45);
+
+        gl_FragColor = vec4(sky, 1.0);
+      }
+    `
+  });
+
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(sky);
+
+  return skyMat;
+}
+
+const skyMaterial = createSky();
+
+
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 1200);
 camera.position.set(0, 32, 72);
 
@@ -132,29 +244,102 @@ const root = new THREE.Group();
 scene.add(root);
 
 const geo = new THREE.BoxGeometry(1,1,1);
+
+function makeBlockTexture(base, fleck, line){
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 128;
+
+  const ctx = c.getContext("2d");
+
+  ctx.fillStyle = base;
+  ctx.fillRect(0,0,128,128);
+
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = fleck;
+
+  for(let i=0;i<420;i++){
+    ctx.fillRect(
+      Math.random()*128,
+      Math.random()*128,
+      1 + Math.random()*3,
+      1 + Math.random()*3
+    );
+  }
+
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = line;
+
+  for(let i=0;i<128;i+=16){
+    ctx.beginPath();
+    ctx.moveTo(i,0);
+    ctx.lineTo(i,128);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0,i);
+    ctx.lineTo(128,i);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestMipmapLinearFilter;
+
+  return tex;
+}
+
+function blockMat(base, fleck, line, extra={}){
+  const map = makeBlockTexture(base, fleck, line);
+
+  return new THREE.MeshStandardMaterial({
+    color: base,
+    map,
+    roughness: 0.82,
+    metalness: 0.02,
+    ...extra
+  });
+}
+
+
 const mats = {
-  grass:new THREE.MeshStandardMaterial({color:"#4caf50"}),
-  dirt:new THREE.MeshStandardMaterial({color:"#7a4a24"}),
-  stone:new THREE.MeshStandardMaterial({color:"#777777"}),
-  wood:new THREE.MeshStandardMaterial({color:"#8b5a2b"}),
-  leaf:new THREE.MeshStandardMaterial({color:"#2e8b3c"}),
-  sand:new THREE.MeshStandardMaterial({color:"#d9c27a"}),
-  water:new THREE.MeshStandardMaterial({color:"#3ba7ff",transparent:true,opacity:.58}),
-  snow:new THREE.MeshStandardMaterial({color:"#eeeeff"}),
-  coal:new THREE.MeshStandardMaterial({color:"#111111"}),
-  iron:new THREE.MeshStandardMaterial({color:"#b8b8b8"}),
-  gold:new THREE.MeshStandardMaterial({color:"#ffd84a"}),
-  diamond:new THREE.MeshStandardMaterial({color:"#55ffff"}),
-  pink_grass:new THREE.MeshStandardMaterial({color:"#f7a8d8"}),
-  cherry_leaf:new THREE.MeshStandardMaterial({color:"#ff9ed8"}),
-  dark_wood:new THREE.MeshStandardMaterial({color:"#5a2b2b"}),
-  cactus:new THREE.MeshStandardMaterial({color:"#1f8f3a"}),
-  crystal_grass:new THREE.MeshStandardMaterial({color:"#6c7cff"}),
-  amethyst:new THREE.MeshStandardMaterial({color:"#a855f7"}),
-  frost_grass:new THREE.MeshStandardMaterial({color:"#bfefff"}),
-  ice_leaf:new THREE.MeshStandardMaterial({color:"#dff8ff", transparent:true, opacity:.85}),
-  white_wood:new THREE.MeshStandardMaterial({color:"#e8f2ff"}),
-  dry_grass:new THREE.MeshStandardMaterial({color:"#b9a14a"})
+  grass:blockMat("#4caf50", "#7fe37c", "#2f7d32"),
+  dirt:blockMat("#7a4a24", "#a46a3a", "#3b2110"),
+  stone:blockMat("#777777", "#a0a0a0", "#4b4b4b", { roughness:0.9 }),
+  wood:blockMat("#8b5a2b", "#bf8650", "#4a2a12"),
+  leaf:blockMat("#2e8b3c", "#62c86f", "#145d20", { transparent:true, opacity:0.92 }),
+  sand:blockMat("#d9c27a", "#fff0a8", "#a8924f"),
+  water:new THREE.MeshPhysicalMaterial({
+    color:"#2f9fff",
+    transparent:true,
+    opacity:0.55,
+    roughness:0.08,
+    metalness:0.0,
+    clearcoat:1.0,
+    clearcoatRoughness:0.05,
+    emissive:"#06335c",
+    emissiveIntensity:0.18
+  }),
+  snow:blockMat("#eeeeff", "#ffffff", "#b7d7ff", { roughness:0.58 }),
+  coal:blockMat("#111111", "#333333", "#050505", { roughness:0.95 }),
+  iron:blockMat("#b8b8b8", "#eeeeee", "#777777", { metalness:0.35, roughness:0.42 }),
+  gold:blockMat("#ffd84a", "#fff3a0", "#b38300", { metalness:0.55, roughness:0.32 }),
+  diamond:blockMat("#55ffff", "#d5ffff", "#1590aa", { metalness:0.1, roughness:0.2, emissive:"#115566", emissiveIntensity:0.25 }),
+  pink_grass:blockMat("#f7a8d8", "#ffd7ed", "#cf6faa"),
+  cherry_leaf:blockMat("#ff9ed8", "#ffd6ee", "#ce5ba5", { transparent:true, opacity:0.92 }),
+  dark_wood:blockMat("#5a2b2b", "#8d4a3a", "#2b1010"),
+  cactus:blockMat("#1f8f3a", "#4ed36a", "#0f5722"),
+  crystal_grass:blockMat("#6c7cff", "#b9c1ff", "#283499"),
+  amethyst:blockMat("#a855f7", "#e0b8ff", "#4d148a", { metalness:0.1, roughness:0.22, emissive:"#39105f", emissiveIntensity:0.22 }),
+  frost_grass:blockMat("#bfefff", "#ffffff", "#75bfe0"),
+  ice_leaf:blockMat("#dff8ff", "#ffffff", "#83dfff", { transparent:true, opacity:0.82 }),
+  white_wood:blockMat("#e8f2ff", "#ffffff", "#9eb7d0"),
+  dry_grass:blockMat("#b9a14a", "#e1cb69", "#77651d")
 };
 
 function num(v,d=0){ const n=Number(v); return Number.isFinite(n)?n:d; }
@@ -283,6 +468,197 @@ function addTree(list, biome, x, h, z){
   addBlock(list, leaf, x, h+5, z);
 }
 
+
+
+function villageSeed(cx, cz){
+  return hash2(cx * 91 + 17, cz * 57 - 31);
+}
+
+function isBuildableVillageLand(x, z){
+  const h = heightAt(Math.floor(x), Math.floor(z));
+  const b = biomeAt(Math.floor(x), Math.floor(z), h);
+
+  if(b === "ocean" || b === "beach") return false;
+  if(h < 7) return false;
+
+  return true;
+}
+
+function flatEnoughForHouse(x, z, w, d){
+  const base = heightAt(x, z);
+
+  for(let ix=0; ix<w; ix++){
+    for(let iz=0; iz<d; iz++){
+      const h = heightAt(x + ix, z + iz);
+      if(Math.abs(h - base) > 2) return false;
+
+      const b = biomeAt(x + ix, z + iz, h);
+      if(b === "ocean" || b === "beach") return false;
+    }
+  }
+
+  return true;
+}
+
+function addHut(list, x, z){
+  const w = 5;
+  const d = 5;
+  if(!flatEnoughForHouse(x,z,w,d)) return;
+
+  const y = heightAt(x,z) + 1;
+
+  for(let ix=0; ix<w; ix++){
+    for(let iz=0; iz<d; iz++){
+      addBlock(list, "wood", x+ix, y, z+iz);
+    }
+  }
+
+  for(let yy=1; yy<=3; yy++){
+    for(let ix=0; ix<w; ix++){
+      addBlock(list, "dark_wood", x+ix, y+yy, z);
+      addBlock(list, "dark_wood", x+ix, y+yy, z+d-1);
+    }
+    for(let iz=1; iz<d-1; iz++){
+      addBlock(list, "dark_wood", x, y+yy, z+iz);
+      addBlock(list, "dark_wood", x+w-1, y+yy, z+iz);
+    }
+  }
+
+  for(let ix=-1; ix<=w; ix++){
+    for(let iz=-1; iz<=d; iz++){
+      addBlock(list, "dry_grass", x+ix, y+4, z+iz);
+    }
+  }
+
+  addBlock(list, "gold", x+2, y+1, z-1);
+}
+
+function addTower(list, x, z){
+  const w = 4;
+  const d = 4;
+  if(!flatEnoughForHouse(x,z,w,d)) return;
+
+  const y = heightAt(x,z) + 1;
+
+  for(let yy=0; yy<=7; yy++){
+    for(let ix=0; ix<w; ix++){
+      for(let iz=0; iz<d; iz++){
+        if(ix === 0 || iz === 0 || ix === w-1 || iz === d-1){
+          addBlock(list, yy > 5 ? "stone" : "dark_wood", x+ix, y+yy, z+iz);
+        }
+      }
+    }
+  }
+
+  for(let ix=-1; ix<=w; ix++){
+    for(let iz=-1; iz<=d; iz++){
+      if(ix === -1 || iz === -1 || ix === w || iz === d){
+        addBlock(list, "stone", x+ix, y+8, z+iz);
+      }
+    }
+  }
+}
+
+function addLongHouse(list, x, z){
+  const w = 8;
+  const d = 5;
+  if(!flatEnoughForHouse(x,z,w,d)) return;
+
+  const y = heightAt(x,z) + 1;
+
+  for(let ix=0; ix<w; ix++){
+    for(let iz=0; iz<d; iz++){
+      addBlock(list, "wood", x+ix, y, z+iz);
+    }
+  }
+
+  for(let yy=1; yy<=3; yy++){
+    for(let ix=0; ix<w; ix++){
+      addBlock(list, "dark_wood", x+ix, y+yy, z);
+      addBlock(list, "dark_wood", x+ix, y+yy, z+d-1);
+    }
+    for(let iz=1; iz<d-1; iz++){
+      addBlock(list, "dark_wood", x, y+yy, z+iz);
+      addBlock(list, "dark_wood", x+w-1, y+yy, z+iz);
+    }
+  }
+
+  for(let ix=-1; ix<=w; ix++){
+    addBlock(list, "stone", x+ix, y+4, z-1);
+    addBlock(list, "stone", x+ix, y+4, z+d);
+  }
+
+  for(let ix=0; ix<w; ix++){
+    for(let iz=0; iz<d; iz++){
+      addBlock(list, "stone", x+ix, y+5, z+iz);
+    }
+  }
+
+  addBlock(list, "gold", x+Math.floor(w/2), y+1, z-1);
+}
+
+function addVillagePath(list, x1, z1, x2, z2){
+  const steps = 24;
+
+  for(let i=0; i<=steps; i++){
+    const t = i / steps;
+    const x = Math.floor(x1 + (x2-x1) * t);
+    const z = Math.floor(z1 + (z2-z1) * t);
+
+    if(isBuildableVillageLand(x,z)){
+      const y = heightAt(x,z) + 1;
+      addBlock(list, "sand", x, y, z);
+      addBlock(list, "sand", x+1, y, z);
+    }
+  }
+}
+
+function addVillageToChunk(list, cx, cz, startX, startZ){
+  const gx = Math.floor(cx / 5);
+  const gz = Math.floor(cz / 5);
+
+  if(hash2(gx, gz) < 0.78) return;
+
+  const centerX = gx * chunkSize * 5 + 28;
+  const centerZ = gz * chunkSize * 5 + 28;
+
+  if(!isBuildableVillageLand(centerX, centerZ)) return;
+
+  const buildings = [
+    { kind:"hut",  x:centerX - 13, z:centerZ - 7 },
+    { kind:"long", x:centerX + 4,  z:centerZ - 10 },
+    { kind:"tower",x:centerX - 5,  z:centerZ + 8 },
+    { kind:"hut",  x:centerX + 14, z:centerZ + 6 },
+    { kind:"hut",  x:centerX - 17, z:centerZ + 12 }
+  ];
+
+  for(const b of buildings){
+    if(
+      b.x >= startX - 12 &&
+      b.x < startX + chunkSize + 12 &&
+      b.z >= startZ - 12 &&
+      b.z < startZ + chunkSize + 12
+    ){
+      if(b.kind === "hut") addHut(list, b.x, b.z);
+      if(b.kind === "tower") addTower(list, b.x, b.z);
+      if(b.kind === "long") addLongHouse(list, b.x, b.z);
+      addVillagePath(list, centerX, centerZ, b.x, b.z);
+    }
+  }
+
+  if(centerX >= startX && centerX < startX + chunkSize && centerZ >= startZ && centerZ < startZ + chunkSize){
+    const y = heightAt(centerX, centerZ) + 1;
+
+    addBlock(list, "stone", centerX, y, centerZ);
+    addBlock(list, "water", centerX, y + 1, centerZ);
+    addBlock(list, "stone", centerX + 1, y, centerZ);
+    addBlock(list, "stone", centerX - 1, y, centerZ);
+    addBlock(list, "stone", centerX, y, centerZ + 1);
+    addBlock(list, "stone", centerX, y, centerZ - 1);
+  }
+}
+
+
 function generateChunk(cx,cz){
   const group = new THREE.Group();
   group.name = `chunk:${cx},${cz}`;
@@ -322,6 +698,8 @@ function generateChunk(cx,cz){
     }
   }
 
+  addVillageToChunk(byKind, cx, cz, startX, startZ);
+
   const dummy = new THREE.Object3D();
 
   for(const [kind, positions] of byKind.entries()){
@@ -339,13 +717,159 @@ function generateChunk(cx,cz){
     group.add(mesh);
   }
 
+  // broad animated water sheet for ocean/coast chunks
+  let waterCount = 0;
+  for(let lx=0; lx<chunkSize; lx+=4){
+    for(let lz=0; lz<chunkSize; lz+=4){
+      const wx = startX + lx;
+      const wz = startZ + lz;
+      const h = heightAt(wx, wz);
+      const b = biomeAt(wx, wz, h);
+      if(b === "ocean" || b === "beach") waterCount++;
+    }
+  }
+
+  if(waterCount > 3){
+    addWaterSurface(group, startX, startZ);
+  }
+
   root.add(group);
   return group;
+}
+
+
+const waterSurfaces = [];
+
+const waterSurfaceMat = new THREE.ShaderMaterial({
+  transparent:true,
+  depthWrite:false,
+  side:THREE.DoubleSide,
+  uniforms:{
+    time:{ value:0 },
+    shallowColor:{ value:new THREE.Color("#39c8ff") },
+    deepColor:{ value:new THREE.Color("#064a8f") },
+    foamColor:{ value:new THREE.Color("#dff8ff") },
+    sunColor:{ value:new THREE.Color("#fff6c8") }
+  },
+  vertexShader: `
+    uniform float time;
+
+    varying vec2 vUv;
+    varying vec3 vWorldPos;
+    varying vec3 vNormal;
+
+    float wave(vec2 p, float speed, float scale, float amp){
+      return sin(p.x * scale + time * speed) * amp
+           + cos(p.y * scale * 0.73 + time * speed * 0.81) * amp;
+    }
+
+    void main(){
+      vUv = uv;
+
+      vec3 pos = position;
+
+      float w1 = wave(pos.xy, 1.8, 0.55, 0.12);
+      float w2 = wave(pos.yx + vec2(7.1, 2.3), 2.7, 1.25, 0.045);
+      float w3 = wave(pos.xy + vec2(3.4, 8.2), 0.9, 0.22, 0.09);
+
+      pos.z += w1 + w2 + w3;
+
+      vec4 wp = modelMatrix * vec4(pos, 1.0);
+      vWorldPos = wp.xyz;
+
+      vec3 dx = vec3(0.08, 0.0, wave(pos.xy + vec2(0.08,0.0), 1.8, 0.55, 0.12) - w1);
+      vec3 dy = vec3(0.0, 0.08, wave(pos.xy + vec2(0.0,0.08), 1.8, 0.55, 0.12) - w1);
+      vNormal = normalize(normalMatrix * cross(dx, dy));
+
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `,
+  fragmentShader: `
+    uniform float time;
+    uniform vec3 shallowColor;
+    uniform vec3 deepColor;
+    uniform vec3 foamColor;
+    uniform vec3 sunColor;
+
+    varying vec2 vUv;
+    varying vec3 vWorldPos;
+    varying vec3 vNormal;
+
+    float hash(vec2 p){
+      return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+    }
+
+    float noise(vec2 p){
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+
+      float a = hash(i);
+      float b = hash(i + vec2(1.0,0.0));
+      float c = hash(i + vec2(0.0,1.0));
+      float d = hash(i + vec2(1.0,1.0));
+
+      vec2 u = f*f*(3.0-2.0*f);
+
+      return mix(a,b,u.x) +
+        (c-a)*u.y*(1.0-u.x) +
+        (d-b)*u.x*u.y;
+    }
+
+    void main(){
+      vec3 N = normalize(vNormal);
+      vec3 V = normalize(cameraPosition - vWorldPos);
+      vec3 L = normalize(vec3(0.45, 0.9, 0.25));
+
+      float fresnel = pow(1.0 - max(dot(N,V), 0.0), 2.5);
+
+      float n1 = noise(vWorldPos.xz * 0.18 + vec2(time * 0.08, time * 0.03));
+      float n2 = noise(vWorldPos.xz * 0.55 - vec2(time * 0.18, time * 0.12));
+
+      float depthMix = smoothstep(0.15, 0.95, n1);
+      vec3 water = mix(shallowColor, deepColor, depthMix);
+
+      float foam =
+        smoothstep(0.72, 0.95, n2) *
+        smoothstep(0.15, 0.95, fresnel + n1 * 0.25);
+
+      vec3 H = normalize(L + V);
+      float spec = pow(max(dot(N,H), 0.0), 90.0) * 1.5;
+
+      vec3 col = water;
+      col += fresnel * vec3(0.35, 0.75, 1.0);
+      col = mix(col, foamColor, foam * 0.65);
+      col += sunColor * spec;
+
+      float alpha = 0.62 + fresnel * 0.22 + foam * 0.12;
+
+      gl_FragColor = vec4(col, alpha);
+    }
+  `
+});
+
+function addWaterSurface(group, x, z){
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(chunkSize, chunkSize, 64, 64),
+    waterSurfaceMat
+  );
+
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.set(x + chunkSize * 0.5, 5.08, z + chunkSize * 0.5);
+  plane.userData.water = true;
+
+  group.add(plane);
+  waterSurfaces.push(plane);
 }
 
 const chunks = new Map();
 
 function chunkKey(cx,cz){ return `${cx},${cz}`; }
+
+
+
+function animateWater(dt, now){
+  waterSurfaceMat.uniforms.time.value = now * 0.001;
+}
 
 function updateChunks(){
   const ccx = Math.floor(camera.position.x / chunkSize);
@@ -424,6 +948,8 @@ function setupStick(id, state){
   }
 
   joy.addEventListener("pointerdown", e => {
+    ensureAudio();
+    startBackgroundMusic();
     e.preventDefault();
     activePointer = e.pointerId;
     joy.setPointerCapture(e.pointerId);
@@ -448,6 +974,8 @@ setupStick("moveJoy", moveStick);
 setupStick("lookJoy", lookStick);
 
 document.body.addEventListener("click", () => {
+  ensureAudio();
+  startBackgroundMusic();
   document.body.requestPointerLock?.();
 });
 
@@ -472,8 +1000,8 @@ const trimMat = new THREE.MeshStandardMaterial({ color:"#ffd84a", roughness:0.45
 const bootMat = new THREE.MeshStandardMaterial({ color:"#1b1520", roughness:0.9 });
 const hairMat = new THREE.MeshStandardMaterial({ color:"#3a2418", roughness:0.8 });
 const glowMat = new THREE.MeshStandardMaterial({
-  color:"#66ccff",
-  emissive:"#2288ff",
+  color:"#050509",
+  emissive:"#140020",
   emissiveIntensity:1.2
 });
 
@@ -576,8 +1104,8 @@ rightArm.add(staff);
 const aura = new THREE.Mesh(
   new THREE.TorusGeometry(0.85, 0.025, 8, 48),
   new THREE.MeshStandardMaterial({
-    color:"#66ccff",
-    emissive:"#2288ff",
+    color:"#050509",
+    emissive:"#140020",
     emissiveIntensity:0.8,
     transparent:true,
     opacity:0.75
@@ -589,15 +1117,671 @@ player.add(aura);
 
 scene.add(player);
 
+
+
+const butterflies = [];
+
+function spawnButterfly(x, z, color){
+  const group = new THREE.Group();
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.25,
+    roughness: 0.55,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.86
+  });
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color:"#22160f" });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.38, 8), bodyMat);
+  body.rotation.x = Math.PI / 2;
+  group.add(body);
+
+  const leftWing = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.32), wingMat);
+  leftWing.position.set(-0.22, 0.04, 0);
+  leftWing.rotation.y = 0.45;
+  group.add(leftWing);
+
+  const rightWing = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.32), wingMat);
+  rightWing.position.set(0.22, 0.04, 0);
+  rightWing.rotation.y = -0.45;
+  group.add(rightWing);
+
+  const y = heightAt(Math.floor(x), Math.floor(z)) + 2.2;
+  group.position.set(x, y, z);
+  scene.add(group);
+
+  butterflies.push({
+    group,
+    leftWing,
+    rightWing,
+    homeX:x,
+    homeZ:z,
+    phase:Math.random() * 100,
+    radius:2 + Math.random() * 4
+  });
+}
+
+function spawnCoastButterflies(){
+  for(let x=-45; x<=45; x+=6){
+    for(let z=-45; z<=45; z+=6){
+      const h = heightAt(x,z);
+      const b = biomeAt(x,z,h);
+
+      if((b === "beach" || b === "ocean") && Math.random() > 0.72){
+        spawnButterfly(
+          x + Math.random() * 3,
+          z + Math.random() * 3,
+          Math.random() > 0.5 ? "#ffcc55" : "#ff8bd8"
+        );
+      }
+    }
+  }
+}
+
+function updateButterflies(dt, now){
+  const t = now * 0.001;
+
+  for(const b of butterflies){
+    const x = b.homeX + Math.sin(t * 0.9 + b.phase) * b.radius;
+    const z = b.homeZ + Math.cos(t * 0.7 + b.phase) * b.radius;
+    const y = heightAt(Math.floor(x), Math.floor(z)) + 2.1 + Math.sin(t * 3.2 + b.phase) * 0.5;
+
+    b.group.position.lerp(new THREE.Vector3(x,y,z), Math.min(1, dt * 3));
+    b.group.rotation.y = Math.sin(t * 0.9 + b.phase) * Math.PI;
+
+    const flap = Math.sin(t * 18 + b.phase) * 0.9;
+    b.leftWing.rotation.y = 0.45 + flap;
+    b.rightWing.rotation.y = -0.45 - flap;
+  }
+}
+
+
+const mobs = [];
+
+function spawnSlime(x, z){
+  const mob = new THREE.Group();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color:"#44dd66",
+    roughness:0.45,
+    transparent:true,
+    opacity:0.88
+  });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.65, 24, 16), mat);
+  body.scale.set(1, 0.78, 1);
+  body.position.y = 0.65;
+  mob.add(body);
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color:"#050505" });
+
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), eyeMat);
+  eyeL.position.set(-0.22, 0.86, -0.5);
+  mob.add(eyeL);
+
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.22;
+  mob.add(eyeR);
+
+  mob.position.set(x, heightAt(Math.floor(x), Math.floor(z)) + 1, z);
+  scene.add(mob);
+
+  mobs.push({
+    group: mob,
+    homeX: x,
+    homeZ: z,
+    targetX: x + 8,
+    targetZ: z,
+    phase: Math.random() * 100
+  });
+}
+
+spawnSlime(3, 3);
+spawnSlime(-4, 5);
+spawnSlime(6, -3);
+spawnCoastButterflies();
+
+function updateMobs(dt, now){
+  const time = now * 0.001;
+
+  for(let i = 0; i < mobs.length; i++){
+    const m = mobs[i];
+
+    const radius = 5 + i * 2;
+    const speed = 0.75 + i * 0.18;
+
+    const x = m.homeX + Math.sin(time * speed + i * 2.1) * radius;
+    const z = m.homeZ + Math.cos(time * speed + i * 2.1) * radius;
+    const y = heightAt(Math.floor(x), Math.floor(z)) + 1;
+
+    m.group.position.set(x, y, z);
+
+    const hop = Math.abs(Math.sin(time * 7 + i));
+    m.group.scale.set(
+      1.1 - hop * 0.18,
+      0.8 + hop * 0.35,
+      1.1 - hop * 0.18
+    );
+
+    m.group.lookAt(player.position.x, m.group.position.y, player.position.z);
+  }
+}
+
+
 player.position.set(0, heightAt(0,0) + 1, 0);
+
+
+
+let bgMusic = null;
+
+function setupBackgroundMusic(){
+  if(bgMusic) return;
+
+  bgMusic = new Audio("assets/audio/piano_theme.wav");
+  bgMusic.loop = true;
+  bgMusic.volume = 0.38;
+}
+
+function startBackgroundMusic(){
+  setupBackgroundMusic();
+
+  bgMusic.play().catch(err => {
+    console.log("music blocked until user gesture", err);
+  });
+}
+
+
+let audioCtx = null;
+let lastFootstepTime = 0;
+let footstepSide = 0;
+
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === "suspended"){
+    audioCtx.resume();
+  }
+}
+
+
+function playCastSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc.type = "sawtooth";
+
+  osc.frequency.setValueAtTime(240, now);
+  osc.frequency.exponentialRampToValueAtTime(620, now + 0.08);
+  osc.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(900, now);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.22, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.26);
+}
+
+function playJumpSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "square";
+  osc.frequency.setValueAtTime(190, now);
+  osc.frequency.exponentialRampToValueAtTime(430, now + 0.08);
+  osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.28, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.24);
+}
+
+
+function playMagicImpactSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  // deep boom layer
+  const boomOsc = audioCtx.createOscillator();
+  const boomGain = audioCtx.createGain();
+
+  boomOsc.type = "sine";
+  boomOsc.frequency.setValueAtTime(140, now);
+  boomOsc.frequency.exponentialRampToValueAtTime(48, now + 0.35);
+
+  boomGain.gain.setValueAtTime(0.001, now);
+  boomGain.gain.linearRampToValueAtTime(0.55, now + 0.02);
+  boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+  boomOsc.connect(boomGain);
+  boomGain.connect(audioCtx.destination);
+
+  boomOsc.start(now);
+  boomOsc.stop(now + 0.45);
+
+  // crack layer
+  const crackOsc = audioCtx.createOscillator();
+  const crackGain = audioCtx.createGain();
+
+  crackOsc.type = "sawtooth";
+  crackOsc.frequency.setValueAtTime(980, now);
+  crackOsc.frequency.exponentialRampToValueAtTime(180, now + 0.18);
+
+  crackGain.gain.setValueAtTime(0.001, now);
+  crackGain.gain.linearRampToValueAtTime(0.14, now + 0.01);
+  crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+  crackOsc.connect(crackGain);
+  crackGain.connect(audioCtx.destination);
+
+  crackOsc.start(now);
+  crackOsc.stop(now + 0.22);
+
+  // noise burst
+  const buffer = audioCtx.createBuffer(
+    1,
+    audioCtx.sampleRate * 0.35,
+    audioCtx.sampleRate
+  );
+
+  const data = buffer.getChannelData(0);
+
+  for(let i=0;i<data.length;i++){
+    data[i] =
+      (Math.random() * 2 - 1) *
+      Math.pow(1 - i / data.length, 2.2);
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.setValueAtTime(420, now);
+
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.18, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+
+  noise.start(now);
+  noise.stop(now + 0.3);
+}
+
+
+function playExplosionSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  const noiseBuffer = audioCtx.createBuffer(
+    1,
+    audioCtx.sampleRate * 0.45,
+    audioCtx.sampleRate
+  );
+
+  const data = noiseBuffer.getChannelData(0);
+
+  for(let i=0;i<data.length;i++){
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(900, now);
+  filter.frequency.exponentialRampToValueAtTime(180, now + 0.4);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.45, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  noise.start(now);
+  noise.stop(now + 0.45);
+}
+
+
+function playFootstep(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(180 + footstepSide * 35, now);
+  osc.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(1200, now);
+
+  gain.gain.setValueAtTime(0.0, now);
+  gain.gain.linearRampToValueAtTime(0.12, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.14);
+
+  footstepSide = 1 - footstepSide;
+}
 
 let playerYaw = 0;
 
 let velocityY = 0;
 let grounded = false;
 let jumpPressed = false;
+let jumpCount = 0;
+let maxJumps = 3;
+
+
+
+
+
+const magicProjectiles = [];
+const magicExplosions = [];
+let magicCastDebug = 0;
+
+function playerForward(){
+  return new THREE.Vector3(
+    Math.sin(playerYaw),
+    0,
+    Math.cos(playerYaw)
+  ).normalize();
+}
+
+function shootMagic(){
+  magicCastDebug++;
+  playCastSound();
+  playCastSound();
+
+  const dir = playerForward();
+
+  const start = player.position.clone()
+    .add(new THREE.Vector3(0, 1.75, 0))
+    .addScaledVector(dir, 1.8);
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.45, 24, 16),
+    new THREE.MeshBasicMaterial({
+      color:"#050509",
+      transparent:true,
+      opacity:1,
+      depthWrite:false
+    })
+  );
+
+  orb.position.copy(start);
+  scene.add(orb);
+
+  const light = new THREE.PointLight("#6b1cff", 8, 22);
+  light.position.copy(start);
+  scene.add(light);
+
+  magicProjectiles.push({
+    mesh: orb,
+    light,
+    start,
+    dir,
+    age: 0,
+    maxAge: 1.25,
+    speed: 18
+  });
+}
+
+function explodeMagic(pos){
+  const count = 120;
+  const positions = new Float32Array(count * 3);
+  const velocities = [];
+
+  for(let i=0;i<count;i++){
+    positions[i*3+0] = pos.x;
+    positions[i*3+1] = pos.y;
+    positions[i*3+2] = pos.z;
+
+    velocities.push(new THREE.Vector3(
+      Math.random()*2-1,
+      Math.random()*1.8,
+      Math.random()*2-1
+    ).normalize().multiplyScalar(8 + Math.random()*16));
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    color:"#050509",
+    size:0.32,
+    transparent:true,
+    opacity:1,
+    depthWrite:false
+  });
+
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  const light = new THREE.PointLight("#6b1cff", 14, 30);
+  light.position.copy(pos);
+  scene.add(light);
+
+  magicExplosions.push({
+    points,
+    light,
+    velocities,
+    age:0,
+    maxAge:0.7
+  });
+}
+
+function updateMagic(dt){
+  window.__magicTick = (window.__magicTick || 0) + 1;
+
+  for(let i = magicProjectiles.length - 1; i >= 0; i--){
+    const p = magicProjectiles[i];
+
+    p.age += dt;
+
+    const distance = p.age * p.speed;
+    p.mesh.position.copy(p.start).addScaledVector(p.dir, distance);
+    p.light.position.copy(p.mesh.position);
+
+    p.mesh.scale.setScalar(1 + Math.sin(p.age * 28) * 0.18);
+
+    if(p.age >= p.maxAge){
+      const impact = p.mesh.position.clone();
+
+      scene.remove(p.mesh);
+      scene.remove(p.light);
+
+      p.mesh.traverse(o => {
+        o.geometry?.dispose?.();
+        o.material?.dispose?.();
+      });
+
+      magicProjectiles.splice(i, 1);
+      playMagicImpactSound();
+      explodeMagic(impact);
+    }
+  }
+
+  for(let i = magicExplosions.length - 1; i >= 0; i--){
+    const e = magicExplosions[i];
+
+    e.age += dt;
+    const t = e.age / e.maxAge;
+
+    const arr = e.points.geometry.attributes.position.array;
+
+    for(let j = 0; j < e.velocities.length; j++){
+      const v = e.velocities[j];
+
+      v.y -= 9 * dt;
+
+      arr[j * 3 + 0] += v.x * dt;
+      arr[j * 3 + 1] += v.y * dt;
+      arr[j * 3 + 2] += v.z * dt;
+    }
+
+    e.points.geometry.attributes.position.needsUpdate = true;
+    e.points.material.opacity = Math.max(0, 1 - t);
+    e.light.intensity = Math.max(0, 14 * (1 - t));
+
+    if(e.age >= e.maxAge){
+      scene.remove(e.points);
+      scene.remove(e.light);
+
+      e.points.geometry.dispose();
+      e.points.material.dispose();
+
+      magicExplosions.splice(i, 1);
+    }
+  }
+}
+
+
+const snowSystems = [];
+
+function makeSnowSystem(cx, cz, radius=55, count=520){
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const speeds = [];
+
+  for(let i=0;i<count;i++){
+    positions[i*3+0] = cx + (Math.random()*2-1) * radius;
+    positions[i*3+1] = 8 + Math.random() * 26;
+    positions[i*3+2] = cz + (Math.random()*2-1) * radius;
+
+    speeds.push(0.8 + Math.random() * 2.2);
+  }
+
+  geo.setAttribute(
+    "position",
+    new THREE.BufferAttribute(positions, 3)
+  );
+
+  const mat = new THREE.PointsMaterial({
+    color:"#ffffff",
+    size:0.16,
+    transparent:true,
+    opacity:0.92,
+    depthWrite:false
+  });
+
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  snowSystems.push({
+    points,
+    speeds,
+    cx,
+    cz,
+    radius
+  });
+}
+
+function updateSnow(dt){
+  window.__snowTick = (window.__snowTick || 0) + 1;
+
+  const px = player.position.x;
+  const py = player.position.y;
+  const pz = player.position.z;
+
+  const h = heightAt(Math.floor(px), Math.floor(pz));
+  const b = biomeAt(Math.floor(px), Math.floor(pz), h);
+
+  const active = true; // change later to: b === "snow" || b === "frost"
+
+  for(const s of snowSystems){
+    s.points.visible = active;
+    if(!active) continue;
+
+    s.cx = px;
+    s.cz = pz;
+
+    const arr = s.points.geometry.attributes.position.array;
+    const time = performance.now() * 0.001;
+
+    for(let i=0;i<s.speeds.length;i++){
+      const ix = i * 3;
+      const iy = ix + 1;
+      const iz = ix + 2;
+
+      arr[iy] -= s.speeds[i] * dt * 9.5;
+      arr[ix] += Math.sin(time * 1.7 + i * 0.37) * dt * 2.2;
+      arr[iz] += Math.cos(time * 1.2 + i * 0.19) * dt * 1.4;
+
+      const dx = arr[ix] - px;
+      const dz = arr[iz] - pz;
+
+      if(arr[iy] < py - 1 || Math.abs(dx) > s.radius || Math.abs(dz) > s.radius){
+        arr[ix] = px + (Math.random() * 2 - 1) * s.radius;
+        arr[iy] = py + 8 + Math.random() * 24;
+        arr[iz] = pz + (Math.random() * 2 - 1) * s.radius;
+      }
+    }
+
+    s.points.geometry.attributes.position.needsUpdate = true;
+  }
+}
+
+// follows player, visible only in snow/frost biomes
+makeSnowSystem(0, 0, 45, 900);
+
+
+const spellShots = []; // legacy disabled
+const spellExplosions = [];
+let castPressed = false;
+let castCooldown = 0;
+let castAnim = 0;
 
 const jumpBtn = document.getElementById("jumpBtn");
+const castBtn = document.getElementById("castBtn");
+
+castBtn.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  shootMagic();
+});
 
 jumpBtn.addEventListener("pointerdown", e => {
   e.preventDefault();
@@ -615,6 +1799,121 @@ jumpBtn.addEventListener("pointercancel", () => {
 function groundY(x,z){
   return heightAt(Math.floor(x), Math.floor(z)) + 1;
 }
+
+
+const spellMat = new THREE.MeshStandardMaterial({
+  color:"#050509",
+  emissive:"#140020",
+  emissiveIntensity:2.6
+});
+
+const explosionMat = new THREE.MeshStandardMaterial({
+  color:"#ff9944",
+  emissive:"#ff5522",
+  emissiveIntensity:2.2,
+  transparent:true,
+  opacity:.85
+});
+
+function castSpell(){
+  const dir = new THREE.Vector3(
+    Math.sin(player.rotation.y - Math.PI),
+    0,
+    Math.cos(player.rotation.y - Math.PI)
+  ).normalize();
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 18, 12),
+    spellMat
+  );
+
+  orb.position.set(
+    player.position.x + dir.x * 1.2,
+    player.position.y + 1.55,
+    player.position.z + dir.z * 1.2
+  );
+
+  const halo = new THREE.PointLight("#050509", 4, 10);
+  halo.position.copy(orb.position);
+  scene.add(halo);
+
+  scene.add(orb);
+
+  spellShots.push({
+    mesh: orb,
+    light: halo,
+    dir,
+    life: 2.0,
+    speed: 28
+  });
+
+  spawnExplosion(orb.position.clone());
+
+  setTimeout(() => {
+    if(orb.parent){
+      spawnExplosion(orb.position.clone());
+    }
+  }, 260);
+}
+
+function spawnExplosion(pos){
+  const boom = new THREE.Mesh(
+    new THREE.SphereGeometry(1.4, 28, 18),
+    explosionMat
+  );
+
+  boom.position.copy(pos);
+  scene.add(boom);
+
+  const light = new THREE.PointLight("#ff8844", 14, 30);
+  light.position.copy(pos);
+  scene.add(light);
+
+  spellExplosions.push({
+    mesh: boom,
+    light,
+    life: 0.55,
+    maxLife: 0.55,
+    velocity: new THREE.Vector3(0,0,0),
+    spin: new THREE.Vector3(0,0,0),
+    main: true
+  });
+
+  for(let i = 0; i < 120; i++){
+    const size = 0.14 + Math.random() * 0.32;
+
+    const shard = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 10, 8),
+      explosionMat.clone()
+    );
+
+    shard.position.copy(pos);
+
+    const dir = new THREE.Vector3(
+      Math.random() * 2 - 1,
+      Math.random() * 1.6 - 0.15,
+      Math.random() * 2 - 1
+    ).normalize();
+
+    scene.add(shard);
+
+    spellExplosions.push({
+      mesh: shard,
+      life: 0.75 + Math.random() * 0.45,
+      maxLife: 1.0,
+      velocity: dir.multiplyScalar(10 + Math.random() * 22),
+      spin: new THREE.Vector3(
+        Math.random() * 8,
+        Math.random() * 8,
+        Math.random() * 8
+      ),
+      main: false
+    });
+  }
+}
+
+function updateSpells(dt){}
+
 
 function updatePlayer(dt){
 
@@ -638,7 +1937,44 @@ function updatePlayer(dt){
   const swing = walking ? Math.sin(walkT) * 0.75 : 0;
 
   leftArm.rotation.x = swing;
-  rightArm.rotation.x = -swing;
+
+  if(castAnim > 0){
+    castAnim -= dt;
+    rightArm.rotation.x = -1.35;
+    rightArm.rotation.z = 0.35;
+    staff.rotation.x = -0.65;
+    staff.rotation.z = -0.25;
+  } else {
+    rightArm.rotation.x = -swing;
+    rightArm.rotation.z = 0;
+    staff.rotation.x = 0;
+    staff.rotation.z = 0;
+  }
+
+  if(!grounded){
+
+    leftArm.rotation.x = -1.15;
+    rightArm.rotation.x = 0.45;
+
+    leftLeg.hip.rotation.x = 0.95;
+    rightLeg.hip.rotation.x = -0.95;
+
+    leftLeg.knee.rotation.x = -1.05;
+    rightLeg.knee.rotation.x = -0.15;
+
+    leftLeg.foot.rotation.x = -0.42;
+    rightLeg.foot.rotation.x = 0.22;
+
+    torso.rotation.x = -0.12;
+    torso.rotation.z = 0.05;
+
+    head.rotation.x = 0.12;
+
+  } else {
+    torso.rotation.x = 0;
+    torso.rotation.z = 0;
+    head.rotation.x = 0;
+  }
 
   leftLeg.hip.rotation.x = -swing;
   rightLeg.hip.rotation.x = swing;
@@ -675,6 +2011,11 @@ function updatePlayer(dt){
 
     player.position.addScaledVector(move, speed);
 
+    if(grounded && performance.now() - lastFootstepTime > 280){
+      lastFootstepTime = performance.now();
+      playFootstep();
+    }
+
     playerYaw = Math.atan2(move.x, move.z);
     player.rotation.y = playerYaw + Math.PI;
   }
@@ -683,6 +2024,7 @@ function updatePlayer(dt){
 
   if(player.position.y <= targetY + 0.02){
     grounded = true;
+    jumpCount = 0;
     player.position.y = targetY;
 
     if(velocityY < 0) velocityY = 0;
@@ -690,9 +2032,12 @@ function updatePlayer(dt){
     grounded = false;
   }
 
-  if(jumpPressed && grounded){
-    velocityY = 10;
+  if(jumpPressed && jumpCount < maxJumps){
+    velocityY = 10 + jumpCount * 1.5;
+    jumpCount = jumpCount + 1;
+    playJumpSound();
     grounded = false;
+    jumpPressed = false;
   }
 
   velocityY -= 24 * dt;
@@ -728,11 +2073,22 @@ function updateThirdPersonCamera(dt){
     Math.min(1, dt * 10)
   );
 
+  const camGround =
+    heightAt(
+      Math.floor(camera.position.x),
+      Math.floor(camera.position.z)
+    ) + 1.2;
+
+  if(camera.position.y < camGround){
+    camera.position.y = camGround;
+  }
+
   camera.lookAt(target);
 }
 
 function updateCamera(dt){
   updatePlayer(dt);
+  updateMagic(dt);
   updateThirdPersonCamera(dt);
 }
 await loadSimlaConfig();
@@ -760,6 +2116,12 @@ function animate(now){
   chestGem.rotation.y += dt * 2.2;
   staffGem.rotation.y += dt * 2.8;
 
+  updateMagic(dt);
+  updateButterflies(dt, now);
+  updateMobs(dt, now);
+  skyMaterial.uniforms.time.value = now * 0.001;
+  animateWater(dt, now);
+  updateSnow(dt);
   renderer.render(scene,camera);
 
   log(
@@ -768,6 +2130,10 @@ function animate(now){
     "\nchunk size: " + chunkSize +
     "\nrender distance: " + renderDistance +
     "\nvirtual world: infinite" +
+    "\ncasts: " + magicCastDebug +
+    "\nshots: " + magicProjectiles.length +
+    "\nexplosions: " + magicExplosions.length +
+    "\nmagic ticks: " + (window.__magicTick || 0) +
     "\npos: " +
     Math.floor(camera.position.x) + "," +
     Math.floor(camera.position.y) + "," +

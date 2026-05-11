@@ -33,6 +33,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.physicallyCorrectLights = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.25;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -51,7 +52,7 @@ scene.add(rim);
 
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(10, 96),
-  new THREE.MeshStandardMaterial({ color:"#1b2436", roughness:.65, metalness:.05 })
+  new THREE.MeshStandardMaterial({ color:"#1b2436", roughness:.78, metalness:.02 })
 );
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
@@ -60,11 +61,88 @@ scene.add(floor);
 const player = new THREE.Group();
 scene.add(player);
 
-const skin = new THREE.MeshStandardMaterial({ color:"#d9a27c", roughness:.72 });
-const cloth = new THREE.MeshStandardMaterial({ color:"#1f5cff", roughness:.65, metalness:.04 });
-const dark = new THREE.MeshStandardMaterial({ color:"#111827", roughness:.8 });
-const gold = new THREE.MeshStandardMaterial({ color:"#ffcc55", roughness:.35, metalness:.45 });
-const leather = new THREE.MeshStandardMaterial({ color:"#5a321d", roughness:.8 });
+
+function canvasTexture(draw){
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  draw(ctx, c.width, c.height);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function noisyTexture(base, line, speck){
+  return canvasTexture((ctx,w,h) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0,0,w,h);
+
+    ctx.globalAlpha = .18;
+    ctx.strokeStyle = line;
+    for(let i=0;i<w;i+=8){
+      ctx.beginPath();
+      ctx.moveTo(i,0);
+      ctx.lineTo(i,h);
+      ctx.stroke();
+    }
+    for(let j=0;j<h;j+=10){
+      ctx.beginPath();
+      ctx.moveTo(0,j);
+      ctx.lineTo(w,j);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = .22;
+    ctx.fillStyle = speck;
+    for(let i=0;i<600;i++){
+      ctx.fillRect(Math.random()*w, Math.random()*h, 1 + Math.random()*2, 1 + Math.random()*2);
+    }
+
+    ctx.globalAlpha = 1;
+  });
+}
+
+
+function bumpTexture(strength=1){
+  return canvasTexture((ctx,w,h) => {
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0,0,w,h);
+    ctx.globalAlpha = .35;
+    for(let i=0;i<1200;i++){
+      const v = 100 + Math.random() * 80;
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(Math.random()*w, Math.random()*h, 1 + Math.random()*3, 1 + Math.random()*3);
+    }
+    ctx.globalAlpha = .2;
+    ctx.strokeStyle = "#ffffff";
+    for(let y=0;y<h;y+=12){
+      ctx.beginPath();
+      ctx.moveTo(0,y + Math.sin(y)*2);
+      ctx.lineTo(w,y);
+      ctx.stroke();
+    }
+  });
+}
+
+const skinBump = bumpTexture();
+const clothBump = bumpTexture();
+const leatherBump = bumpTexture();
+
+const skinTex = noisyTexture("#d9a27c", "#f0bc96", "#8a5a3d");
+const clothTex = noisyTexture("#1f5cff", "#6aa0ff", "#071a80");
+const robeTex = noisyTexture("#172554", "#304a9a", "#061030");
+const leatherTex = noisyTexture("#5a321d", "#9a6338", "#1f1008");
+const goldTex = noisyTexture("#ffcc55", "#fff1a8", "#8b5c00");
+const darkTex = noisyTexture("#111827", "#253044", "#02040a");
+
+const skin = new THREE.MeshStandardMaterial({ color:"#d9a27c", map:skinTex, bumpMap:skinBump, bumpScale:.018, roughness:.82 });
+const cloth = new THREE.MeshStandardMaterial({ color:"#1f5cff", map:clothTex, bumpMap:clothBump, bumpScale:.035, roughness:.78, metalness:.02 });
+const dark = new THREE.MeshStandardMaterial({ color:"#111827", map:darkTex, roughness:.82 });
+const gold = new THREE.MeshStandardMaterial({ color:"#ffcc55", map:goldTex, roughness:.28, metalness:.65 });
+const leather = new THREE.MeshStandardMaterial({ color:"#5a321d", map:leatherTex, bumpMap:leatherBump, bumpScale:.04, roughness:.92 });
 const glow = new THREE.MeshStandardMaterial({ color:"#66ccff", emissive:"#1888ff", emissiveIntensity:1.4 });
 
 function capsule(radius, length, mat){
@@ -95,10 +173,94 @@ const hips = new THREE.Group();
 hips.position.y = 1.1;
 player.add(hips);
 
-const torso = capsule(.42, .95, cloth);
-torso.position.y = .65;
-torso.scale.set(1.0, 1.08, .72);
-hips.add(torso);
+
+function makeConnectedBodyGeometry(){
+  const verts = [];
+  const faces = [];
+  const seg = 32;
+
+  const rings = [
+    { y:-0.10, rx:0.38, rz:0.25, cx:0, z:0 },
+    { y: 0.20, rx:0.48, rz:0.30, cx:0, z:0 },
+    { y: 0.62, rx:0.45, rz:0.28, cx:0, z:0 },
+    { y: 1.02, rx:0.34, rz:0.24, cx:0, z:0 },
+    { y: 1.25, rx:0.17, rz:0.15, cx:0, z:0 },
+    { y: 1.42, rx:0.25, rz:0.22, cx:0, z:-0.015 },
+    { y: 1.64, rx:0.34, rz:0.30, cx:0, z:-0.035 },
+    { y: 1.86, rx:0.31, rz:0.28, cx:0, z:-0.02 },
+    { y: 2.02, rx:0.20, rz:0.18, cx:0, z:0 }
+  ];
+
+  for(const r of rings){
+    const base = verts.length / 3;
+
+    for(let i=0;i<seg;i++){
+      const a = (i / seg) * Math.PI * 2;
+
+      const squash = 1 + Math.sin(a) * 0.04;
+
+      verts.push(
+        r.cx + Math.cos(a) * r.rx * squash,
+        r.y,
+        r.z + Math.sin(a) * r.rz
+      );
+    }
+
+    r.base = base;
+  }
+
+  for(let j=0;j<rings.length-1;j++){
+    const a = rings[j];
+    const b = rings[j+1];
+
+    for(let i=0;i<seg;i++){
+      const n = (i + 1) % seg;
+
+      faces.push(
+        a.base + i, b.base + i, b.base + n,
+        a.base + i, b.base + n, a.base + n
+      );
+    }
+  }
+
+  const bottomCenter = verts.length / 3;
+  verts.push(0, rings[0].y - 0.03, 0);
+
+  for(let i=0;i<seg;i++){
+    const n = (i + 1) % seg;
+    faces.push(bottomCenter, rings[0].base + n, rings[0].base + i);
+  }
+
+  const topCenter = verts.length / 3;
+  const top = rings[rings.length - 1];
+  verts.push(0, top.y + 0.06, top.z);
+
+  for(let i=0;i<seg;i++){
+    const n = (i + 1) % seg;
+    faces.push(topCenter, top.base + i, top.base + n);
+  }
+
+  const geo = new THREE.BufferGeometry();
+
+  geo.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(verts, 3)
+  );
+
+  geo.setIndex(faces);
+  geo.computeVertexNormals();
+
+  return geo;
+}
+
+const connectedBody = new THREE.Mesh(
+  makeConnectedBodyGeometry(),
+  cloth
+);
+
+connectedBody.castShadow = true;
+connectedBody.receiveShadow = true;
+hips.add(connectedBody);
 
 const belt = new THREE.Mesh(new THREE.TorusGeometry(.43, .035, 8, 48), leather);
 belt.position.y = .18;
@@ -176,6 +338,50 @@ const rightArm = makeArm(1);
 const leftLeg = makeLeg(-1);
 const rightLeg = makeLeg(1);
 
+
+// extra clothing geometry/detail panels
+const robePanelL = new THREE.Mesh(new THREE.BoxGeometry(.08, .82, .04), gold);
+robePanelL.position.set(-.18, .55, -.31);
+hips.add(robePanelL);
+
+const robePanelR = new THREE.Mesh(new THREE.BoxGeometry(.08, .82, .04), gold);
+robePanelR.position.set(.18, .55, -.31);
+hips.add(robePanelR);
+
+const collar = new THREE.Mesh(new THREE.TorusGeometry(.32,.025,8,48), gold);
+collar.position.set(0, 1.21, -.03);
+collar.rotation.x = Math.PI / 2;
+hips.add(collar);
+
+const sash = new THREE.Mesh(new THREE.BoxGeometry(.18, 1.0, .04), leather);
+sash.position.set(.24, .63, -.32);
+sash.rotation.z = -.18;
+hips.add(sash);
+
+function bootStraps(leg){
+  for(const y of [-.27, -.46]){
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(.16,.014,8,24), gold);
+    strap.position.y = y;
+    strap.rotation.x = Math.PI / 2;
+    leg.knee.add(strap);
+  }
+}
+bootStraps(leftLeg);
+bootStraps(rightLeg);
+
+// glowing eye/specular catchlights
+const eyeGlowMat = new THREE.MeshStandardMaterial({
+  color:"#9fd3ff",
+  emissive:"#2288ff",
+  emissiveIntensity:1.1
+});
+const leftEyeGlow = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 6), eyeGlowMat);
+leftEyeGlow.position.set(-.09, 1.705, -.345);
+hips.add(leftEyeGlow);
+const rightEyeGlow = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 6), eyeGlowMat);
+rightEyeGlow.position.set(.12, 1.705, -.345);
+hips.add(rightEyeGlow);
+
 const cape = new THREE.Mesh(
   new THREE.PlaneGeometry(1.05, 1.55, 8, 8),
   new THREE.MeshStandardMaterial({ color:"#172554", roughness:.9, side:THREE.DoubleSide })
@@ -210,6 +416,91 @@ const nose = new THREE.Mesh(new THREE.SphereGeometry(.045, 12, 8), skin);
 nose.position.set(0, 1.61, -.34);
 nose.scale.set(.75,1,.55);
 hips.add(nose);
+
+
+const browMat = new THREE.MeshStandardMaterial({ color:"#1b120d", roughness:.8 });
+
+function brow(x, rz){
+  const b = new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.025), browMat);
+  b.position.set(x, 1.79, -.355);
+  b.rotation.z = rz;
+  hips.add(b);
+}
+brow(-.11, .16);
+brow(.11, -.16);
+
+function ear(x){
+  const e = new THREE.Mesh(new THREE.SphereGeometry(.085, 16, 10), skin);
+  e.position.set(x, 1.63, -.02);
+  e.scale.set(.55, 1.0, .32);
+  hips.add(e);
+
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(.045, 12, 8), new THREE.MeshStandardMaterial({ color:"#b97961", roughness:.85 }));
+  inner.position.set(x * 1.006, 1.63, -.025);
+  inner.scale.set(.35, .7, .18);
+  hips.add(inner);
+}
+ear(-.34);
+ear(.34);
+
+const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(.045,.16,.035), skin);
+noseBridge.position.set(0, 1.68, -.345);
+hips.add(noseBridge);
+
+const upperLip = new THREE.Mesh(new THREE.BoxGeometry(.17,.018,.018), new THREE.MeshStandardMaterial({ color:"#7d453c", roughness:.8 }));
+upperLip.position.set(0, 1.485, -.362);
+hips.add(upperLip);
+
+const chin = new THREE.Mesh(new THREE.SphereGeometry(.08, 16, 10), skin);
+chin.position.set(0, 1.38, -.28);
+chin.scale.set(1.25,.55,.55);
+hips.add(chin);
+
+const cheekL = new THREE.Mesh(new THREE.SphereGeometry(.09, 16, 10), skin);
+cheekL.position.set(-.17,1.54,-.31);
+cheekL.scale.set(1.15,.65,.45);
+hips.add(cheekL);
+
+const cheekR = cheekL.clone();
+cheekR.position.x = .17;
+hips.add(cheekR);
+
+// layered cloth seams
+const seamMat = new THREE.MeshStandardMaterial({ color:"#0c2e88", roughness:.9 });
+
+function seam(x){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(.025, .92, .025), seamMat);
+  m.position.set(x, .68, -.337);
+  hips.add(m);
+}
+seam(-.34);
+seam(.34);
+
+for(const y of [.22,.45,.68,.91]){
+  const stitch = new THREE.Mesh(new THREE.BoxGeometry(.72,.018,.03), gold);
+  stitch.position.set(0,y,-.342);
+  hips.add(stitch);
+}
+
+// layered shoulder cloth under gold armor
+function clothShoulder(x){
+  const m = new THREE.Mesh(new THREE.SphereGeometry(.21, 20, 10), cloth);
+  m.position.set(x, .98, .02);
+  m.scale.set(1.35,.55,.95);
+  hips.add(m);
+}
+clothShoulder(-.59);
+clothShoulder(.59);
+
+// hand fingers
+function fingers(hand, side){
+  for(let i=-1;i<=1;i++){
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(.02,.018,.13,8), skin);
+    f.position.set(i*.04, -.65, -.08);
+    f.rotation.x = .15;
+    hand.add(f);
+  }
+}
 
 const mouth = new THREE.Mesh(new THREE.BoxGeometry(.16,.025,.018), eyeMat);
 mouth.position.set(0, 1.48, -.35);
