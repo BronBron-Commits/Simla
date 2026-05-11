@@ -89,9 +89,138 @@
     0 0 24px rgba(255,180,60,.65),
     inset 0 -12px 24px rgba(120,40,0,.25);
 }
+
+#overlayToggle{
+  position:fixed;
+  right:18px;
+  top:18px;
+  z-index:100000;
+  width:74px;
+  height:44px;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.75);
+  background:rgba(0,0,0,.45);
+  color:white;
+  font-weight:900;
+}
+body.hideControls .joy,
+body.hideControls #jumpBtn,
+body.hideControls #castBtn{
+  display:none !important;
+}
+
+#hotbar{
+  position:fixed;
+  left:50%;
+  bottom:22px;
+  transform:translateX(-50%);
+  display:flex;
+  gap:8px;
+  z-index:100000;
+  pointer-events:auto;
+}
+
+.hotbarSlot{
+  position:relative;
+  width:58px;
+  height:58px;
+  border-radius:12px;
+  border:3px solid rgba(255,255,255,.45);
+  background:
+    linear-gradient(180deg, rgba(120,130,145,.85), rgba(65,70,82,.9));
+  box-shadow:
+    inset 0 0 18px rgba(255,255,255,.12),
+    inset 0 -12px 18px rgba(0,0,0,.18),
+    0 8px 22px rgba(0,0,0,.35);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+}
+
+.hotbarSlot.active{
+  border-color:#ffd84a;
+  box-shadow:
+    0 0 22px rgba(255,216,74,.72),
+    inset 0 0 18px rgba(255,216,74,.2);
+}
+
+.hotbarSlot.empty{
+  opacity:.76;
+}
+
+.slotIndex{
+  position:absolute;
+  left:5px;
+  top:3px;
+  font:700 11px monospace;
+  color:rgba(255,255,255,.78);
+  text-shadow:0 1px 2px black;
+}
+
+.itemSprite{
+  position:relative;
+  width:38px;
+  height:38px;
+}
+
+.spearSprite::before{
+  content:"";
+  position:absolute;
+  left:17px;
+  top:5px;
+  width:5px;
+  height:31px;
+  border-radius:4px;
+  background:linear-gradient(180deg, #6b3f1f, #2a1608);
+  transform:rotate(34deg);
+  box-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+
+.swordSprite::before{
+  content:"";
+  position:absolute;
+  left:17px;
+  top:2px;
+  width:6px;
+  height:28px;
+  border-radius:4px;
+  background:linear-gradient(180deg,#f4f7ff,#aeb9d6);
+  box-shadow:0 0 6px rgba(255,255,255,.35);
+}
+
+.swordSprite::after{
+  content:"";
+  position:absolute;
+  left:11px;
+  top:24px;
+  width:18px;
+  height:6px;
+  border-radius:4px;
+  background:linear-gradient(90deg,#8b5a2b,#d8b07a,#8b5a2b);
+}
+
+.spearSprite::after{
+  content:"";
+  position:absolute;
+  left:21px;
+  top:0px;
+  width:13px;
+  height:13px;
+  background:linear-gradient(135deg, #e7f4ff, #55ccff 55%, #1e5cff);
+  transform:rotate(79deg) skew(-12deg);
+  clip-path:polygon(50% 0%, 100% 70%, 50% 100%, 0% 70%);
+  filter:drop-shadow(0 0 4px rgba(85,204,255,.75));
+}
+
+body.hideControls #hotbar{
+  display:none !important;
+}
 </style>
 </head>
 <body>
+<button id="overlayToggle">UI</button>
 <div id="hud" style="display:none">loading...</div>
 
 <div id="moveJoy" class="joy">
@@ -231,6 +360,9 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 
 document.body.appendChild(renderer.domElement);
+renderer.domElement.addEventListener("contextmenu", e => e.preventDefault());
+renderer.domElement.addEventListener("dragstart", e => e.preventDefault());
+
 
 
 renderer.domElement.style.touchAction = "none";
@@ -912,6 +1044,34 @@ window.addEventListener("keydown", e => {
   }
 });
 
+
+window.addEventListener("mousedown", e => {
+  if(e.button !== 0) return;
+
+  // ignore UI clicks
+  if(
+    e.target.closest("#jumpBtn") ||
+    e.target.closest("#castBtn") ||
+    e.target.closest(".joy") ||
+    e.target.closest("#overlayToggle")
+  ){
+    return;
+  }
+
+  mouseActionDown = true;
+
+  const equippedItem = hotbarItems[equippedSlot];
+
+  if(equippedItem && equippedItem.id === "spear"){
+    shootMagic();
+  }
+});
+
+window.addEventListener("mouseup", e => {
+  if(e.button !== 0) return;
+  mouseActionDown = false;
+});
+
 window.addEventListener("keyup", e => {
   if(e.code === "Space"){
     jumpPressed = false;
@@ -1116,6 +1276,67 @@ staffGem.position.y = 1.18;
 staff.add(staffGem);
 
 rightArm.add(staff);
+
+const sword = new THREE.Group();
+sword.position.set(0.12, -0.74, -0.34);
+
+sword.rotation.x = -Math.PI * 0.5;
+sword.rotation.y = 0.0;
+sword.rotation.z = 0.0;
+sword.visible = false;
+
+const swordBlade = new THREE.Mesh(
+  new THREE.BoxGeometry(0.11, 1.25, 0.06),
+  new THREE.MeshStandardMaterial({
+    color:"#dfe7f7",
+    roughness:0.28,
+    metalness:0.82,
+    emissive:"#88aaff",
+    emissiveIntensity:0.08
+  })
+);
+
+swordBlade.position.y = 0.52;
+sword.add(swordBlade);
+
+const swordGuard = new THREE.Mesh(
+  new THREE.BoxGeometry(0.38, 0.08, 0.12),
+  new THREE.MeshStandardMaterial({
+    color:"#d7b06a",
+    roughness:0.45,
+    metalness:0.35
+  })
+);
+
+swordGuard.position.y = -0.14;
+sword.add(swordGuard);
+
+const swordGrip = new THREE.Mesh(
+  new THREE.BoxGeometry(0.09, 0.35, 0.09),
+  new THREE.MeshStandardMaterial({
+    color:"#5a3118",
+    roughness:0.9
+  })
+);
+
+swordGrip.position.y = -0.34;
+sword.add(swordGrip);
+
+const swordPommel = new THREE.Mesh(
+  new THREE.SphereGeometry(0.08, 10, 10),
+  new THREE.MeshStandardMaterial({
+    color:"#d7b06a",
+    metalness:0.45,
+    roughness:0.35
+  })
+);
+
+swordPommel.position.y = -0.56;
+sword.add(swordPommel);
+
+rightArm.add(sword);
+
+
 
 const aura = new THREE.Mesh(
   new THREE.TorusGeometry(0.85, 0.025, 8, 48),
@@ -1528,6 +1749,7 @@ let playerYaw = 0;
 let velocityY = 0;
 let grounded = false;
 let jumpPressed = false;
+let mouseActionDown = false;
 let jumpCount = 0;
 let maxJumps = 3;
 
@@ -2159,6 +2381,118 @@ function animate(now){
   */
 }
 
+
+
+const hotbar = document.getElementById("hotbar");
+
+const hotbarItems = [
+  { id:"spear", label:"S", name:"Spear", color:"#d6b06a" },
+  { id:"sword", label:"W", name:"Sword", color:"#d0d7e6" },
+  null,null,null,null,null,null,null,null
+];
+
+let equippedSlot = 0;
+
+function equipSlot(i){
+  equippedSlot = ((i % 10) + 10) % 10;
+  renderHotbar();
+  updateEquippedVisuals();
+}
+
+
+function updateEquippedVisuals(){
+  const equippedItem = hotbarItems[equippedSlot];
+
+  const showStaff =
+    equippedItem &&
+    equippedItem.id === "spear";
+
+  const showSword =
+    equippedItem &&
+    equippedItem.id === "sword";
+
+  if(typeof staff !== "undefined"){
+    staff.visible = !!showStaff;
+  }
+
+  if(typeof sword !== "undefined"){
+    sword.visible = !!showSword;
+  }
+}
+
+function renderHotbar(){
+  hotbar.innerHTML = "";
+
+  for(let i=0;i<10;i++){
+    const item = hotbarItems[i];
+
+    const slot = document.createElement("div");
+    slot.className =
+      "hotbarSlot" +
+      (i === equippedSlot ? " active" : "") +
+      (!item ? " empty" : "");
+
+    const index = document.createElement("div");
+    index.className = "slotIndex";
+    index.textContent = i === 9 ? "0" : String(i + 1);
+    slot.appendChild(index);
+
+    if(item){
+      const icon = document.createElement("div");
+
+      if(item.id === "spear"){
+        icon.className = "itemSprite spearSprite";
+      } else if(item.id === "sword"){
+        icon.className = "itemSprite swordSprite";
+      } else {
+        icon.className = "itemSprite";
+      }
+
+      icon.title = item.name;
+      slot.appendChild(icon);
+    }
+
+    slot.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      equipSlot(i);
+    });
+
+    hotbar.appendChild(slot);
+  }
+}
+
+window.addEventListener("keydown", e => {
+  const k = e.key;
+
+  if(k >= "1" && k <= "9"){
+    equipSlot(Number(k) - 1);
+  }
+
+  if(k === "0"){
+    equipSlot(9);
+  }
+});
+
+window.addEventListener("wheel", e => {
+  e.preventDefault();
+
+  if(e.deltaY > 0){
+    equipSlot(equippedSlot + 1);
+  } else {
+    equipSlot(equippedSlot - 1);
+  }
+}, { passive:false });
+
+renderHotbar();
+updateEquippedVisuals();
+
+const overlayToggle = document.getElementById("overlayToggle");
+overlayToggle.addEventListener("click", e => {
+  e.preventDefault();
+  document.body.classList.toggle("hideControls");
+  overlayToggle.textContent = document.body.classList.contains("hideControls") ? "UI OFF" : "UI";
+});
+
 animate(performance.now());
 
 addEventListener("resize", () => {
@@ -2167,5 +2501,7 @@ addEventListener("resize", () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 </script>
+
+<div id="hotbar"></div>
 </body>
 </html>
