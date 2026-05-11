@@ -570,227 +570,56 @@ function addBlock(list, kind, x, y, z){
   list.get(kind).push([x,y,z]);
 }
 
+
 function addTree(list, biome, x, h, z){
+  const key = treeKey(x,z);
+
+  if(removedTrees.has(key)) return;
+  if(treeObjects.has(key)) return;
+
+  treeRegistry.set(key, { x, y:h, z, biome });
+
   const b = biomes.get(biome) || {};
   const trunk = b.trunk || "wood";
   const leaf = b.leaf || "leaf";
 
+  const group = new THREE.Group();
+  group.userData.treeKey = key;
+
+  function treeBlock(kind, bx, by, bz){
+    const mesh = new THREE.Mesh(geo, mats[kind] || mats.wood);
+    mesh.position.set(bx, by, bz);
+    group.add(mesh);
+  }
+
   if(biome === "desert"){
-    addBlock(list, "cactus", x, h+1, z);
-    addBlock(list, "cactus", x, h+2, z);
-    addBlock(list, "cactus", x, h+3, z);
-    return;
+    treeBlock("cactus", x, h+1, z);
+    treeBlock("cactus", x, h+2, z);
+    treeBlock("cactus", x, h+3, z);
+  } else if(biome === "crystal"){
+    treeBlock("amethyst", x, h+1, z);
+    treeBlock("amethyst", x, h+2, z);
+    treeBlock("diamond", x, h+3, z);
+  } else {
+    treeBlock(trunk, x, h+1, z);
+    treeBlock(trunk, x, h+2, z);
+    treeBlock(trunk, x, h+3, z);
+
+    treeBlock(leaf, x, h+4, z);
+    treeBlock(leaf, x+1, h+4, z);
+    treeBlock(leaf, x-1, h+4, z);
+    treeBlock(leaf, x, h+4, z+1);
+    treeBlock(leaf, x, h+4, z-1);
+    treeBlock(leaf, x, h+5, z);
   }
 
-  if(biome === "crystal"){
-    addBlock(list, "amethyst", x, h+1, z);
-    addBlock(list, "amethyst", x, h+2, z);
-    addBlock(list, "diamond", x, h+3, z);
-    return;
-  }
-
-  addBlock(list, trunk, x, h+1, z);
-  addBlock(list, trunk, x, h+2, z);
-  addBlock(list, trunk, x, h+3, z);
-
-  addBlock(list, leaf, x, h+4, z);
-  addBlock(list, leaf, x+1, h+4, z);
-  addBlock(list, leaf, x-1, h+4, z);
-  addBlock(list, leaf, x, h+4, z+1);
-  addBlock(list, leaf, x, h+4, z-1);
-  addBlock(list, leaf, x, h+5, z);
-}
-
-
-
-function villageSeed(cx, cz){
-  return hash2(cx * 91 + 17, cz * 57 - 31);
-}
-
-function isBuildableVillageLand(x, z){
-  const h = heightAt(Math.floor(x), Math.floor(z));
-  const b = biomeAt(Math.floor(x), Math.floor(z), h);
-
-  if(b === "ocean" || b === "beach") return false;
-  if(h < 7) return false;
-
-  return true;
-}
-
-function flatEnoughForHouse(x, z, w, d){
-  const base = heightAt(x, z);
-
-  for(let ix=0; ix<w; ix++){
-    for(let iz=0; iz<d; iz++){
-      const h = heightAt(x + ix, z + iz);
-      if(Math.abs(h - base) > 2) return false;
-
-      const b = biomeAt(x + ix, z + iz, h);
-      if(b === "ocean" || b === "beach") return false;
-    }
-  }
-
-  return true;
-}
-
-function addHut(list, x, z){
-  const w = 5;
-  const d = 5;
-  if(!flatEnoughForHouse(x,z,w,d)) return;
-
-  const y = heightAt(x,z) + 1;
-
-  for(let ix=0; ix<w; ix++){
-    for(let iz=0; iz<d; iz++){
-      addBlock(list, "wood", x+ix, y, z+iz);
-    }
-  }
-
-  for(let yy=1; yy<=3; yy++){
-    for(let ix=0; ix<w; ix++){
-      addBlock(list, "dark_wood", x+ix, y+yy, z);
-      addBlock(list, "dark_wood", x+ix, y+yy, z+d-1);
-    }
-    for(let iz=1; iz<d-1; iz++){
-      addBlock(list, "dark_wood", x, y+yy, z+iz);
-      addBlock(list, "dark_wood", x+w-1, y+yy, z+iz);
-    }
-  }
-
-  for(let ix=-1; ix<=w; ix++){
-    for(let iz=-1; iz<=d; iz++){
-      addBlock(list, "dry_grass", x+ix, y+4, z+iz);
-    }
-  }
-
-  addBlock(list, "gold", x+2, y+1, z-1);
-}
-
-function addTower(list, x, z){
-  const w = 4;
-  const d = 4;
-  if(!flatEnoughForHouse(x,z,w,d)) return;
-
-  const y = heightAt(x,z) + 1;
-
-  for(let yy=0; yy<=7; yy++){
-    for(let ix=0; ix<w; ix++){
-      for(let iz=0; iz<d; iz++){
-        if(ix === 0 || iz === 0 || ix === w-1 || iz === d-1){
-          addBlock(list, yy > 5 ? "stone" : "dark_wood", x+ix, y+yy, z+iz);
-        }
-      }
-    }
-  }
-
-  for(let ix=-1; ix<=w; ix++){
-    for(let iz=-1; iz<=d; iz++){
-      if(ix === -1 || iz === -1 || ix === w || iz === d){
-        addBlock(list, "stone", x+ix, y+8, z+iz);
-      }
-    }
-  }
-}
-
-function addLongHouse(list, x, z){
-  const w = 8;
-  const d = 5;
-  if(!flatEnoughForHouse(x,z,w,d)) return;
-
-  const y = heightAt(x,z) + 1;
-
-  for(let ix=0; ix<w; ix++){
-    for(let iz=0; iz<d; iz++){
-      addBlock(list, "wood", x+ix, y, z+iz);
-    }
-  }
-
-  for(let yy=1; yy<=3; yy++){
-    for(let ix=0; ix<w; ix++){
-      addBlock(list, "dark_wood", x+ix, y+yy, z);
-      addBlock(list, "dark_wood", x+ix, y+yy, z+d-1);
-    }
-    for(let iz=1; iz<d-1; iz++){
-      addBlock(list, "dark_wood", x, y+yy, z+iz);
-      addBlock(list, "dark_wood", x+w-1, y+yy, z+iz);
-    }
-  }
-
-  for(let ix=-1; ix<=w; ix++){
-    addBlock(list, "stone", x+ix, y+4, z-1);
-    addBlock(list, "stone", x+ix, y+4, z+d);
-  }
-
-  for(let ix=0; ix<w; ix++){
-    for(let iz=0; iz<d; iz++){
-      addBlock(list, "stone", x+ix, y+5, z+iz);
-    }
-  }
-
-  addBlock(list, "gold", x+Math.floor(w/2), y+1, z-1);
-}
-
-function addVillagePath(list, x1, z1, x2, z2){
-  const steps = 24;
-
-  for(let i=0; i<=steps; i++){
-    const t = i / steps;
-    const x = Math.floor(x1 + (x2-x1) * t);
-    const z = Math.floor(z1 + (z2-z1) * t);
-
-    if(isBuildableVillageLand(x,z)){
-      const y = heightAt(x,z) + 1;
-      addBlock(list, "sand", x, y, z);
-      addBlock(list, "sand", x+1, y, z);
-    }
-  }
+  scene.add(group);
+  treeObjects.set(key, group);
 }
 
 function addVillageToChunk(list, cx, cz, startX, startZ){
-  const gx = Math.floor(cx / 5);
-  const gz = Math.floor(cz / 5);
-
-  if(hash2(gx, gz) < 0.78) return;
-
-  const centerX = gx * chunkSize * 5 + 28;
-  const centerZ = gz * chunkSize * 5 + 28;
-
-  if(!isBuildableVillageLand(centerX, centerZ)) return;
-
-  const buildings = [
-    { kind:"hut",  x:centerX - 13, z:centerZ - 7 },
-    { kind:"long", x:centerX + 4,  z:centerZ - 10 },
-    { kind:"tower",x:centerX - 5,  z:centerZ + 8 },
-    { kind:"hut",  x:centerX + 14, z:centerZ + 6 },
-    { kind:"hut",  x:centerX - 17, z:centerZ + 12 }
-  ];
-
-  for(const b of buildings){
-    if(
-      b.x >= startX - 12 &&
-      b.x < startX + chunkSize + 12 &&
-      b.z >= startZ - 12 &&
-      b.z < startZ + chunkSize + 12
-    ){
-      if(b.kind === "hut") addHut(list, b.x, b.z);
-      if(b.kind === "tower") addTower(list, b.x, b.z);
-      if(b.kind === "long") addLongHouse(list, b.x, b.z);
-      addVillagePath(list, centerX, centerZ, b.x, b.z);
-    }
-  }
-
-  if(centerX >= startX && centerX < startX + chunkSize && centerZ >= startZ && centerZ < startZ + chunkSize){
-    const y = heightAt(centerX, centerZ) + 1;
-
-    addBlock(list, "stone", centerX, y, centerZ);
-    addBlock(list, "water", centerX, y + 1, centerZ);
-    addBlock(list, "stone", centerX + 1, y, centerZ);
-    addBlock(list, "stone", centerX - 1, y, centerZ);
-    addBlock(list, "stone", centerX, y, centerZ + 1);
-    addBlock(list, "stone", centerX, y, centerZ - 1);
-  }
+  // temporary safe no-op; village prefabs can be re-added after tree separation is stable
 }
-
 
 function generateChunk(cx,cz){
   const group = new THREE.Group();
@@ -992,6 +821,146 @@ function addWaterSurface(group, x, z){
 
   group.add(plane);
   waterSurfaces.push(plane);
+}
+
+const removedTrees = new Set();
+const fallingBlocks = [];
+const treeRegistry = new Map();
+const treeObjects = new Map();
+
+function treeKey(x,z){
+  return `${Math.floor(x)},${Math.floor(z)}`;
+}
+
+function rebuildChunkAtWorld(x,z){
+  const cx = Math.floor(x / chunkSize);
+  const cz = Math.floor(z / chunkSize);
+  const k = chunkKey(cx,cz);
+  const g = chunks.get(k);
+
+  if(g){
+    root.remove(g);
+    g.traverse(obj => {
+      obj.geometry?.dispose?.();
+      obj.material?.dispose?.();
+    });
+    chunks.delete(k);
+  }
+}
+
+function spawnFallingBlock(kind, x, y, z){
+  const mesh = new THREE.Mesh(geo, mats[kind] || mats.wood);
+
+  mesh.position.set(x, y, z);
+  mesh.rotation.set(
+    Math.random() * Math.PI,
+    Math.random() * Math.PI,
+    Math.random() * Math.PI
+  );
+
+  scene.add(mesh);
+
+  fallingBlocks.push({
+    mesh,
+    kind,
+    vx:(Math.random() * 2 - 1) * 3.0,
+    vy:4 + Math.random() * 5,
+    vz:(Math.random() * 2 - 1) * 3.0,
+    rx:(Math.random() * 2 - 1) * 5,
+    ry:(Math.random() * 2 - 1) * 5,
+    rz:(Math.random() * 2 - 1) * 5,
+    settled:false
+  });
+}
+
+function spawnTreeDebris(t){
+  const b = biomes.get(t.biome) || {};
+  const trunk = b.trunk || "wood";
+  const leaf = b.leaf || "leaf";
+
+  spawnFallingBlock(trunk, t.x, t.y + 1, t.z);
+  spawnFallingBlock(trunk, t.x, t.y + 2, t.z);
+  spawnFallingBlock(trunk, t.x, t.y + 3, t.z);
+
+  spawnFallingBlock(leaf, t.x, t.y + 4, t.z);
+  spawnFallingBlock(leaf, t.x + 1, t.y + 4, t.z);
+  spawnFallingBlock(leaf, t.x - 1, t.y + 4, t.z);
+  spawnFallingBlock(leaf, t.x, t.y + 4, t.z + 1);
+  spawnFallingBlock(leaf, t.x, t.y + 4, t.z - 1);
+}
+
+function damageTreesAt(pos, radius){
+  let broke = 0;
+
+  for(const [key, t] of treeRegistry.entries()){
+    if(removedTrees.has(key)) continue;
+
+    const dx = t.x - pos.x;
+    const dz = t.z - pos.z;
+    const dy = (t.y + 2) - pos.y;
+
+    if(Math.hypot(dx, dy * 0.45, dz) <= radius){
+      removedTrees.add(key);
+      broke++;
+
+      playTreeBreakSound();
+      explodeMagic(new THREE.Vector3(t.x, t.y + 2, t.z));
+
+      const obj = treeObjects.get(key);
+      if(obj){
+        scene.remove(obj);
+        obj.traverse(o => {
+          o.geometry?.dispose?.();
+          o.material?.dispose?.();
+        });
+        treeObjects.delete(key);
+      }
+
+      spawnTreeDebris(t);
+
+      // No chunk rebuild. The instanced tree stays as old terrain geometry,
+      // but debris falls visibly and tree is marked removed for future chunks.
+    }
+  }
+
+  return broke;
+}
+
+function updateFallingBlocks(dt){
+  for(const b of fallingBlocks){
+    if(b.settled) continue;
+
+    b.vy -= 18 * dt;
+
+    b.mesh.position.x += b.vx * dt;
+    b.mesh.position.y += b.vy * dt;
+    b.mesh.position.z += b.vz * dt;
+
+    b.mesh.rotation.x += b.rx * dt;
+    b.mesh.rotation.y += b.ry * dt;
+    b.mesh.rotation.z += b.rz * dt;
+
+    const ground = heightAt(
+      Math.floor(b.mesh.position.x),
+      Math.floor(b.mesh.position.z)
+    ) + 1;
+
+    if(b.mesh.position.y <= ground){
+      b.mesh.position.y = ground;
+
+      if(!b.settled){
+        playBlockLandSound();
+      }
+
+      b.vx = 0;
+      b.vy = 0;
+      b.vz = 0;
+      b.rx = 0;
+      b.ry = 0;
+      b.rz = 0;
+      b.settled = true;
+    }
+  }
 }
 
 const chunks = new Map();
@@ -1597,6 +1566,90 @@ function playJumpSound(){
 
 
 
+
+
+function playBlockLandSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "triangle";
+
+  osc.frequency.setValueAtTime(120, now);
+  osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.06, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.13);
+}
+
+function playTreeBreakSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  // wood crack
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "square";
+
+  osc.frequency.setValueAtTime(180, now);
+  osc.frequency.exponentialRampToValueAtTime(70, now + 0.12);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.18, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.2);
+
+  // debris noise
+  const buffer = audioCtx.createBuffer(
+    1,
+    audioCtx.sampleRate * 0.18,
+    audioCtx.sampleRate
+  );
+
+  const data = buffer.getChannelData(0);
+
+  for(let i=0;i<data.length;i++){
+    data[i] =
+      (Math.random() * 2 - 1) *
+      Math.pow(1 - i / data.length, 1.8);
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(480, now);
+
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.08, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+
+  noise.start(now);
+  noise.stop(now + 0.2);
+}
+
 function playSwordSlashSound(){
   if(!audioCtx) return;
 
@@ -1846,6 +1899,9 @@ function spawnSwordShockwave(){
 
 
 function useEquippedItem(){
+  if(typeof hotbarItems === "undefined") return;
+  if(typeof equippedSlot === "undefined") return;
+
   const equippedItem = hotbarItems[equippedSlot];
 
   if(!equippedItem) return;
@@ -1863,6 +1919,18 @@ function useEquippedItem(){
 
 function doSwordSlash(){
   swordSlashTime = 0.22;
+
+  const slashDir = new THREE.Vector3(
+    Math.sin(playerYaw),
+    0,
+    Math.cos(playerYaw)
+  ).normalize();
+
+  const slashHitPos = player.position.clone()
+    .add(new THREE.Vector3(0, 1.3, 0))
+    .addScaledVector(slashDir, 2.3);
+
+  damageTreesAt(slashHitPos, 3.0);
 
   playSwordSlashSound();
   spawnSwordShockwave();
@@ -2004,6 +2072,7 @@ function updateMagic(dt){
 
       magicProjectiles.splice(i, 1);
       playMagicImpactSound();
+      damageTreesAt(impact, 5.5);
       explodeMagic(impact);
     }
   }
@@ -2498,6 +2567,7 @@ function animate(now){
   skyMaterial.uniforms.time.value = now * 0.001;
   animateWater(dt, now);
   updateSnow(dt);
+  updateFallingBlocks(dt);
   updateSwordTrails(dt);
   renderer.render(scene,camera);
 
