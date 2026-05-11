@@ -1065,6 +1065,10 @@ window.addEventListener("mousedown", e => {
   if(equippedItem && equippedItem.id === "spear"){
     shootMagic();
   }
+
+  if(equippedItem && equippedItem.id === "sword"){
+    doSwordSlash();
+  }
 });
 
 window.addEventListener("mouseup", e => {
@@ -1600,6 +1604,31 @@ function playJumpSound(){
 }
 
 
+
+function playSwordSlashSound(){
+  if(!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "sawtooth";
+
+  osc.frequency.setValueAtTime(220, now);
+  osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.08, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.18);
+}
+
 function playMagicImpactSound(){
   if(!audioCtx) return;
 
@@ -1750,6 +1779,8 @@ let velocityY = 0;
 let grounded = false;
 let jumpPressed = false;
 let mouseActionDown = false;
+let swordSlashTime = 0;
+let swordTrail = [];
 let jumpCount = 0;
 let maxJumps = 3;
 
@@ -1767,6 +1798,65 @@ function playerForward(){
     0,
     Math.cos(playerYaw)
   ).normalize();
+}
+
+
+
+
+function clearSwordArtifacts(){
+  for(let i=swordTrail.length-1;i>=0;i--){
+    const t = swordTrail[i];
+    if(t.mesh){
+      scene.remove(t.mesh);
+      t.mesh.geometry?.dispose?.();
+      t.mesh.material?.dispose?.();
+    }
+    swordTrail.splice(i,1);
+  }
+}
+
+function spawnSwordShockwave(){
+  clearSwordArtifacts();
+
+  const dir = new THREE.Vector3(
+    Math.sin(playerYaw),
+    0,
+    Math.cos(playerYaw)
+  ).normalize();
+
+  const arc = new THREE.Mesh(
+    new THREE.TorusGeometry(1.15, 0.035, 8, 32, Math.PI * 0.75),
+    new THREE.MeshBasicMaterial({
+      color:"#dff6ff",
+      transparent:true,
+      opacity:0.75,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
+    })
+  );
+
+  arc.position.copy(player.position);
+  arc.position.y += 1.35;
+  arc.position.addScaledVector(dir, 1.15);
+
+  arc.rotation.y = playerYaw + Math.PI * 1.5;
+  arc.rotation.z = -0.65;
+
+  scene.add(arc);
+
+  swordTrail.push({
+    mesh:arc,
+    dir,
+    life:0.10,
+    maxLife:0.10
+  });
+}
+
+function doSwordSlash(){
+  swordSlashTime = 0.22;
+
+  playSwordSlashSound();
+  spawnSwordShockwave();
 }
 
 function shootMagic(){
@@ -1850,6 +1940,32 @@ function explodeMagic(pos){
     age:0,
     maxAge:0.7
   });
+}
+
+
+function updateSwordTrails(dt){
+  for(let i=swordTrail.length-1;i>=0;i--){
+    const t = swordTrail[i];
+
+    t.life -= dt;
+
+    const a = Math.max(0, t.life / t.maxLife);
+
+    if(t.mesh){
+      t.mesh.position.addScaledVector(t.dir, dt * 10);
+      t.mesh.scale.setScalar(1 + (1 - a) * 1.8);
+      t.mesh.material.opacity = 0.75 * a;
+    }
+
+    if(t.life <= 0 || a <= 0.02){
+      if(t.mesh){
+        scene.remove(t.mesh);
+        t.mesh.geometry?.dispose?.();
+        t.mesh.material?.dispose?.();
+      }
+      swordTrail.splice(i,1);
+    }
+  }
 }
 
 function updateMagic(dt){
@@ -2184,6 +2300,19 @@ function updatePlayer(dt){
     staff.rotation.z = -0.25;
   } else {
     rightArm.rotation.x = -swing;
+
+  if(swordSlashTime > 0){
+    swordSlashTime -= dt;
+
+    const slashAnim = 1 - (swordSlashTime / 0.22);
+
+    rightArm.rotation.z =
+      1.8 - slashAnim * 2.7;
+
+    rightArm.rotation.x =
+      -0.8 + Math.sin(slashAnim * Math.PI) * 0.6;
+  }
+
     rightArm.rotation.z = 0;
     staff.rotation.x = 0;
     staff.rotation.z = 0;
@@ -2360,6 +2489,7 @@ function animate(now){
   skyMaterial.uniforms.time.value = now * 0.001;
   animateWater(dt, now);
   updateSnow(dt);
+  updateSwordTrails(dt);
   renderer.render(scene,camera);
 
   /*
