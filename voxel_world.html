@@ -227,7 +227,7 @@ body.hideControls #hotbar{
   <div class="knob"></div>
 </div>
 
-<button id="castBtn">CAST</button>
+<button id="castBtn">ACTION</button>
 <button id="jumpBtn">JUMP</button>
 
 <div id="lookJoy" class="joy">
@@ -1060,15 +1060,7 @@ window.addEventListener("mousedown", e => {
 
   mouseActionDown = true;
 
-  const equippedItem = hotbarItems[equippedSlot];
-
-  if(equippedItem && equippedItem.id === "spear"){
-    shootMagic();
-  }
-
-  if(equippedItem && equippedItem.id === "sword"){
-    doSwordSlash();
-  }
+  useEquippedItem();
 });
 
 window.addEventListener("mouseup", e => {
@@ -1852,6 +1844,23 @@ function spawnSwordShockwave(){
   });
 }
 
+
+function useEquippedItem(){
+  const equippedItem = hotbarItems[equippedSlot];
+
+  if(!equippedItem) return;
+
+  if(equippedItem.id === "spear"){
+    shootMagic();
+    return;
+  }
+
+  if(equippedItem.id === "sword"){
+    doSwordSlash();
+    return;
+  }
+}
+
 function doSwordSlash(){
   swordSlashTime = 0.22;
 
@@ -2134,7 +2143,7 @@ const castBtn = document.getElementById("castBtn");
 
 castBtn.addEventListener("pointerdown", e => {
   e.preventDefault();
-  shootMagic();
+  useEquippedItem();
 });
 
 jumpBtn.addEventListener("pointerdown", e => {
