@@ -406,13 +406,38 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 
 document.body.appendChild(renderer.domElement);
 
-renderer.domElement.addEventListener("pointerdown", e => {
+function isUiTarget(e){
+  return !!(
+    e.target.closest?.("#jumpBtn") ||
+    e.target.closest?.("#castBtn") ||
+    e.target.closest?.("#overlayToggle") ||
+    e.target.closest?.("#musicToggle") ||
+    e.target.closest?.("#hotbar") ||
+    e.target.closest?.(".joy")
+  );
+}
+
+function triggerWorldAction(e){
   if(e.button !== 0) return;
+  if(isUiTarget(e)) return;
+
   e.preventDefault();
   e.stopPropagation();
 
   mouseActionDown = true;
   useEquippedItem();
+}
+
+renderer.domElement.addEventListener("pointerdown", triggerWorldAction);
+
+document.addEventListener("mousedown", e => {
+  if(document.pointerLockElement){
+    triggerWorldAction(e);
+  }
+});
+
+renderer.domElement.addEventListener("pointerdown", e => {
+  // handled by triggerWorldAction
 });
 
 renderer.domElement.addEventListener("pointerup", e => {
