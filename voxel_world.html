@@ -443,120 +443,8 @@ body.menuOpen #inventoryPanel{
 </head>
 <body>
 
-<div id="debugErrors"></div>
 
-<style>
-#debugErrors{
-  position:fixed;
-  left:8px;
-  right:8px;
-  top:8px;
-  z-index:9999999;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  pointer-events:none;
-  font-family:monospace;
-}
-.debugError{
-  background:rgba(120,0,0,.92);
-  color:#fff;
-  border:1px solid rgba(255,255,255,.22);
-  border-radius:10px;
-  padding:10px 12px;
-  white-space:pre-wrap;
-  word-break:break-word;
-  box-shadow:0 6px 18px rgba(0,0,0,.35);
-}
-</style>
 
-<script>
-(function(){
-  const root = document.getElementById("debugErrors");
-
-  function fmt(v){
-    if(v instanceof Error) return v.stack || v.message;
-    if(typeof v === "string") return v;
-    try{ return JSON.stringify(v,null,2); }
-    catch(e){ return String(v); }
-  }
-
-  function pushError(text){
-    const el = document.createElement("div");
-    el.className = "debugError";
-    el.textContent = "[" + new Date().toLocaleTimeString() + "]\\n" + text;
-    root.prepend(el);
-
-    while(root.children.length > 5){
-      root.removeChild(root.lastChild);
-    }
-  }
-
-  window.addEventListener("error", e => {
-    pushError(
-      "ERROR: " + e.message +
-      "\\nLINE: " + e.lineno + ":" + e.colno +
-      "\\nFILE: " + e.filename
-    );
-  });
-
-  window.addEventListener("unhandledrejection", e => {
-    pushError("PROMISE ERROR\\n" + fmt(e.reason));
-  });
-
-  const oldWarn = console.warn.bind(console);
-  console.warn = (...args) => {
-    pushError("WARN\\n" + args.map(fmt).join(" "));
-    oldWarn(...args);
-  };
-
-  const oldError = console.error.bind(console);
-  console.error = (...args) => {
-    const text = args.map(fmt).join(" ");
-
-    // ignore noisy browser internal spam
-    if(text.includes("GPU stall") || text.includes("chromium")){
-      oldError(...args);
-      return;
-    }
-
-    pushError("CONSOLE ERROR\\n" + text);
-    oldError(...args);
-  };
-})();
-</script>
-<pre id="errorOverlay" style="
-position:fixed;
-left:8px;
-right:8px;
-top:8px;
-z-index:999999;
-background:rgba(80,0,0,.94);
-color:white;
-padding:12px;
-border-radius:10px;
-font:13px monospace;
-white-space:pre-wrap;
-display:none;
-"></pre>
-
-<script>
-window.addEventListener("error", e => {
-  const box = document.getElementById("errorOverlay");
-  box.style.display = "block";
-  box.textContent =
-    "ERROR: " + e.message + "\n" +
-    e.filename + ":" + e.lineno + ":" + e.colno;
-});
-
-window.addEventListener("unhandledrejection", e => {
-  const box = document.getElementById("errorOverlay");
-  box.style.display = "block";
-  box.textContent =
-    "PROMISE ERROR:\n" +
-    String(e.reason && (e.reason.stack || e.reason.message || e.reason));
-});
-</script>
 <button id="musicToggle">MUSIC</button>
 
 <button id="inventoryToggle">INV</button>
@@ -727,7 +615,25 @@ function triggerWorldAction(e){
   useEquippedItem();
 }
 
-renderer.domElement.addEventListener("pointerdown", triggerWorldAction);
+
+function requestPointerLockSafe(){
+  if(menuOpen) return;
+  if(performance.now() < pointerLockCooldownUntil) return;
+  if(document.pointerLockElement) return;
+
+  const req = renderer.domElement.requestPointerLock?.();
+
+  if(req && req.catch){
+    req.catch(err => {
+      console.warn("pointer lock skipped", err);
+    });
+  }
+}
+
+renderer.domElement.addEventListener("pointerdown", e => {
+  requestPointerLockSafe();
+  triggerWorldAction(e);
+});
 
 document.addEventListener("mousedown", e => {
   if(document.pointerLockElement){
@@ -1246,117 +1152,78 @@ function generateChunk(cx,cz){
 
 
 const waterSurfaces = [];
+const waterRipples = [];
+let lastWaterRippleTime = 0;
 
-const waterSurfaceMat = new THREE.ShaderMaterial({
+function spawnWaterRipple(x, z, strength=1){
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.15, 0.22, 32),
+    new THREE.MeshBasicMaterial({
+      color:"#dff8ff",
+      transparent:true,
+      opacity:0.65 * strength,
+      depthWrite:false,
+      side:THREE.DoubleSide
+    })
+  );
+
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, 5.12, z);
+  scene.add(ring);
+
+  waterRipples.push({
+    mesh:ring,
+    life:0.75,
+    maxLife:0.75,
+    strength
+  });
+}
+
+function updateWaterRipples(dt){
+  for(let i=waterRipples.length-1;i>=0;i--){
+    const r = waterRipples[i];
+    r.life -= dt;
+
+    const t = 1 - r.life / r.maxLife;
+    const scale = 1 + t * 5.5 * r.strength;
+
+    r.mesh.scale.set(scale, scale, scale);
+    r.mesh.material.opacity = Math.max(0, 0.65 * (1 - t));
+
+    if(r.life <= 0){
+      scene.remove(r.mesh);
+      r.mesh.geometry.dispose();
+      r.mesh.material.dispose();
+      waterRipples.splice(i,1);
+    }
+  }
+}
+
+function playerInWater(){
+  const h = heightAt(
+    Math.floor(player.position.x),
+    Math.floor(player.position.z)
+  );
+
+  return h < 5 && player.position.y <= 6.25;
+}
+
+
+const waterSurfaceMat = new THREE.MeshPhysicalMaterial({
+  color:"#3fb7ff",
   transparent:true,
+  opacity:0.42,
+  roughness:0.18,
+  metalness:0.0,
+  clearcoat:0.7,
+  clearcoatRoughness:0.12,
   depthWrite:false,
-  side:THREE.DoubleSide,
-  uniforms:{
-    time:{ value:0 },
-    shallowColor:{ value:new THREE.Color("#39c8ff") },
-    deepColor:{ value:new THREE.Color("#064a8f") },
-    foamColor:{ value:new THREE.Color("#dff8ff") },
-    sunColor:{ value:new THREE.Color("#fff6c8") }
-  },
-  vertexShader: `
-    uniform float time;
-
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-
-    float wave(vec2 p, float speed, float scale, float amp){
-      return sin(p.x * scale + time * speed) * amp
-           + cos(p.y * scale * 0.73 + time * speed * 0.81) * amp;
-    }
-
-    void main(){
-      vUv = uv;
-
-      vec3 pos = position;
-
-      float w1 = wave(pos.xy, 1.8, 0.55, 0.12);
-      float w2 = wave(pos.yx + vec2(7.1, 2.3), 2.7, 1.25, 0.045);
-      float w3 = wave(pos.xy + vec2(3.4, 8.2), 0.9, 0.22, 0.09);
-
-      pos.z += w1 + w2 + w3;
-
-      vec4 wp = modelMatrix * vec4(pos, 1.0);
-      vWorldPos = wp.xyz;
-
-      vec3 dx = vec3(0.08, 0.0, wave(pos.xy + vec2(0.08,0.0), 1.8, 0.55, 0.12) - w1);
-      vec3 dy = vec3(0.0, 0.08, wave(pos.xy + vec2(0.0,0.08), 1.8, 0.55, 0.12) - w1);
-      vNormal = normalize(normalMatrix * cross(dx, dy));
-
-      gl_Position = projectionMatrix * viewMatrix * wp;
-    }
-  `,
-  fragmentShader: `
-    uniform float time;
-    uniform vec3 shallowColor;
-    uniform vec3 deepColor;
-    uniform vec3 foamColor;
-    uniform vec3 sunColor;
-
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-
-    float hash(vec2 p){
-      return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-    }
-
-    float noise(vec2 p){
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-
-      float a = hash(i);
-      float b = hash(i + vec2(1.0,0.0));
-      float c = hash(i + vec2(0.0,1.0));
-      float d = hash(i + vec2(1.0,1.0));
-
-      vec2 u = f*f*(3.0-2.0*f);
-
-      return mix(a,b,u.x) +
-        (c-a)*u.y*(1.0-u.x) +
-        (d-b)*u.x*u.y;
-    }
-
-    void main(){
-      vec3 N = normalize(vNormal);
-      vec3 V = normalize(cameraPosition - vWorldPos);
-      vec3 L = normalize(vec3(0.45, 0.9, 0.25));
-
-      float fresnel = pow(1.0 - max(dot(N,V), 0.0), 2.5);
-
-      float n1 = noise(vWorldPos.xz * 0.18 + vec2(time * 0.08, time * 0.03));
-      float n2 = noise(vWorldPos.xz * 0.55 - vec2(time * 0.18, time * 0.12));
-
-      float depthMix = smoothstep(0.15, 0.95, n1);
-      vec3 water = mix(shallowColor, deepColor, depthMix);
-
-      float foam =
-        smoothstep(0.72, 0.95, n2) *
-        smoothstep(0.15, 0.95, fresnel + n1 * 0.25);
-
-      vec3 H = normalize(L + V);
-      float spec = pow(max(dot(N,H), 0.0), 90.0) * 1.5;
-
-      vec3 col = water;
-      col += fresnel * vec3(0.35, 0.75, 1.0);
-      col = mix(col, foamColor, foam * 0.65);
-      col += sunColor * spec;
-
-      float alpha = 0.62 + fresnel * 0.22 + foam * 0.12;
-
-      gl_FragColor = vec4(col, alpha);
-    }
-  `
+  side:THREE.DoubleSide
 });
 
 function addWaterSurface(group, x, z){
   const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(chunkSize, chunkSize, 64, 64),
+    new THREE.PlaneGeometry(chunkSize, chunkSize, 1, 1),
     waterSurfaceMat
   );
 
@@ -1478,6 +1345,40 @@ function spawnTreeDebris(t){
   spawnFallingBlock(leaf, t.x - 1, t.y + 4, t.z);
   spawnFallingBlock(leaf, t.x, t.y + 4, t.z + 1);
   spawnFallingBlock(leaf, t.x, t.y + 4, t.z - 1);
+}
+
+
+function damagePlacedBlocksAt(x, y, z, radius=2.2){
+  for(const [key, b] of [...placedBlocks.entries()]){
+    const dx = b.x - x;
+    const dy = b.y - y;
+    const dz = b.z - z;
+
+    const d = Math.hypot(dx, dy * 0.7, dz);
+
+    if(d > radius) continue;
+
+    scene.remove(b.mesh);
+
+    spawnFallingBlock(
+      b.kind,
+      b.x,
+      b.y,
+      b.z
+    );
+
+    if(typeof spawnMagicBurst === "function"){
+      spawnMagicBurst(
+        new THREE.Vector3(
+          b.x,
+          b.y + 0.5,
+          b.z
+        )
+      );
+    }
+
+    placedBlocks.delete(key);
+  }
 }
 
 function damageTreesAt(pos, radius){
@@ -1652,6 +1553,8 @@ function updateFallingBlocks(dt){
         inventory[b.resource] =
           (inventory[b.resource] || 0) + 1;
 
+        playPickupBlockSound();
+
         updateInventoryHud();
         syncHotbarResources();
 
@@ -1671,7 +1574,15 @@ function chunkKey(cx,cz){ return `${cx},${cz}`; }
 
 
 function animateWater(dt, now){
-  waterSurfaceMat.uniforms.time.value = now * 0.001;
+  const t = now * 0.001;
+
+  for(const plane of waterSurfaces){
+    plane.position.y =
+      5.06 + Math.sin(t * 1.4 + plane.position.x * 0.04) * 0.025;
+
+    plane.material.opacity =
+      0.38 + Math.sin(t * 1.1) * 0.04;
+  }
 }
 
 function updateChunks(){
@@ -1802,6 +1713,8 @@ setupStick("lookJoy", lookStick);
 document.body.addEventListener("click", e => {
   if(
     e.target.closest("#musicToggle") ||
+    e.target.closest("#inventoryToggle") ||
+    e.target.closest("#inventoryPanel") ||
     e.target.closest("#overlayToggle") ||
     e.target.closest("#castBtn") ||
     e.target.closest("#jumpBtn") ||
@@ -1812,11 +1725,10 @@ document.body.addEventListener("click", e => {
   }
 
   ensureAudio();
-  document.body.requestPointerLock?.();
 });
 
 document.addEventListener("mousemove", e => {
-  if(document.pointerLockElement !== document.body) return;
+  if(document.pointerLockElement !== renderer.domElement) return;
 
   yaw -= e.movementX * 0.0025;
   pitch -= e.movementY * 0.0025;
@@ -2389,6 +2301,7 @@ player.position.set(0, heightAt(0,0) + 1, 0);
 let bgMusic = null;
 
 const musicTracks = [
+  "assets/audio/148695__strangereight__ambient-acoustic.wav",
   "assets/audio/piano_theme.wav",
   "assets/audio/shadows_piano.wav",
   "assets/audio/piano_loop_120bpm.wav"
@@ -2511,6 +2424,67 @@ function playJumpSound(){
 
 
 
+
+
+function playPlaceBlockSound(){
+  ensureAudio();
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "square";
+
+  osc.frequency.setValueAtTime(
+    210 * pitchVar(),
+    now
+  );
+
+  osc.frequency.exponentialRampToValueAtTime(
+    120 * pitchVar(),
+    now + 0.08
+  );
+
+  gain.gain.setValueAtTime(0.05, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.12);
+}
+
+function playPickupBlockSound(){
+  ensureAudio();
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "triangle";
+
+  osc.frequency.setValueAtTime(
+    420 * pitchVar(),
+    now
+  );
+
+  osc.frequency.exponentialRampToValueAtTime(
+    760 * pitchVar(),
+    now + 0.07
+  );
+
+  gain.gain.setValueAtTime(0.045, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.12);
+}
 
 function playBlockLandSound(){
   if(!audioCtx) return;
@@ -3011,10 +2985,19 @@ function repairHouseBlocksAt(pos, radius){
 }
 
 
+
+function isPlaceableBlockItem(item){
+  return !!(
+    item &&
+    item.resource &&
+    item.id !== "fish"
+  );
+}
+
 function placeEquippedBlock(){
   const item = hotbarItems[equippedSlot];
 
-  if(!item || !item.resource) return;
+  if(!isPlaceableBlockItem(item)) return;
   if((inventory[item.resource] || 0) <= 0) return;
 
   const dir = new THREE.Vector3(
@@ -3042,6 +3025,9 @@ function placeEquippedBlock(){
   });
 
   inventory[item.resource] -= 1;
+
+  playPlaceBlockSound();
+
   updateInventoryHud();
   updateEquippedVisuals();
 }
@@ -3054,7 +3040,7 @@ function useEquippedItem(){
 
   if(!equippedItem) return;
 
-  if(equippedItem.resource){
+  if(isPlaceableBlockItem(equippedItem)){
     placeEquippedBlock();
     return;
   }
@@ -3110,6 +3096,7 @@ function doAerialSwordSlash(){
 
   damageTreesAt(slamPos, 4.2);
   damageHouseBlocksAt(slamPos, 4.2);
+  damagePlacedBlocksAt(slamPos, 4.2);
 
   explodeMagic(slamPos);
 }
@@ -3185,6 +3172,7 @@ function doSwordSlash(){
 
   damageTreesAt(slashHitPos, 3.0);
   damageHouseBlocksAt(slashHitPos, 2.7);
+  damagePlacedBlocksAt(slashHitPos, 2.7);
 
   playSwordSlashSound();
   spawnSwordShockwave();
@@ -3328,6 +3316,7 @@ function updateMagic(dt){
       playMagicImpactSound();
       damageTreesAt(impact, 5.5);
       damageHouseBlocksAt(impact, 5.5);
+      damagePlacedBlocksAt(impact, 5.5);
       explodeMagic(impact);
     }
   }
@@ -3604,6 +3593,19 @@ function groundY(x,z){
     }
   }
 
+  for(const [key, b] of placedBlocks.entries()){
+    const dx = Math.abs(x - b.x);
+    const dz = Math.abs(z - b.z);
+
+    if(dx <= 0.5 + playerRadius && dz <= 0.5 + playerRadius){
+      const top = b.y + 1;
+
+      if(top > y && top <= player.position.y + 1.35){
+        y = top;
+      }
+    }
+  }
+
   return y;
 }
 
@@ -3765,6 +3767,25 @@ function resolveWorldCollisions(){
     if(dy > 3.0) continue;
 
     pushPlayerOutOfCircle(t.x, t.z, playerRadius + 0.46);
+  }
+
+  // placed block collision
+  for(const [key, b] of placedBlocks.entries()){
+    const blockTop = b.y + 1;
+
+    if(player.position.y >= blockTop - 0.08){
+      continue;
+    }
+
+    const dy = Math.abs(player.position.y - b.y);
+    if(dy > 2.0) continue;
+
+    pushPlayerOutOfBox(
+      b.x,
+      b.z,
+      0.5 + playerRadius,
+      0.5 + playerRadius
+    );
   }
 
   // house block collision
@@ -3958,7 +3979,13 @@ function updatePlayer(dt){
 
     if(grounded && performance.now() - lastFootstepTime > 280){
       lastFootstepTime = performance.now();
-      playFootstep();
+
+      if(playerInWater()){
+        spawnWaterRipple(player.position.x, player.position.z, 0.9);
+        playBlockLandSound?.();
+      } else {
+        playFootstep();
+      }
     }
 
     playerYaw = Math.atan2(move.x, move.z);
@@ -4068,6 +4095,7 @@ function animate(now){
   updateButterflies(dt, now);
   updateMobs(dt, now);
   skyMaterial.uniforms.time.value = now * 0.001;
+  updateWaterRipples(dt);
   animateWater(dt, now);
   updateCherryPetals(dt, now);
   updateSnow(dt);
@@ -4209,6 +4237,12 @@ function setMenuOpen(open){
   setTimeout(resetTouchControls, 80);
   setTimeout(resetTouchControls, 180);
 
+  pointerLockCooldownUntil = performance.now() + 700;
+
+  pointerLockCooldownUntil = performance.now() + 700;
+
+  pointerLockCooldownUntil = performance.now() + 700;
+
   if(open && document.exitPointerLock){
     document.exitPointerLock();
   }
@@ -4303,8 +4337,7 @@ function updateEquippedVisuals(){
 
   if(typeof heldBlock !== "undefined"){
     const isBlock =
-      equippedItem &&
-      equippedItem.resource &&
+      isPlaceableBlockItem(equippedItem) &&
       inventory[equippedItem.resource] > 0;
 
     heldBlock.visible = !!isBlock;
@@ -4422,6 +4455,7 @@ const inventoryToggle = document.getElementById("inventoryToggle");
 const inventoryPanel = document.getElementById("inventoryPanel");
 let inventoryOpen = false;
 let menuOpen = false;
+let pointerLockCooldownUntil = 0;
 
 inventoryPanel.addEventListener("pointerdown", e => {
   e.preventDefault();

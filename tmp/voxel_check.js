@@ -129,6 +129,7 @@ function isUiTarget(e){
 }
 
 function triggerWorldAction(e){
+  if(menuOpen) return;
   if(e.button !== 0) return;
   if(isUiTarget(e)) return;
 
@@ -139,7 +140,25 @@ function triggerWorldAction(e){
   useEquippedItem();
 }
 
-renderer.domElement.addEventListener("pointerdown", triggerWorldAction);
+
+function requestPointerLockSafe(){
+  if(menuOpen) return;
+  if(performance.now() < pointerLockCooldownUntil) return;
+  if(document.pointerLockElement) return;
+
+  const req = renderer.domElement.requestPointerLock?.();
+
+  if(req && req.catch){
+    req.catch(err => {
+      console.warn("pointer lock skipped", err);
+    });
+  }
+}
+
+renderer.domElement.addEventListener("pointerdown", e => {
+  requestPointerLockSafe();
+  triggerWorldAction(e);
+});
 
 document.addEventListener("mousedown", e => {
   if(document.pointerLockElement){
@@ -659,116 +678,21 @@ function generateChunk(cx,cz){
 
 const waterSurfaces = [];
 
-const waterSurfaceMat = new THREE.ShaderMaterial({
+const waterSurfaceMat = new THREE.MeshPhysicalMaterial({
+  color:"#3fb7ff",
   transparent:true,
+  opacity:0.42,
+  roughness:0.18,
+  metalness:0.0,
+  clearcoat:0.7,
+  clearcoatRoughness:0.12,
   depthWrite:false,
-  side:THREE.DoubleSide,
-  uniforms:{
-    time:{ value:0 },
-    shallowColor:{ value:new THREE.Color("#39c8ff") },
-    deepColor:{ value:new THREE.Color("#064a8f") },
-    foamColor:{ value:new THREE.Color("#dff8ff") },
-    sunColor:{ value:new THREE.Color("#fff6c8") }
-  },
-  vertexShader: `
-    uniform float time;
-
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-
-    float wave(vec2 p, float speed, float scale, float amp){
-      return sin(p.x * scale + time * speed) * amp
-           + cos(p.y * scale * 0.73 + time * speed * 0.81) * amp;
-    }
-
-    void main(){
-      vUv = uv;
-
-      vec3 pos = position;
-
-      float w1 = wave(pos.xy, 1.8, 0.55, 0.12);
-      float w2 = wave(pos.yx + vec2(7.1, 2.3), 2.7, 1.25, 0.045);
-      float w3 = wave(pos.xy + vec2(3.4, 8.2), 0.9, 0.22, 0.09);
-
-      pos.z += w1 + w2 + w3;
-
-      vec4 wp = modelMatrix * vec4(pos, 1.0);
-      vWorldPos = wp.xyz;
-
-      vec3 dx = vec3(0.08, 0.0, wave(pos.xy + vec2(0.08,0.0), 1.8, 0.55, 0.12) - w1);
-      vec3 dy = vec3(0.0, 0.08, wave(pos.xy + vec2(0.0,0.08), 1.8, 0.55, 0.12) - w1);
-      vNormal = normalize(normalMatrix * cross(dx, dy));
-
-      gl_Position = projectionMatrix * viewMatrix * wp;
-    }
-  `,
-  fragmentShader: `
-    uniform float time;
-    uniform vec3 shallowColor;
-    uniform vec3 deepColor;
-    uniform vec3 foamColor;
-    uniform vec3 sunColor;
-
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-
-    float hash(vec2 p){
-      return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
-    }
-
-    float noise(vec2 p){
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-
-      float a = hash(i);
-      float b = hash(i + vec2(1.0,0.0));
-      float c = hash(i + vec2(0.0,1.0));
-      float d = hash(i + vec2(1.0,1.0));
-
-      vec2 u = f*f*(3.0-2.0*f);
-
-      return mix(a,b,u.x) +
-        (c-a)*u.y*(1.0-u.x) +
-        (d-b)*u.x*u.y;
-    }
-
-    void main(){
-      vec3 N = normalize(vNormal);
-      vec3 V = normalize(cameraPosition - vWorldPos);
-      vec3 L = normalize(vec3(0.45, 0.9, 0.25));
-
-      float fresnel = pow(1.0 - max(dot(N,V), 0.0), 2.5);
-
-      float n1 = noise(vWorldPos.xz * 0.18 + vec2(time * 0.08, time * 0.03));
-      float n2 = noise(vWorldPos.xz * 0.55 - vec2(time * 0.18, time * 0.12));
-
-      float depthMix = smoothstep(0.15, 0.95, n1);
-      vec3 water = mix(shallowColor, deepColor, depthMix);
-
-      float foam =
-        smoothstep(0.72, 0.95, n2) *
-        smoothstep(0.15, 0.95, fresnel + n1 * 0.25);
-
-      vec3 H = normalize(L + V);
-      float spec = pow(max(dot(N,H), 0.0), 90.0) * 1.5;
-
-      vec3 col = water;
-      col += fresnel * vec3(0.35, 0.75, 1.0);
-      col = mix(col, foamColor, foam * 0.65);
-      col += sunColor * spec;
-
-      float alpha = 0.62 + fresnel * 0.22 + foam * 0.12;
-
-      gl_FragColor = vec4(col, alpha);
-    }
-  `
+  side:THREE.DoubleSide
 });
 
 function addWaterSurface(group, x, z){
   const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(chunkSize, chunkSize, 64, 64),
+    new THREE.PlaneGeometry(chunkSize, chunkSize, 1, 1),
     waterSurfaceMat
   );
 
@@ -810,6 +734,12 @@ const fallingBlocks = [];
 const inventory = {};
 
 const pickups = [];
+const placedBlocks = new Map();
+
+function placedBlockKey(x,y,z){
+  return `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
+}
+
 
 const treeRegistry = new Map();
 const treeObjects = new Map();
@@ -884,6 +814,40 @@ function spawnTreeDebris(t){
   spawnFallingBlock(leaf, t.x - 1, t.y + 4, t.z);
   spawnFallingBlock(leaf, t.x, t.y + 4, t.z + 1);
   spawnFallingBlock(leaf, t.x, t.y + 4, t.z - 1);
+}
+
+
+function damagePlacedBlocksAt(x, y, z, radius=2.2){
+  for(const [key, b] of [...placedBlocks.entries()]){
+    const dx = b.x - x;
+    const dy = b.y - y;
+    const dz = b.z - z;
+
+    const d = Math.hypot(dx, dy * 0.7, dz);
+
+    if(d > radius) continue;
+
+    scene.remove(b.mesh);
+
+    spawnFallingBlock(
+      b.kind,
+      b.x,
+      b.y,
+      b.z
+    );
+
+    if(typeof spawnMagicBurst === "function"){
+      spawnMagicBurst(
+        new THREE.Vector3(
+          b.x,
+          b.y + 0.5,
+          b.z
+        )
+      );
+    }
+
+    placedBlocks.delete(key);
+  }
 }
 
 function damageTreesAt(pos, radius){
@@ -1058,6 +1022,8 @@ function updateFallingBlocks(dt){
         inventory[b.resource] =
           (inventory[b.resource] || 0) + 1;
 
+        playPickupBlockSound();
+
         updateInventoryHud();
         syncHotbarResources();
 
@@ -1077,7 +1043,12 @@ function chunkKey(cx,cz){ return `${cx},${cz}`; }
 
 
 function animateWater(dt, now){
-  waterSurfaceMat.uniforms.time.value = now * 0.001;
+  const t = now * 0.001;
+
+  for(const plane of waterSurfaces){
+    plane.position.y = 5.06 + Math.sin(t * 1.4 + plane.position.x * 0.04) * 0.025;
+    plane.material.opacity = 0.38 + Math.sin(t * 1.1) * 0.04;
+  }
 }
 
 function updateChunks(){
@@ -1114,6 +1085,11 @@ function updateChunks(){
 const spaceJumpInstalled = true;
 
 window.addEventListener("keydown", e => {
+  if(e.key === "Escape" && menuOpen){
+    inventoryPanel.classList.add("hidden");
+    setMenuOpen(false);
+    return;
+  }
   if(e.code === "Space"){
     e.preventDefault();
     jumpPressed = true;
@@ -1175,14 +1151,15 @@ function setupStick(id, state){
   }
 
   joy.addEventListener("pointerdown", e => {
+    if(inventoryOpen) return;
     ensureAudio();
     e.preventDefault();
     activePointer = e.pointerId;
-    joy.setPointerCapture(e.pointerId);
-    update(e.clientX, e.clientY);
+update(e.clientX, e.clientY);
   });
 
   joy.addEventListener("pointermove", e => {
+    if(inventoryOpen) return;
     if(activePointer !== e.pointerId) return;
     e.preventDefault();
     update(e.clientX, e.clientY);
@@ -1202,6 +1179,8 @@ setupStick("lookJoy", lookStick);
 document.body.addEventListener("click", e => {
   if(
     e.target.closest("#musicToggle") ||
+    e.target.closest("#inventoryToggle") ||
+    e.target.closest("#inventoryPanel") ||
     e.target.closest("#overlayToggle") ||
     e.target.closest("#castBtn") ||
     e.target.closest("#jumpBtn") ||
@@ -1212,11 +1191,10 @@ document.body.addEventListener("click", e => {
   }
 
   ensureAudio();
-  document.body.requestPointerLock?.();
 });
 
 document.addEventListener("mousemove", e => {
-  if(document.pointerLockElement !== document.body) return;
+  if(document.pointerLockElement !== renderer.domElement) return;
 
   yaw -= e.movementX * 0.0025;
   pitch -= e.movementY * 0.0025;
@@ -1487,6 +1465,16 @@ const line = new THREE.Line(
 fishingRod.add(line);
 
 rightArm.add(fishingRod);
+
+const heldBlock = new THREE.Mesh(
+  geo,
+  mats.wood
+);
+heldBlock.visible = false;
+heldBlock.scale.set(0.55,0.55,0.55);
+heldBlock.position.set(0.08, -0.78, -0.18);
+rightArm.add(heldBlock);
+
 
 
 
@@ -1779,6 +1767,7 @@ player.position.set(0, heightAt(0,0) + 1, 0);
 let bgMusic = null;
 
 const musicTracks = [
+  "assets/audio/148695__strangereight__ambient-acoustic.wav",
   "assets/audio/piano_theme.wav",
   "assets/audio/shadows_piano.wav",
   "assets/audio/piano_loop_120bpm.wav"
@@ -1901,6 +1890,67 @@ function playJumpSound(){
 
 
 
+
+
+function playPlaceBlockSound(){
+  ensureAudio();
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "square";
+
+  osc.frequency.setValueAtTime(
+    210 * pitchVar(),
+    now
+  );
+
+  osc.frequency.exponentialRampToValueAtTime(
+    120 * pitchVar(),
+    now + 0.08
+  );
+
+  gain.gain.setValueAtTime(0.05, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.12);
+}
+
+function playPickupBlockSound(){
+  ensureAudio();
+
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = "triangle";
+
+  osc.frequency.setValueAtTime(
+    420 * pitchVar(),
+    now
+  );
+
+  osc.frequency.exponentialRampToValueAtTime(
+    760 * pitchVar(),
+    now + 0.07
+  );
+
+  gain.gain.setValueAtTime(0.045, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.12);
+}
 
 function playBlockLandSound(){
   if(!audioCtx) return;
@@ -2400,6 +2450,54 @@ function repairHouseBlocksAt(pos, radius){
   return fixed;
 }
 
+
+
+function isPlaceableBlockItem(item){
+  return !!(
+    item &&
+    item.resource &&
+    item.id !== "fish"
+  );
+}
+
+function placeEquippedBlock(){
+  const item = hotbarItems[equippedSlot];
+
+  if(!isPlaceableBlockItem(item)) return;
+  if((inventory[item.resource] || 0) <= 0) return;
+
+  const dir = new THREE.Vector3(
+    Math.sin(playerYaw),
+    0,
+    Math.cos(playerYaw)
+  ).normalize();
+
+  const x = Math.floor(player.position.x + dir.x * 2.2);
+  const z = Math.floor(player.position.z + dir.z * 2.2);
+  const y = Math.floor(groundY(x,z));
+
+  const key = placedBlockKey(x,y,z);
+
+  if(placedBlocks.has(key)) return;
+
+  const mesh = new THREE.Mesh(geo, mats[item.resource] || mats.wood);
+  mesh.position.set(x,y,z);
+  scene.add(mesh);
+
+  placedBlocks.set(key, {
+    mesh,
+    kind:item.resource,
+    x,y,z
+  });
+
+  inventory[item.resource] -= 1;
+
+  playPlaceBlockSound();
+
+  updateInventoryHud();
+  updateEquippedVisuals();
+}
+
 function useEquippedItem(){
   if(typeof hotbarItems === "undefined") return;
   if(typeof equippedSlot === "undefined") return;
@@ -2407,6 +2505,11 @@ function useEquippedItem(){
   const equippedItem = hotbarItems[equippedSlot];
 
   if(!equippedItem) return;
+
+  if(isPlaceableBlockItem(equippedItem)){
+    placeEquippedBlock();
+    return;
+  }
 
   if(equippedItem.id === "spear"){
     shootMagic();
@@ -2459,6 +2562,7 @@ function doAerialSwordSlash(){
 
   damageTreesAt(slamPos, 4.2);
   damageHouseBlocksAt(slamPos, 4.2);
+  damagePlacedBlocksAt(slamPos, 4.2);
 
   explodeMagic(slamPos);
 }
@@ -2534,6 +2638,7 @@ function doSwordSlash(){
 
   damageTreesAt(slashHitPos, 3.0);
   damageHouseBlocksAt(slashHitPos, 2.7);
+  damagePlacedBlocksAt(slashHitPos, 2.7);
 
   playSwordSlashSound();
   spawnSwordShockwave();
@@ -2677,6 +2782,7 @@ function updateMagic(dt){
       playMagicImpactSound();
       damageTreesAt(impact, 5.5);
       damageHouseBlocksAt(impact, 5.5);
+      damagePlacedBlocksAt(impact, 5.5);
       explodeMagic(impact);
     }
   }
@@ -2953,6 +3059,19 @@ function groundY(x,z){
     }
   }
 
+  for(const [key, b] of placedBlocks.entries()){
+    const dx = Math.abs(x - b.x);
+    const dz = Math.abs(z - b.z);
+
+    if(dx <= 0.5 + playerRadius && dz <= 0.5 + playerRadius){
+      const top = b.y + 1;
+
+      if(top > y && top <= player.position.y + 1.35){
+        y = top;
+      }
+    }
+  }
+
   return y;
 }
 
@@ -3116,6 +3235,25 @@ function resolveWorldCollisions(){
     pushPlayerOutOfCircle(t.x, t.z, playerRadius + 0.46);
   }
 
+  // placed block collision
+  for(const [key, b] of placedBlocks.entries()){
+    const blockTop = b.y + 1;
+
+    if(player.position.y >= blockTop - 0.08){
+      continue;
+    }
+
+    const dy = Math.abs(player.position.y - b.y);
+    if(dy > 2.0) continue;
+
+    pushPlayerOutOfBox(
+      b.x,
+      b.z,
+      0.5 + playerRadius,
+      0.5 + playerRadius
+    );
+  }
+
   // house block collision
   for(const [key, b] of houseBlockRegistry.entries()){
     if(brokenHouseBlocks.has(key)) continue;
@@ -3139,6 +3277,10 @@ function resolveWorldCollisions(){
 }
 
 function updatePlayer(dt){
+  if(menuOpen){
+    resetTouchControls();
+    return;
+  }
 
   yaw -= lookStick.x * dt * 2.8;
   pitch += lookStick.y * dt * 2.2;
@@ -3341,6 +3483,7 @@ function updatePlayer(dt){
 }
 
 function updateThirdPersonCamera(dt){
+  if(menuOpen) return;
 
   const radius = 10;
 
@@ -3454,6 +3597,9 @@ let hotbarItems = [...toolItems, null,null,null,null,null,null];
 
 
 function syncHotbarResources(){
+  if(typeof customHotbarResources === "undefined") return;
+  if(typeof toolItems === "undefined") return;
+
   const available = Object.entries(inventory)
     .filter(([kind,count]) => count > 0)
     .map(([kind]) => kind);
@@ -3519,6 +3665,9 @@ function createItemIcon(kind){
 }
 
 function assignInventoryItemToHotbar(kind){
+  if(typeof equippedSlot === "undefined") return;
+  if(typeof toolItems === "undefined") return;
+
   let slot = equippedSlot - toolItems.length;
 
   if(slot < 0 || slot >= customHotbarResources.length){
@@ -3532,7 +3681,63 @@ function assignInventoryItemToHotbar(kind){
   updateInventoryHud();
 }
 
+
+
+function setMenuOpen(open){
+  menuOpen = open;
+  inventoryOpen = open;
+
+  document.body.classList.toggle("menuOpen", open);
+
+  resetTouchControls();
+
+  // clear delayed pointer/touch events after the menu state changes
+  setTimeout(resetTouchControls, 0);
+  setTimeout(resetTouchControls, 80);
+  setTimeout(resetTouchControls, 180);
+
+  pointerLockCooldownUntil = performance.now() + 700;
+
+  pointerLockCooldownUntil = performance.now() + 700;
+
+  pointerLockCooldownUntil = performance.now() + 700;
+
+  if(open && document.exitPointerLock){
+    document.exitPointerLock();
+  }
+}
+
+function resetTouchControls(){
+  mouseActionDown = false;
+  jumpPressed = false;
+
+  if(typeof moveStick !== "undefined"){
+    moveStick.x = 0;
+    moveStick.y = 0;
+  }
+
+  if(typeof lookStick !== "undefined"){
+    lookStick.x = 0;
+    lookStick.y = 0;
+  }
+
+  if(typeof activeTouches !== "undefined"){
+    activeTouches.clear?.();
+  }
+
+  if(typeof state !== "undefined"){
+    state.pointerId = null;
+  }
+
+  document.querySelectorAll(".joyKnob").forEach(k => {
+    k.style.transform = "translate(-50%, -50%)";
+  });
+}
+
 function updateInventoryHud(){
+  if(typeof customHotbarResources === "undefined") return;
+  if(typeof hotbarItems === "undefined") return;
+
   const panel = document.getElementById("inventoryPanel");
 
   if(panel){
@@ -3560,6 +3765,8 @@ function updateInventoryHud(){
       slot.addEventListener("pointerdown", e => {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
+        resetTouchControls();
         assignInventoryItemToHotbar(kind);
       });
 
@@ -3573,7 +3780,43 @@ function updateInventoryHud(){
 }
 
 
+
+let equippedSlot = 0;
+
+function updateEquippedVisuals(){
+  const equippedItem =
+    typeof hotbarItems !== "undefined"
+      ? hotbarItems[equippedSlot]
+      : null;
+
+  if(typeof staff !== "undefined") staff.visible = !!(equippedItem && equippedItem.id === "spear");
+  if(typeof sword !== "undefined") sword.visible = !!(equippedItem && equippedItem.id === "sword");
+  if(typeof wrench !== "undefined") wrench.visible = !!(equippedItem && equippedItem.id === "wrench");
+  if(typeof fishingRod !== "undefined") fishingRod.visible = !!(equippedItem && equippedItem.id === "fishing_rod");
+
+  if(typeof heldBlock !== "undefined"){
+    const isBlock =
+      isPlaceableBlockItem(equippedItem) &&
+      inventory[equippedItem.resource] > 0;
+
+    heldBlock.visible = !!isBlock;
+
+    if(isBlock && mats[equippedItem.resource]){
+      heldBlock.material = mats[equippedItem.resource];
+    }
+  }
+}
+
+function equipSlot(i){
+  equippedSlot = ((i % 10) + 10) % 10;
+  renderHotbar();
+  updateEquippedVisuals();
+}
+
 function renderHotbar(){
+  if(typeof equippedSlot === "undefined") return;
+  if(typeof hotbar === "undefined") return;
+
   syncHotbarResources();
   hotbar.innerHTML = "";
 
@@ -3669,11 +3912,41 @@ updateEquippedVisuals();
 
 const inventoryToggle = document.getElementById("inventoryToggle");
 const inventoryPanel = document.getElementById("inventoryPanel");
+let inventoryOpen = false;
+let menuOpen = false;
+let pointerLockCooldownUntil = 0;
+
+inventoryPanel.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  resetTouchControls();
+});
+
+inventoryPanel.addEventListener("pointermove", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+});
+
+inventoryPanel.addEventListener("pointerup", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  resetTouchControls();
+});
+
 
 inventoryToggle.addEventListener("pointerdown", e => {
   e.preventDefault();
   e.stopPropagation();
-  inventoryPanel.classList.toggle("hidden");
+  e.stopImmediatePropagation();
+
+  resetTouchControls();
+
+  const open = inventoryPanel.classList.contains("hidden");
+  inventoryPanel.classList.toggle("hidden", !open);
+  setMenuOpen(open);
   updateInventoryHud();
 });
 
