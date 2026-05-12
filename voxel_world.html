@@ -429,9 +429,102 @@ body.hideControls #hotbar{
   font:900 13px monospace;
   text-shadow:0 2px 3px #000;
 }
+
+body.menuOpen .joy,
+body.menuOpen #castBtn,
+body.menuOpen #jumpBtn{
+  display:none !important;
+}
+
+body.menuOpen #inventoryPanel{
+  pointer-events:auto;
+}
 </style>
 </head>
 <body>
+
+<div id="debugErrors"></div>
+
+<style>
+#debugErrors{
+  position:fixed;
+  left:8px;
+  right:8px;
+  top:8px;
+  z-index:9999999;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  pointer-events:none;
+  font-family:monospace;
+}
+.debugError{
+  background:rgba(120,0,0,.92);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:10px;
+  padding:10px 12px;
+  white-space:pre-wrap;
+  word-break:break-word;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
+</style>
+
+<script>
+(function(){
+  const root = document.getElementById("debugErrors");
+
+  function fmt(v){
+    if(v instanceof Error) return v.stack || v.message;
+    if(typeof v === "string") return v;
+    try{ return JSON.stringify(v,null,2); }
+    catch(e){ return String(v); }
+  }
+
+  function pushError(text){
+    const el = document.createElement("div");
+    el.className = "debugError";
+    el.textContent = "[" + new Date().toLocaleTimeString() + "]\\n" + text;
+    root.prepend(el);
+
+    while(root.children.length > 5){
+      root.removeChild(root.lastChild);
+    }
+  }
+
+  window.addEventListener("error", e => {
+    pushError(
+      "ERROR: " + e.message +
+      "\\nLINE: " + e.lineno + ":" + e.colno +
+      "\\nFILE: " + e.filename
+    );
+  });
+
+  window.addEventListener("unhandledrejection", e => {
+    pushError("PROMISE ERROR\\n" + fmt(e.reason));
+  });
+
+  const oldWarn = console.warn.bind(console);
+  console.warn = (...args) => {
+    pushError("WARN\\n" + args.map(fmt).join(" "));
+    oldWarn(...args);
+  };
+
+  const oldError = console.error.bind(console);
+  console.error = (...args) => {
+    const text = args.map(fmt).join(" ");
+
+    // ignore noisy browser internal spam
+    if(text.includes("GPU stall") || text.includes("chromium")){
+      oldError(...args);
+      return;
+    }
+
+    pushError("CONSOLE ERROR\\n" + text);
+    oldError(...args);
+  };
+})();
+</script>
 <pre id="errorOverlay" style="
 position:fixed;
 left:8px;
@@ -623,6 +716,7 @@ function isUiTarget(e){
 }
 
 function triggerWorldAction(e){
+  if(menuOpen) return;
   if(e.button !== 0) return;
   if(isUiTarget(e)) return;
 
@@ -1614,6 +1708,11 @@ function updateChunks(){
 const spaceJumpInstalled = true;
 
 window.addEventListener("keydown", e => {
+  if(e.key === "Escape" && menuOpen){
+    inventoryPanel.classList.add("hidden");
+    setMenuOpen(false);
+    return;
+  }
   if(e.code === "Space"){
     e.preventDefault();
     jumpPressed = true;
@@ -1675,14 +1774,15 @@ function setupStick(id, state){
   }
 
   joy.addEventListener("pointerdown", e => {
+    if(inventoryOpen) return;
     ensureAudio();
     e.preventDefault();
     activePointer = e.pointerId;
-    joy.setPointerCapture(e.pointerId);
-    update(e.clientX, e.clientY);
+update(e.clientX, e.clientY);
   });
 
   joy.addEventListener("pointermove", e => {
+    if(inventoryOpen) return;
     if(activePointer !== e.pointerId) return;
     e.preventDefault();
     update(e.clientX, e.clientY);
@@ -3690,6 +3790,10 @@ function resolveWorldCollisions(){
 }
 
 function updatePlayer(dt){
+  if(menuOpen){
+    resetTouchControls();
+    return;
+  }
 
   yaw -= lookStick.x * dt * 2.8;
   pitch += lookStick.y * dt * 2.2;
@@ -3892,6 +3996,7 @@ function updatePlayer(dt){
 }
 
 function updateThirdPersonCamera(dt){
+  if(menuOpen) return;
 
   const radius = 10;
 
@@ -4089,6 +4194,53 @@ function assignInventoryItemToHotbar(kind){
   updateInventoryHud();
 }
 
+
+
+function setMenuOpen(open){
+  menuOpen = open;
+  inventoryOpen = open;
+
+  document.body.classList.toggle("menuOpen", open);
+
+  resetTouchControls();
+
+  // clear delayed pointer/touch events after the menu state changes
+  setTimeout(resetTouchControls, 0);
+  setTimeout(resetTouchControls, 80);
+  setTimeout(resetTouchControls, 180);
+
+  if(open && document.exitPointerLock){
+    document.exitPointerLock();
+  }
+}
+
+function resetTouchControls(){
+  mouseActionDown = false;
+  jumpPressed = false;
+
+  if(typeof moveStick !== "undefined"){
+    moveStick.x = 0;
+    moveStick.y = 0;
+  }
+
+  if(typeof lookStick !== "undefined"){
+    lookStick.x = 0;
+    lookStick.y = 0;
+  }
+
+  if(typeof activeTouches !== "undefined"){
+    activeTouches.clear?.();
+  }
+
+  if(typeof state !== "undefined"){
+    state.pointerId = null;
+  }
+
+  document.querySelectorAll(".joyKnob").forEach(k => {
+    k.style.transform = "translate(-50%, -50%)";
+  });
+}
+
 function updateInventoryHud(){
   if(typeof customHotbarResources === "undefined") return;
   if(typeof hotbarItems === "undefined") return;
@@ -4120,6 +4272,8 @@ function updateInventoryHud(){
       slot.addEventListener("pointerdown", e => {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
+        resetTouchControls();
         assignInventoryItemToHotbar(kind);
       });
 
@@ -4266,11 +4420,40 @@ updateEquippedVisuals();
 
 const inventoryToggle = document.getElementById("inventoryToggle");
 const inventoryPanel = document.getElementById("inventoryPanel");
+let inventoryOpen = false;
+let menuOpen = false;
+
+inventoryPanel.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  resetTouchControls();
+});
+
+inventoryPanel.addEventListener("pointermove", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+});
+
+inventoryPanel.addEventListener("pointerup", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  resetTouchControls();
+});
+
 
 inventoryToggle.addEventListener("pointerdown", e => {
   e.preventDefault();
   e.stopPropagation();
-  inventoryPanel.classList.toggle("hidden");
+  e.stopImmediatePropagation();
+
+  resetTouchControls();
+
+  const open = inventoryPanel.classList.contains("hidden");
+  inventoryPanel.classList.toggle("hidden", !open);
+  setMenuOpen(open);
   updateInventoryHud();
 });
 
