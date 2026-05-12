@@ -1615,6 +1615,88 @@ scene.add(player);
 
 
 
+
+const fish = [];
+
+function spawnFish(x, z, color="#ff8844"){
+  const group = new THREE.Group();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness:0.55,
+    metalness:0.05
+  });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 10), mat);
+  body.scale.set(1.45, 0.55, 0.72);
+  group.add(body);
+
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.32, 3), mat);
+  tail.position.x = -0.42;
+  tail.rotation.z = Math.PI / 2;
+  group.add(tail);
+
+  const fin = new THREE.Mesh(
+    new THREE.ConeGeometry(0.12, 0.22, 3),
+    new THREE.MeshStandardMaterial({ color:"#ffd27a", roughness:0.6 })
+  );
+  fin.position.y = 0.18;
+  fin.rotation.x = Math.PI;
+  group.add(fin);
+
+  const y = 4.8 + Math.random() * 0.8;
+  group.position.set(x, y, z);
+  scene.add(group);
+
+  fish.push({
+    group,
+    homeX:x,
+    homeZ:z,
+    phase:Math.random() * 100,
+    radius:3 + Math.random() * 5,
+    speed:0.6 + Math.random() * 0.7
+  });
+}
+
+function spawnWaterFish(){
+  for(let x=-80; x<=80; x+=8){
+    for(let z=-80; z<=80; z+=8){
+      const h = heightAt(x,z);
+      const b = biomeAt(x,z,h);
+
+      if(b === "ocean" && Math.random() > 0.82){
+        spawnFish(
+          x + Math.random() * 4,
+          z + Math.random() * 4,
+          Math.random() > 0.5 ? "#ff8844" : "#55ddff"
+        );
+      }
+    }
+  }
+}
+
+function updateFish(dt, now){
+  const t = now * 0.001;
+
+  for(const f of fish){
+    const x = f.homeX + Math.sin(t * f.speed + f.phase) * f.radius;
+    const z = f.homeZ + Math.cos(t * f.speed * 0.8 + f.phase) * f.radius;
+    const y = 4.75 + Math.sin(t * 2.0 + f.phase) * 0.35;
+
+    f.group.position.lerp(new THREE.Vector3(x,y,z), Math.min(1, dt * 3.5));
+
+    const dx = x - f.group.position.x;
+    const dz = z - f.group.position.z;
+
+    if(Math.hypot(dx,dz) > 0.01){
+      f.group.rotation.y = Math.atan2(dx, dz);
+    }
+
+    f.group.scale.z = 1 + Math.sin(t * 8 + f.phase) * 0.12;
+  }
+}
+
+
 const butterflies = [];
 
 function spawnButterfly(x, z, color){
@@ -1740,6 +1822,7 @@ spawnSlime(3, 3);
 spawnSlime(-4, 5);
 spawnSlime(6, -3);
 spawnCoastButterflies();
+spawnWaterFish();
 
 function updateMobs(dt, now){
   const time = now * 0.001;
@@ -1772,14 +1855,43 @@ player.position.set(0, heightAt(0,0) + 1, 0);
 
 
 
+
 let bgMusic = null;
+
+const musicTracks = [
+  "assets/audio/piano_theme.wav",
+  "assets/audio/shadows_piano.wav",
+  "assets/audio/piano_loop_120bpm.wav"
+];
+
+let currentTrackIndex =
+  Math.floor(Math.random() * musicTracks.length);
+
+function pickNextTrack(){
+  let next = currentTrackIndex;
+
+  while(musicTracks.length > 1 && next === currentTrackIndex){
+    next = Math.floor(Math.random() * musicTracks.length);
+  }
+
+  currentTrackIndex = next;
+}
 
 function setupBackgroundMusic(){
   if(bgMusic) return;
 
-  bgMusic = new Audio("assets/audio/piano_theme.wav");
-  bgMusic.loop = true;
+  bgMusic = new Audio(musicTracks[currentTrackIndex]);
   bgMusic.volume = 0.38;
+
+  bgMusic.addEventListener("ended", () => {
+    pickNextTrack();
+    bgMusic.src = musicTracks[currentTrackIndex];
+    bgMusic.play().catch(console.warn);
+
+    if(typeof updateMusicButton === "function"){
+      updateMusicButton();
+    }
+  });
 }
 
 function startBackgroundMusic(){
@@ -1794,7 +1906,6 @@ function startBackgroundMusic(){
       if(typeof updateMusicButton === "function") updateMusicButton();
     });
 }
-
 
 let audioCtx = null;
 let lastFootstepTime = 0;
@@ -2169,6 +2280,7 @@ let grounded = false;
 let jumpPressed = false;
 let mouseActionDown = false;
 let swordSlashTime = 0;
+let aerialSlashTime = 0;
 let swordTrail = [];
 let jumpCount = 0;
 let maxJumps = 3;
@@ -2374,7 +2486,11 @@ function useEquippedItem(){
   }
 
   if(equippedItem.id === "sword"){
-    doSwordSlash();
+    if(!grounded){
+      doAerialSwordSlash();
+    } else {
+      doSwordSlash();
+    }
     return;
   }
 
@@ -2394,6 +2510,24 @@ function useEquippedItem(){
     repairHouseBlocksAt(repairPos, 4.5);
     return;
   }
+}
+
+
+function doAerialSwordSlash(){
+  aerialSlashTime = 0.22;
+  swordSlashTime = 0.22;
+
+  playSwordSlashSound();
+
+  velocityY = -28;
+
+  const slamPos = player.position.clone();
+  slamPos.y = groundY(player.position.x, player.position.z) + 1;
+
+  damageTreesAt(slamPos, 4.2);
+  damageHouseBlocksAt(slamPos, 4.2);
+
+  explodeMagic(slamPos);
 }
 
 function doSwordSlash(){
@@ -2593,6 +2727,80 @@ function updateMagic(dt){
 }
 
 
+
+const cherryPetals = [];
+
+function makeCherryPetalSystem(cx, cz, count=220, radius=34){
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const speeds = [];
+
+  for(let i=0;i<count;i++){
+    positions[i*3+0] = cx + (Math.random()*2-1) * radius;
+    positions[i*3+1] = 8 + Math.random() * 18;
+    positions[i*3+2] = cz + (Math.random()*2-1) * radius;
+    speeds.push(0.4 + Math.random() * 1.4);
+  }
+
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    color:"#ff9ed8",
+    size:0.18,
+    transparent:true,
+    opacity:0.85,
+    depthWrite:false
+  });
+
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  cherryPetals.push({ points, speeds, cx, cz, radius });
+}
+
+function updateCherryPetals(dt, now){
+  const px = player.position.x;
+  const pz = player.position.z;
+
+  const h = heightAt(Math.floor(px), Math.floor(pz));
+  const b = biomeAt(Math.floor(px), Math.floor(pz), h);
+  const active = b === "cherry";
+
+  for(const s of cherryPetals){
+    s.points.visible = active;
+    if(!active) continue;
+
+    s.cx = px;
+    s.cz = pz;
+
+    const arr = s.points.geometry.attributes.position.array;
+    const time = now * 0.001;
+
+    for(let i=0;i<s.speeds.length;i++){
+      const ix = i*3, iy = ix+1, iz = ix+2;
+
+      arr[iy] -= s.speeds[i] * dt * 2.6;
+      arr[ix] += Math.sin(time * 1.5 + i * 0.31) * dt * 1.8;
+      arr[iz] += Math.cos(time * 1.1 + i * 0.19) * dt * 1.1;
+
+      if(
+        arr[iy] < player.position.y - 1 ||
+        Math.abs(arr[ix] - px) > s.radius ||
+        Math.abs(arr[iz] - pz) > s.radius
+      ){
+        arr[ix] = px + (Math.random()*2-1) * s.radius;
+        arr[iy] = player.position.y + 6 + Math.random() * 18;
+        arr[iz] = pz + (Math.random()*2-1) * s.radius;
+      }
+    }
+
+    s.points.geometry.attributes.position.needsUpdate = true;
+  }
+}
+
+makeCherryPetalSystem(0, 0, 280, 42);
+
+
 const snowSystems = [];
 
 function makeSnowSystem(cx, cz, radius=55, count=520){
@@ -2722,7 +2930,41 @@ jumpBtn.addEventListener("pointercancel", () => {
 });
 
 function groundY(x,z){
-  return heightAt(Math.floor(x), Math.floor(z)) + 1;
+  let y = heightAt(Math.floor(x), Math.floor(z)) + 1;
+
+  const playerRadius = 0.38;
+
+  for(const [key, b] of houseBlockRegistry.entries()){
+    if(brokenHouseBlocks.has(key)) continue;
+
+    const dx = Math.abs(x - b.x);
+    const dz = Math.abs(z - b.z);
+
+    if(dx <= 0.5 + playerRadius && dz <= 0.5 + playerRadius){
+      const top = b.y + 1;
+
+      if(top > y && top <= player.position.y + 1.35){
+        y = top;
+      }
+    }
+  }
+
+  for(const [key, t] of treeRegistry.entries()){
+    if(removedTrees.has(key)) continue;
+
+    const dx = Math.abs(x - t.x);
+    const dz = Math.abs(z - t.z);
+
+    if(dx <= 0.55 && dz <= 0.55){
+      const top = t.y + 4;
+
+      if(top > y && top <= player.position.y + 1.35){
+        y = top;
+      }
+    }
+  }
+
+  return y;
 }
 
 
@@ -2840,6 +3082,73 @@ function spawnExplosion(pos){
 function updateSpells(dt){}
 
 
+
+function pushPlayerOutOfCircle(cx, cz, radius){
+  const dx = player.position.x - cx;
+  const dz = player.position.z - cz;
+  const d = Math.hypot(dx, dz);
+
+  if(d > 0.0001 && d < radius){
+    const push = radius - d;
+    player.position.x += (dx / d) * push;
+    player.position.z += (dz / d) * push;
+  }
+}
+
+function pushPlayerOutOfBox(cx, cz, halfX, halfZ){
+  const px = player.position.x;
+  const pz = player.position.z;
+
+  const dx = px - cx;
+  const dz = pz - cz;
+
+  const ox = halfX - Math.abs(dx);
+  const oz = halfZ - Math.abs(dz);
+
+  if(ox > 0 && oz > 0){
+    if(ox < oz){
+      player.position.x += dx < 0 ? -ox : ox;
+    } else {
+      player.position.z += dz < 0 ? -oz : oz;
+    }
+  }
+}
+
+function resolveWorldCollisions(){
+  const playerRadius = 0.42;
+
+  // tree trunk collision
+  for(const [key, t] of treeRegistry.entries()){
+    if(removedTrees.has(key)) continue;
+
+    const dy = Math.abs(player.position.y - (t.y + 1.5));
+    if(dy > 3.0) continue;
+
+    pushPlayerOutOfCircle(t.x, t.z, playerRadius + 0.46);
+  }
+
+  // house block collision
+  for(const [key, b] of houseBlockRegistry.entries()){
+    if(brokenHouseBlocks.has(key)) continue;
+
+    const blockTop = b.y + 1;
+
+    if(player.position.y >= blockTop - 0.08){
+      continue;
+    }
+
+    const dy = Math.abs(player.position.y - b.y);
+    if(dy > 2.0) continue;
+
+    pushPlayerOutOfBox(
+      b.x,
+      b.z,
+      0.5 + playerRadius,
+      0.5 + playerRadius
+    );
+  }
+}
+
 function updatePlayer(dt){
 
   yaw -= lookStick.x * dt * 2.8;
@@ -2882,6 +3191,23 @@ function updatePlayer(dt){
 
     rightArm.rotation.x =
       -0.8 + Math.sin(slashAnim * Math.PI) * 0.6;
+  }
+
+  if(aerialSlashTime > 0){
+    aerialSlashTime -= dt;
+
+    const a = 1 - aerialSlashTime / 0.22;
+
+    rightArm.rotation.x = -2.25 + a * 2.0;
+    rightArm.rotation.z = 0.55;
+
+    leftArm.rotation.x = 0.65;
+
+    leftLeg.hip.rotation.x = -0.85;
+    rightLeg.hip.rotation.x = 0.55;
+
+    torso.rotation.x = 0.45;
+    head.rotation.x = -0.18;
   }
 
     rightArm.rotation.z = 0;
@@ -2948,6 +3274,7 @@ function updatePlayer(dt){
     const speed = (keys.has("shift") ? 14 : 7) * dt;
 
     player.position.addScaledVector(move, speed);
+    resolveWorldCollisions();
 
     if(grounded && performance.now() - lastFootstepTime > 280){
       lastFootstepTime = performance.now();
@@ -3055,10 +3382,12 @@ function animate(now){
   staffGem.rotation.y += dt * 2.8;
 
   updateMagic(dt);
+  updateFish(dt, now);
   updateButterflies(dt, now);
   updateMobs(dt, now);
   skyMaterial.uniforms.time.value = now * 0.001;
   animateWater(dt, now);
+  updateCherryPetals(dt, now);
   updateSnow(dt);
   updateFallingBlocks(dt);
   updateSwordTrails(dt);
