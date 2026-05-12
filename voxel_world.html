@@ -1304,6 +1304,12 @@ const fallingBlocks = [];
 const inventory = {};
 
 const pickups = [];
+const placedBlocks = new Map();
+
+function placedBlockKey(x,y,z){
+  return `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
+}
+
 
 const treeRegistry = new Map();
 const treeObjects = new Map();
@@ -1981,6 +1987,16 @@ const line = new THREE.Line(
 fishingRod.add(line);
 
 rightArm.add(fishingRod);
+
+const heldBlock = new THREE.Mesh(
+  geo,
+  mats.wood
+);
+heldBlock.visible = false;
+heldBlock.scale.set(0.55,0.55,0.55);
+heldBlock.position.set(0.08, -0.78, -0.18);
+rightArm.add(heldBlock);
+
 
 
 
@@ -2894,6 +2910,42 @@ function repairHouseBlocksAt(pos, radius){
   return fixed;
 }
 
+
+function placeEquippedBlock(){
+  const item = hotbarItems[equippedSlot];
+
+  if(!item || !item.resource) return;
+  if((inventory[item.resource] || 0) <= 0) return;
+
+  const dir = new THREE.Vector3(
+    Math.sin(playerYaw),
+    0,
+    Math.cos(playerYaw)
+  ).normalize();
+
+  const x = Math.floor(player.position.x + dir.x * 2.2);
+  const z = Math.floor(player.position.z + dir.z * 2.2);
+  const y = Math.floor(groundY(x,z));
+
+  const key = placedBlockKey(x,y,z);
+
+  if(placedBlocks.has(key)) return;
+
+  const mesh = new THREE.Mesh(geo, mats[item.resource] || mats.wood);
+  mesh.position.set(x,y,z);
+  scene.add(mesh);
+
+  placedBlocks.set(key, {
+    mesh,
+    kind:item.resource,
+    x,y,z
+  });
+
+  inventory[item.resource] -= 1;
+  updateInventoryHud();
+  updateEquippedVisuals();
+}
+
 function useEquippedItem(){
   if(typeof hotbarItems === "undefined") return;
   if(typeof equippedSlot === "undefined") return;
@@ -2901,6 +2953,11 @@ function useEquippedItem(){
   const equippedItem = hotbarItems[equippedSlot];
 
   if(!equippedItem) return;
+
+  if(equippedItem.resource){
+    placeEquippedBlock();
+    return;
+  }
 
   if(equippedItem.id === "spear"){
     shootMagic();
@@ -4089,6 +4146,19 @@ function updateEquippedVisuals(){
   if(typeof sword !== "undefined") sword.visible = !!(equippedItem && equippedItem.id === "sword");
   if(typeof wrench !== "undefined") wrench.visible = !!(equippedItem && equippedItem.id === "wrench");
   if(typeof fishingRod !== "undefined") fishingRod.visible = !!(equippedItem && equippedItem.id === "fishing_rod");
+
+  if(typeof heldBlock !== "undefined"){
+    const isBlock =
+      equippedItem &&
+      equippedItem.resource &&
+      inventory[equippedItem.resource] > 0;
+
+    heldBlock.visible = !!isBlock;
+
+    if(isBlock && mats[equippedItem.resource]){
+      heldBlock.material = mats[equippedItem.resource];
+    }
+  }
 }
 
 function equipSlot(i){
