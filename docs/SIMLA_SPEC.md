@@ -122,14 +122,13 @@ No randomness, no time-based behavior.
 | comparisons       | yes  | yes           | yes        |
 | list              | yes  | yes           | yes        |
 | len/nth           | yes  | yes           | yes        |
-| map/filter/reduce | yes  | yes           | no         |
+| map/filter/reduce | yes  | yes           | yes        |
 
 ---
 
 ## Known Gaps
 
 - Bytecode VM does not support closures
-- Bytecode VM does not support map/filter/reduce
 - No module/import system
 
 ---

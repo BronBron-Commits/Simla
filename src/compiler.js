@@ -367,4 +367,407 @@ throw new Error("Unknown function: " + name);
   return out;
 }
 
-export { compile };
+const SHARED_OPS = {
+  CONST: 0,
+  ADD: 1,
+  SUB: 2,
+  MUL: 3,
+  DIV: 4,
+  LOAD: 5,
+  STORE: 6,
+  LT: 7,
+  GT: 8,
+  EQ: 9,
+  AND: 10,
+  OR: 11,
+  JMP_IF_FALSE: 12,
+  JMP: 13,
+  LIST: 14,
+  LEN: 15,
+  NTH: 16,
+  RANGE: 17,
+  MAP: 18,
+  RETURN: 19,
+  FILTER: 20,
+  REDUCE: 21
+};
+
+function compileSharedBytecode(ast) {
+  const names = [];
+  const fnDefs = new Map();
+  const program = { code: [], map_funcs: [], filter_funcs: [], reduce_funcs: [] };
+
+  function getSlot(name) {
+    const idx = names.indexOf(name);
+    if (idx !== -1) return idx;
+    names.push(name);
+    return names.length - 1;
+  }
+
+  function emit(out, op, a = 0) {
+    out.push({ op, a });
+  }
+
+  function expectArgs(node, name, count) {
+    if (!node.args || node.args.length !== count) {
+      throw new Error(`${name} expects ${count} args`);
+    }
+  }
+
+  function isCallName(node, name) {
+    return node && node.type === "call" && node.callee && node.callee.name === name;
+  }
+
+  function extractParams(paramsNode) {
+    if (!paramsNode) throw new Error("missing params node");
+    if (paramsNode.type === "list") {
+      return paramsNode.elements.map((p) => {
+        if (!p || p.type !== "identifier") throw new Error("function params must be symbols");
+        return p.name;
+      });
+    }
+    // Multi-arg: parser sees (acc x) as call{callee:acc, args:[x]}
+    if (paramsNode.type === "call") {
+      return [paramsNode.callee.name, ...paramsNode.args.map((a) => {
+        if (!a || a.type !== "identifier") throw new Error("function params must be symbols");
+        return a.name;
+      })];
+    }
+    // Single bare identifier
+    if (paramsNode.type === "identifier") return [paramsNode.name];
+    throw new Error("function params must be list");
+  }
+
+  function defineFn(name, fnNode) {
+    if (!isCallName(fnNode, "fn") || fnNode.args.length !== 2) {
+      throw new Error("invalid fn definition");
+    }
+    const params = extractParams(fnNode.args[0]);
+    fnDefs.set(name, { params, body: fnNode.args[1] });
+  }
+
+  function compileMapFunction(fnNode) {
+    let paramName = null;
+    let bodyNode = null;
+
+    if (fnNode.type === "identifier") {
+      const fn = fnDefs.get(fnNode.name);
+      if (!fn) throw new Error(`unknown map function: ${fnNode.name}`);
+      if (fn.params.length !== 1) throw new Error("map function must take exactly 1 arg");
+      paramName = fn.params[0];
+      bodyNode = fn.body;
+    } else if (isCallName(fnNode, "fn") && fnNode.args.length === 2) {
+      const params = extractParams(fnNode.args[0]);
+      if (params.length !== 1) throw new Error("inline map fn must take exactly 1 arg");
+      paramName = params[0];
+      bodyNode = fnNode.args[1];
+    } else {
+      throw new Error("map expects fn or function name");
+    }
+
+    if (program.map_funcs.length >= 64) {
+      throw new Error("too many map functions");
+    }
+
+    const mf = {
+      param_slot: getSlot(paramName),
+      code: []
+    };
+
+    compileExpr(bodyNode, mf.code);
+    emit(mf.code, SHARED_OPS.RETURN, 0);
+
+    const id = program.map_funcs.length;
+    program.map_funcs.push(mf);
+    return id;
+  }
+
+  function compileFilterFunction(fnNode) {
+    let paramName = null;
+    let bodyNode = null;
+
+    if (fnNode.type === "identifier") {
+      const fn = fnDefs.get(fnNode.name);
+      if (!fn) throw new Error(`unknown filter function: ${fnNode.name}`);
+      if (fn.params.length !== 1) throw new Error("filter function must take exactly 1 arg");
+      paramName = fn.params[0];
+      bodyNode = fn.body;
+    } else if (isCallName(fnNode, "fn") && fnNode.args.length === 2) {
+      const params = extractParams(fnNode.args[0]);
+      if (params.length !== 1) throw new Error("inline filter fn must take exactly 1 arg");
+      paramName = params[0];
+      bodyNode = fnNode.args[1];
+    } else {
+      throw new Error("filter expects fn or function name");
+    }
+
+    if (program.filter_funcs.length >= 64) throw new Error("too many filter functions");
+
+    const mf = { param_slot: getSlot(paramName), code: [] };
+    compileExpr(bodyNode, mf.code);
+    emit(mf.code, SHARED_OPS.RETURN, 0);
+
+    const id = program.filter_funcs.length;
+    program.filter_funcs.push(mf);
+    return id;
+  }
+
+  function compileReduceFunction(fnNode) {
+    let accName = null;
+    let itemName = null;
+    let bodyNode = null;
+
+    if (fnNode.type === "identifier") {
+      const fn = fnDefs.get(fnNode.name);
+      if (!fn) throw new Error(`unknown reduce function: ${fnNode.name}`);
+      if (fn.params.length !== 2) throw new Error("reduce function must take exactly 2 args");
+      accName  = fn.params[0];
+      itemName = fn.params[1];
+      bodyNode = fn.body;
+    } else if (isCallName(fnNode, "fn") && fnNode.args.length === 2) {
+      const params = extractParams(fnNode.args[0]);
+      if (params.length !== 2) throw new Error("inline reduce fn must take exactly 2 args");
+      accName  = params[0];
+      itemName = params[1];
+      bodyNode = fnNode.args[1];
+    } else {
+      throw new Error("reduce expects fn or function name");
+    }
+
+    if (program.reduce_funcs.length >= 64) throw new Error("too many reduce functions");
+
+    const rf = { acc_slot: getSlot(accName), item_slot: getSlot(itemName), code: [] };
+    compileExpr(bodyNode, rf.code);
+    emit(rf.code, SHARED_OPS.RETURN, 0);
+
+    const id = program.reduce_funcs.length;
+    program.reduce_funcs.push(rf);
+    return id;
+  }
+
+  function compileExpr(node, out) {
+    if (!node) throw new Error("missing node");
+
+    if (node.type === "number") {
+      emit(out, SHARED_OPS.CONST, node.value | 0);
+      return;
+    }
+
+    if (node.type === "identifier") {
+      emit(out, SHARED_OPS.LOAD, getSlot(node.name));
+      return;
+    }
+
+    if (node.type !== "call" || !node.callee || node.callee.type !== "identifier") {
+      throw new Error("invalid call");
+    }
+
+    const op = node.callee.name;
+
+    if (op === "if") {
+      expectArgs(node, "if", 3);
+
+      compileExpr(node.args[0], out);
+      const jmpFalseAt = out.length;
+      emit(out, SHARED_OPS.JMP_IF_FALSE, 0);
+
+      compileExpr(node.args[1], out);
+      const jmpEndAt = out.length;
+      emit(out, SHARED_OPS.JMP, 0);
+
+      out[jmpFalseAt].a = out.length;
+      compileExpr(node.args[2], out);
+      out[jmpEndAt].a = out.length;
+      return;
+    }
+
+    if (op === "begin") {
+      for (const arg of node.args) compileExpr(arg, out);
+      return;
+    }
+
+    if (op === "let") {
+      expectArgs(node, "let", 2);
+      if (!node.args[0] || node.args[0].type !== "identifier") {
+        throw new Error("invalid let");
+      }
+
+      const name = node.args[0].name;
+      const value = node.args[1];
+
+      if (isCallName(value, "fn")) {
+        defineFn(name, value);
+        return;
+      }
+
+      compileExpr(value, out);
+      emit(out, SHARED_OPS.STORE, getSlot(name));
+      return;
+    }
+
+    if (op === "range") {
+      expectArgs(node, "range", 2);
+      compileExpr(node.args[0], out);
+      compileExpr(node.args[1], out);
+      emit(out, SHARED_OPS.RANGE, 0);
+      return;
+    }
+
+    if (op === "list") {
+      for (const arg of node.args) compileExpr(arg, out);
+      emit(out, SHARED_OPS.LIST, node.args.length);
+      return;
+    }
+
+    if (op === "map") {
+      expectArgs(node, "map", 2);
+      const fnId = compileMapFunction(node.args[0]);
+      compileExpr(node.args[1], out);
+      emit(out, SHARED_OPS.MAP, fnId);
+      return;
+    }
+
+    if (op === "filter") {
+      expectArgs(node, "filter", 2);
+      const fnId = compileFilterFunction(node.args[0]);
+      compileExpr(node.args[1], out);
+      emit(out, SHARED_OPS.FILTER, fnId);
+      return;
+    }
+
+    if (op === "reduce") {
+      expectArgs(node, "reduce", 3);
+      const fnId = compileReduceFunction(node.args[0]);
+      compileExpr(node.args[1], out);  // init / acc
+      compileExpr(node.args[2], out);  // list
+      emit(out, SHARED_OPS.REDUCE, fnId);
+      return;
+    }
+
+    if (op === "len") {
+      expectArgs(node, "len", 1);
+      compileExpr(node.args[0], out);
+      emit(out, SHARED_OPS.LEN, 0);
+      return;
+    }
+
+    if (op === "nth") {
+      expectArgs(node, "nth", 2);
+      compileExpr(node.args[0], out);
+      compileExpr(node.args[1], out);
+      emit(out, SHARED_OPS.NTH, 0);
+      return;
+    }
+
+    if (["add", "sub", "mul", "div", "lt", "gt", "eq", "and", "or"].includes(op)) {
+      expectArgs(node, op, 2);
+      compileExpr(node.args[0], out);
+      compileExpr(node.args[1], out);
+
+      const opMap = {
+        add: SHARED_OPS.ADD,
+        sub: SHARED_OPS.SUB,
+        mul: SHARED_OPS.MUL,
+        div: SHARED_OPS.DIV,
+        lt: SHARED_OPS.LT,
+        gt: SHARED_OPS.GT,
+        eq: SHARED_OPS.EQ,
+        and: SHARED_OPS.AND,
+        or: SHARED_OPS.OR
+      };
+
+      emit(out, opMap[op], 0);
+      return;
+    }
+
+    const fn = fnDefs.get(op);
+    if (!fn) {
+      throw new Error(`unknown compile op: ${op}`);
+    }
+
+    const argCount = node.args.length;
+    if (argCount !== fn.params.length) {
+      throw new Error(`wrong arg count for ${op}: expected ${fn.params.length} got ${argCount}`);
+    }
+
+    for (let i = 0; i < argCount; i++) {
+      compileExpr(node.args[i], out);
+    }
+
+    for (let i = argCount - 1; i >= 0; i--) {
+      emit(out, SHARED_OPS.STORE, getSlot(fn.params[i]));
+    }
+
+    compileExpr(fn.body, out);
+  }
+
+  if (!ast || ast.type !== "program" || !Array.isArray(ast.body) || ast.body.length === 0) {
+    throw new Error("empty program");
+  }
+
+  compileExpr(ast.body[0], program.code);
+  emit(program.code, SHARED_OPS.RETURN, 0);
+
+  return {
+    version: "SIMLA_BC1",
+    code: program.code,
+    map_funcs:    program.map_funcs,
+    filter_funcs: program.filter_funcs,
+    reduce_funcs: program.reduce_funcs
+  };
+}
+
+function serializeSharedBytecode(program) {
+  if (!program || program.version !== "SIMLA_BC1") {
+    throw new Error("invalid shared bytecode program");
+  }
+
+  const lines = [];
+  lines.push("SIMLA_BC1");
+  lines.push(`code_count ${program.code.length}`);
+
+  for (const ins of program.code) {
+    lines.push(`${ins.op} ${ins.a | 0}`);
+  }
+
+  const mapFuncs = Array.isArray(program.map_funcs) ? program.map_funcs : [];
+  lines.push(`map_func_count ${mapFuncs.length}`);
+
+  for (const mf of mapFuncs) {
+    lines.push(`map_param_slot ${mf.param_slot | 0}`);
+    lines.push(`map_code_count ${mf.code.length}`);
+
+    for (const ins of mf.code) {
+      lines.push(`${ins.op} ${ins.a | 0}`);
+    }
+  }
+
+  const filterFuncs = Array.isArray(program.filter_funcs) ? program.filter_funcs : [];
+  lines.push(`filter_func_count ${filterFuncs.length}`);
+
+  for (const mf of filterFuncs) {
+    lines.push(`filter_param_slot ${mf.param_slot | 0}`);
+    lines.push(`filter_code_count ${mf.code.length}`);
+
+    for (const ins of mf.code) {
+      lines.push(`${ins.op} ${ins.a | 0}`);
+    }
+  }
+
+  const reduceFuncs = Array.isArray(program.reduce_funcs) ? program.reduce_funcs : [];
+  lines.push(`reduce_func_count ${reduceFuncs.length}`);
+
+  for (const rf of reduceFuncs) {
+    lines.push(`reduce_acc_slot ${rf.acc_slot | 0}`);
+    lines.push(`reduce_item_slot ${rf.item_slot | 0}`);
+    lines.push(`reduce_code_count ${rf.code.length}`);
+
+    for (const ins of rf.code) {
+      lines.push(`${ins.op} ${ins.a | 0}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+export { compile, compileSharedBytecode, serializeSharedBytecode };

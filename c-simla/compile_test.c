@@ -270,6 +270,105 @@ static int compile_map_function(Program *p, Node *fn_node) {
   exit(1);
 }
 
+static int compile_filter_function(Program *p, Node *fn_node) {
+  if (p->filter_func_count >= MAP_FUNC_MAX) {
+    fprintf(stderr, "too many filter functions\n");
+    exit(1);
+  }
+
+  if (fn_node->type == NODE_ATOM) {
+    FnDef *fn = find_fn(fn_node->atom);
+    if (!fn) { fprintf(stderr, "unknown filter function: %s\n", fn_node->atom); exit(1); }
+    if (fn->param_count != 1) { fprintf(stderr, "filter function must take exactly 1 arg\n"); exit(1); }
+
+    int id = p->filter_func_count++;
+    MapFunction *mf = &p->filter_funcs[id];
+    mf->count = 0;
+    mf->param_slot = get_slot(fn->params[0]);
+    Program *tmp = (Program *)mf;
+    compile_expr(fn->body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  if (
+    fn_node->type == NODE_LIST &&
+    fn_node->child_count >= 3 &&
+    fn_node->children[0]->type == NODE_ATOM &&
+    strcmp(fn_node->children[0]->atom, "fn") == 0
+  ) {
+    Node *params = fn_node->children[1];
+    Node *body   = fn_node->children[2];
+    if (params->type != NODE_LIST || params->child_count != 1 || params->children[0]->type != NODE_ATOM) {
+      fprintf(stderr, "inline filter fn must take exactly 1 arg\n"); exit(1);
+    }
+    int id = p->filter_func_count++;
+    MapFunction *mf = &p->filter_funcs[id];
+    mf->count = 0;
+    mf->param_slot = get_slot(params->children[0]->atom);
+    Program *tmp = (Program *)mf;
+    compile_expr(body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  fprintf(stderr, "filter expects fn or function name\n");
+  exit(1);
+}
+
+static int compile_reduce_function(Program *p, Node *fn_node) {
+  if (p->reduce_func_count >= MAP_FUNC_MAX) {
+    fprintf(stderr, "too many reduce functions\n");
+    exit(1);
+  }
+
+  Node *params = NULL;
+  Node *body   = NULL;
+
+  if (fn_node->type == NODE_ATOM) {
+    FnDef *fn = find_fn(fn_node->atom);
+    if (!fn) { fprintf(stderr, "unknown reduce function: %s\n", fn_node->atom); exit(1); }
+    if (fn->param_count != 2) { fprintf(stderr, "reduce function must take exactly 2 args\n"); exit(1); }
+    params = NULL;
+    int id = p->reduce_func_count++;
+    ReduceFunction *rf = &p->reduce_funcs[id];
+    rf->count = 0;
+    rf->acc_slot  = get_slot(fn->params[0]);
+    rf->item_slot = get_slot(fn->params[1]);
+    Program *tmp = (Program *)rf;
+    compile_expr(fn->body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  if (
+    fn_node->type == NODE_LIST &&
+    fn_node->child_count >= 3 &&
+    fn_node->children[0]->type == NODE_ATOM &&
+    strcmp(fn_node->children[0]->atom, "fn") == 0
+  ) {
+    params = fn_node->children[1];
+    body   = fn_node->children[2];
+    if (params->type != NODE_LIST || params->child_count != 2 ||
+        params->children[0]->type != NODE_ATOM ||
+        params->children[1]->type != NODE_ATOM) {
+      fprintf(stderr, "inline reduce fn must take exactly 2 args\n"); exit(1);
+    }
+    int id = p->reduce_func_count++;
+    ReduceFunction *rf = &p->reduce_funcs[id];
+    rf->count = 0;
+    rf->acc_slot  = get_slot(params->children[0]->atom);
+    rf->item_slot = get_slot(params->children[1]->atom);
+    Program *tmp = (Program *)rf;
+    compile_expr(body, tmp);
+    emit(tmp, OP_RETURN, 0);
+    return id;
+  }
+
+  fprintf(stderr, "reduce expects fn or function name\n");
+  exit(1);
+}
+
 static void compile_expr(Node *n, Program *p) {
   if (n->type == NODE_ATOM) {
     if (is_number(n->atom)) {
@@ -400,6 +499,23 @@ static void compile_expr(Node *n, Program *p) {
     int fn_id = compile_map_function(p, n->children[1]);
     compile_expr(n->children[2], p);
     emit(p, OP_MAP, fn_id);
+    return;
+  }
+
+  if (strcmp(op, "filter") == 0) {
+    if (n->child_count != 3) { fprintf(stderr, "filter expects function and list\n"); exit(1); }
+    int fn_id = compile_filter_function(p, n->children[1]);
+    compile_expr(n->children[2], p);
+    emit(p, OP_FILTER, fn_id);
+    return;
+  }
+
+  if (strcmp(op, "reduce") == 0) {
+    if (n->child_count != 4) { fprintf(stderr, "reduce expects fn init list\n"); exit(1); }
+    int fn_id = compile_reduce_function(p, n->children[1]);
+    compile_expr(n->children[2], p);  /* init / acc */
+    compile_expr(n->children[3], p);  /* list */
+    emit(p, OP_REDUCE, fn_id);
     return;
   }
 

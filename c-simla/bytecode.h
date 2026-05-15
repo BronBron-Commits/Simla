@@ -7,26 +7,28 @@
 #define MAP_FUNC_MAX 64
 
 typedef enum {
-  OP_CONST,
-  OP_ADD,
-  OP_SUB,
-  OP_MUL,
-  OP_DIV,
-  OP_LOAD,
-  OP_STORE,
-  OP_LT,
-  OP_GT,
-  OP_EQ,
-  OP_AND,
-  OP_OR,
-  OP_JMP_IF_FALSE,
-  OP_JMP,
-  OP_LIST,
-  OP_LEN,
-  OP_NTH,
-  OP_RANGE,
-  OP_MAP,
-  OP_RETURN
+  OP_CONST,         /*  0 */
+  OP_ADD,           /*  1 */
+  OP_SUB,           /*  2 */
+  OP_MUL,           /*  3 */
+  OP_DIV,           /*  4 */
+  OP_LOAD,          /*  5 */
+  OP_STORE,         /*  6 */
+  OP_LT,            /*  7 */
+  OP_GT,            /*  8 */
+  OP_EQ,            /*  9 */
+  OP_AND,           /* 10 */
+  OP_OR,            /* 11 */
+  OP_JMP_IF_FALSE,  /* 12 */
+  OP_JMP,           /* 13 */
+  OP_LIST,          /* 14 */
+  OP_LEN,           /* 15 */
+  OP_NTH,           /* 16 */
+  OP_RANGE,         /* 17 */
+  OP_MAP,           /* 18 */
+  OP_RETURN,        /* 19 */
+  OP_FILTER,        /* 20 */
+  OP_REDUCE         /* 21 */
 } OpCode;
 
 typedef struct {
@@ -43,10 +45,22 @@ typedef struct {
 typedef struct {
   Instruction code[MAX_CODE];
   int count;
+  int acc_slot;
+  int item_slot;
+} ReduceFunction;
+
+typedef struct {
+  Instruction code[MAX_CODE];
+  int count;
   MapFunction map_funcs[MAP_FUNC_MAX];
   int map_func_count;
+  MapFunction filter_funcs[MAP_FUNC_MAX];
+  int filter_func_count;
+  ReduceFunction reduce_funcs[MAP_FUNC_MAX];
+  int reduce_func_count;
 } Program;
 
 int run(Program *p);
+int load_program_text(const char *path, Program *out);
 
 #endif

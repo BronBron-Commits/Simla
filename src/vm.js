@@ -609,4 +609,250 @@ function run(bytecode, input = {}) {
   };
 }
 
-export { run };
+function execSharedBytecode(code, owner, vars) {
+  const stack = [];
+  const lists = [];
+  let ip = 0;
+
+  while (ip < code.length) {
+    const ins = code[ip++];
+
+    switch (ins.op) {
+      case 0:
+        stack.push(ins.a);
+        break;
+
+      case 1: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a + b);
+        break;
+      }
+
+      case 2: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a - b);
+        break;
+      }
+
+      case 3: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a * b);
+        break;
+      }
+
+      case 4: {
+        const b = stack.pop();
+        const a = stack.pop();
+        if (b === 0) throw new Error("division by zero");
+        stack.push(Math.trunc(a / b));
+        break;
+      }
+
+      case 5:
+        stack.push(vars[ins.a] || 0);
+        break;
+
+      case 6:
+        vars[ins.a] = stack.pop();
+        break;
+
+      case 7: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a < b ? 1 : 0);
+        break;
+      }
+
+      case 8: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a > b ? 1 : 0);
+        break;
+      }
+
+      case 9: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a === b ? 1 : 0);
+        break;
+      }
+
+      case 10: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a !== 0 && b !== 0 ? 1 : 0);
+        break;
+      }
+
+      case 11: {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a !== 0 || b !== 0 ? 1 : 0);
+        break;
+      }
+
+      case 12: {
+        const cond = stack.pop();
+        if (!cond) ip = ins.a;
+        break;
+      }
+
+      case 13:
+        ip = ins.a;
+        break;
+
+      case 14: {
+        const count = ins.a;
+        const id = lists.length;
+        const out = new Array(count);
+
+        for (let i = count - 1; i >= 0; i--) {
+          out[i] = stack.pop();
+        }
+
+        lists.push(out);
+        stack.push(-id - 1);
+        break;
+      }
+
+      case 15: {
+        const handle = stack.pop();
+        const id = -handle - 1;
+        const list = lists[id] || [];
+        stack.push(list.length);
+        break;
+      }
+
+      case 16: {
+        const idx = stack.pop();
+        const handle = stack.pop();
+        const id = -handle - 1;
+        const list = lists[id] || [];
+
+        if (idx < 0 || idx >= list.length) {
+          throw new Error("nth index out of bounds");
+        }
+
+        stack.push(list[idx]);
+        break;
+      }
+
+      case 17: {
+        const end = stack.pop();
+        const start = stack.pop();
+        const id = lists.length;
+        const out = [];
+
+        if (end >= start) {
+          for (let v = start; v < end; v++) out.push(v);
+        } else {
+          for (let v = start; v > end; v--) out.push(v);
+        }
+
+        lists.push(out);
+        stack.push(-id - 1);
+        break;
+      }
+
+      case 18: {
+        const handle = stack.pop();
+        const srcId = -handle - 1;
+        const src = lists[srcId] || [];
+
+        if (ins.a < 0 || ins.a >= owner.map_funcs.length) {
+          throw new Error("invalid map function id");
+        }
+
+        const fn = owner.map_funcs[ins.a];
+        const outId = lists.length;
+        const mapped = [];
+
+        for (const item of src) {
+          const localVars = new Array(256).fill(0);
+          localVars[fn.param_slot] = item;
+          mapped.push(execSharedBytecode(fn.code, owner, localVars));
+        }
+
+        lists.push(mapped);
+        stack.push(-outId - 1);
+        break;
+      }
+
+      case 19:
+        return stack.pop();
+
+      case 20: {
+        const handle = stack.pop();
+        const srcId = -handle - 1;
+        const src = lists[srcId] || [];
+
+        if (ins.a < 0 || ins.a >= owner.filter_funcs.length) {
+          throw new Error("invalid filter function id");
+        }
+
+        const fn = owner.filter_funcs[ins.a];
+        const outId = lists.length;
+        const filtered = [];
+
+        for (const item of src) {
+          const localVars = new Array(256).fill(0);
+          localVars[fn.param_slot] = item;
+          if (execSharedBytecode(fn.code, owner, localVars)) filtered.push(item);
+        }
+
+        lists.push(filtered);
+        stack.push(-outId - 1);
+        break;
+      }
+
+      case 21: {
+        const handle = stack.pop();
+        const srcId = -handle - 1;
+        const src = lists[srcId] || [];
+        let acc = stack.pop();
+
+        if (ins.a < 0 || ins.a >= owner.reduce_funcs.length) {
+          throw new Error("invalid reduce function id");
+        }
+
+        const rf = owner.reduce_funcs[ins.a];
+
+        for (const item of src) {
+          const localVars = new Array(256).fill(0);
+          localVars[rf.acc_slot]  = acc;
+          localVars[rf.item_slot] = item;
+          acc = execSharedBytecode(rf.code, owner, localVars);
+        }
+
+        stack.push(acc);
+        break;
+      }
+
+      default:
+        throw new Error(`Unknown shared opcode: ${ins.op}`);
+    }
+  }
+
+  return stack.length > 0 ? stack[stack.length - 1] : 0;
+}
+
+function runSharedBytecode(program) {
+  if (!program || !Array.isArray(program.code)) {
+    throw new Error("invalid shared bytecode program");
+  }
+
+  const owner = {
+    code: program.code,
+    map_funcs:    Array.isArray(program.map_funcs)    ? program.map_funcs    : [],
+    filter_funcs: Array.isArray(program.filter_funcs) ? program.filter_funcs : [],
+    reduce_funcs: Array.isArray(program.reduce_funcs) ? program.reduce_funcs : []
+  };
+
+  const vars = new Array(256).fill(0);
+  return execSharedBytecode(owner.code, owner, vars);
+}
+
+export { run, runSharedBytecode };
