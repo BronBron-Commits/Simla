@@ -10,6 +10,22 @@ normalize() {
   sed 's/^Result: //' | tail -1 | tr -d '\r'
 }
 
+ensure_c_runtime() {
+  local output="$1"
+  shift
+
+  if [ -x "$output" ]; then
+    return
+  fi
+
+  echo "Building missing runtime: $output"
+  cc -Wall -Wextra -std=c11 "$@" -o "$output"
+}
+
+ensure_c_runtime ./c-simla/simla c-simla/simla.c
+ensure_c_runtime ./c-simla/compile_test c-simla/vm.c c-simla/compile_test.c
+ensure_c_runtime ./c-simla/shared_bytecode_run c-simla/vm.c c-simla/shared_bytecode_run.c
+
 run_c_interp() {
   ./c-simla/simla "$1" 2>/dev/null | normalize
 }
@@ -67,6 +83,50 @@ for f in tests/spec/*.sim; do
   else
     fail=1
   fi
+done
+
+echo ""
+echo "SHARED BYTECODE BRIDGE TEST"
+
+bridge_fixtures=(
+  "c-simla/bytecode_test.sim"
+  "c-simla/bytecode_vars.sim"
+  "c-simla/bytecode_if.sim"
+  "c-simla/bytecode_list.sim"
+  "c-simla/bytecode_len.sim"
+  "c-simla/bytecode_fn.sim"
+  "c-simla/filter_test.sim"
+  "c-simla/reduce_test.sim"
+)
+
+for fixture in "${bridge_fixtures[@]}"; do
+  tmp_bc="$(mktemp)"
+
+  if ! node tools/emit_shared_bytecode.js "$fixture" "$tmp_bc" 2>/dev/null; then
+    echo "  Fixture:     $fixture"
+    echo "    FAIL: shared bytecode emit failed"
+    rm -f "$tmp_bc"
+    fail=1
+    continue
+  fi
+
+  js_shared_out="$(node tools/run_shared_bytecode.js "$tmp_bc" 2>/dev/null | normalize || echo "__ERROR__")"
+  c_shared_out="$(./c-simla/shared_bytecode_run "$tmp_bc" 2>/dev/null | normalize || echo "__ERROR__")"
+  c_native_out="$(run_c_bytecode "$fixture" || echo "__ERROR__")"
+
+  echo "  Fixture:     $fixture"
+  echo "  JS Shared:   $js_shared_out"
+  echo "  C Shared:    $c_shared_out"
+  echo "  C Native BC: $c_native_out"
+
+  if [ "$js_shared_out" != "$c_shared_out" ] || [ "$js_shared_out" != "$c_native_out" ]; then
+    echo "    FAIL: shared bytecode bridge mismatch"
+    fail=1
+  else
+    echo "    OK"
+  fi
+
+  rm -f "$tmp_bc"
 done
 
 echo ""

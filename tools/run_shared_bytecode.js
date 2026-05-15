@@ -2,8 +2,12 @@ import fs from "fs";
 import { runSharedBytecode } from "../src/vm.js";
 
 function parseSharedBytecode(text) {
-  const tokens = text.trim().split(/\s+/);
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("empty shared bytecode");
+
+  const tokens = trimmed.split(/\s+/);
   let i = 0;
+  const MAX_OPCODE = 21;
 
   function next() {
     if (i >= tokens.length) throw new Error("unexpected end of shared bytecode");
@@ -21,57 +25,65 @@ function parseSharedBytecode(text) {
     return v;
   }
 
+  function nextCount(label) {
+    expect(label);
+    const count = nextInt();
+    if (count < 0) throw new Error(`${label} cannot be negative`);
+    return count;
+  }
+
+  function nextInstruction() {
+    const op = nextInt();
+    const a = nextInt();
+    if (op < 0 || op > MAX_OPCODE) throw new Error(`invalid opcode: ${op}`);
+    return { op, a };
+  }
+
   if (next() !== "SIMLA_BC1") {
     throw new Error("invalid shared bytecode header");
   }
 
-  expect("code_count");
-  const codeCount = nextInt();
+  const codeCount = nextCount("code_count");
   const code = [];
   for (let n = 0; n < codeCount; n++) {
-    code.push({ op: nextInt(), a: nextInt() });
+    code.push(nextInstruction());
   }
 
-  expect("map_func_count");
-  const mapFuncCount = nextInt();
+  const mapFuncCount = nextCount("map_func_count");
   const map_funcs = [];
 
   for (let m = 0; m < mapFuncCount; m++) {
     expect("map_param_slot");
     const param_slot = nextInt();
 
-    expect("map_code_count");
-    const mapCodeCount = nextInt();
+    const mapCodeCount = nextCount("map_code_count");
     const mapCode = [];
 
     for (let k = 0; k < mapCodeCount; k++) {
-      mapCode.push({ op: nextInt(), a: nextInt() });
+      mapCode.push(nextInstruction());
     }
 
     map_funcs.push({ param_slot, code: mapCode });
   }
 
-  expect("filter_func_count");
-  const filterFuncCount = nextInt();
+  const filterFuncCount = nextCount("filter_func_count");
   const filter_funcs = [];
 
   for (let m = 0; m < filterFuncCount; m++) {
     expect("filter_param_slot");
     const param_slot = nextInt();
 
-    expect("filter_code_count");
-    const filterCodeCount = nextInt();
+    const filterCodeCount = nextCount("filter_code_count");
     const filterCode = [];
 
     for (let k = 0; k < filterCodeCount; k++) {
-      filterCode.push({ op: nextInt(), a: nextInt() });
+      filterCode.push(nextInstruction());
     }
 
     filter_funcs.push({ param_slot, code: filterCode });
   }
 
-  expect("reduce_func_count");
-  const reduceFuncCount = nextInt();
+  const reduceFuncCount = nextCount("reduce_func_count");
   const reduce_funcs = [];
 
   for (let m = 0; m < reduceFuncCount; m++) {
@@ -81,15 +93,18 @@ function parseSharedBytecode(text) {
     expect("reduce_item_slot");
     const item_slot = nextInt();
 
-    expect("reduce_code_count");
-    const reduceCodeCount = nextInt();
+    const reduceCodeCount = nextCount("reduce_code_count");
     const reduceCode = [];
 
     for (let k = 0; k < reduceCodeCount; k++) {
-      reduceCode.push({ op: nextInt(), a: nextInt() });
+      reduceCode.push(nextInstruction());
     }
 
     reduce_funcs.push({ acc_slot, item_slot, code: reduceCode });
+  }
+
+  if (i !== tokens.length) {
+    throw new Error("unexpected trailing tokens in shared bytecode");
   }
 
   return {
