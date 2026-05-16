@@ -17,3 +17,7 @@ minicompiler@1.0.0
 *.mjs
 patch_*.js
 fix_*.js
+
+# Generated shared-bytecode and fuzz artifacts
+.simla-fuzz-*/
+*.sbc
