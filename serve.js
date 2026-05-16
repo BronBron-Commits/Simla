@@ -8,6 +8,9 @@ import { parseRWX } from "./tools/parse_rwx.js";
 const port = 8080;
 const ROOT = process.cwd();
 const START_TIME = Date.now();
+const DEFAULT_AW_BRIDGE_TIMEOUT_MS = 8000;
+const MIN_AW_BRIDGE_TIMEOUT_MS = 1000;
+const MAX_AW_BRIDGE_TIMEOUT_MS = 30000;
 
 let awBridgeProc = null;
 let awBridgeSeq = 1;
@@ -100,14 +103,24 @@ function ensureAwBridge() {
   return awBridgeProc;
 }
 
-function callAwBridge(cmd, args = {}, timeoutMs = 8000) {
+function normalizeAwBridgeTimeout(timeoutMs) {
+  const parsed = Number(timeoutMs);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_AW_BRIDGE_TIMEOUT_MS;
+  }
+  const rounded = Math.floor(parsed);
+  return Math.min(MAX_AW_BRIDGE_TIMEOUT_MS, Math.max(MIN_AW_BRIDGE_TIMEOUT_MS, rounded));
+}
+
+function callAwBridge(cmd, args = {}, timeoutMs = DEFAULT_AW_BRIDGE_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const proc = ensureAwBridge();
     const id = awBridgeSeq++;
+    const safeTimeoutMs = normalizeAwBridgeTimeout(timeoutMs);
     const timeout = setTimeout(() => {
       awBridgePending.delete(id);
       reject(new Error(`AW bridge timeout for ${cmd}`));
-    }, timeoutMs);
+    }, safeTimeoutMs);
 
     awBridgePending.set(id, { resolve, reject, timeout });
     proc.stdin.write(JSON.stringify({ id, cmd, args }) + "\n");
@@ -244,8 +257,8 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         const requestedTimeout = Number(body && body.timeoutMs);
         const bridgeTimeout = Number.isFinite(requestedTimeout)
-          ? Math.max(8000, requestedTimeout + 5000)
-          : 8000;
+          ? normalizeAwBridgeTimeout(requestedTimeout + 5000)
+          : DEFAULT_AW_BRIDGE_TIMEOUT_MS;
         const data = await callAwBridge("object_add", body, bridgeTimeout);
         respondJson(res, 200, data);
         return;
@@ -255,8 +268,8 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         const requestedTimeout = Number(body && body.timeoutMs);
         const bridgeTimeout = Number.isFinite(requestedTimeout)
-          ? Math.max(8000, requestedTimeout + 5000)
-          : 8000;
+          ? normalizeAwBridgeTimeout(requestedTimeout + 5000)
+          : DEFAULT_AW_BRIDGE_TIMEOUT_MS;
         const data = await callAwBridge("object_delete", body, bridgeTimeout);
         respondJson(res, 200, data);
         return;
