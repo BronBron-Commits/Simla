@@ -56,9 +56,9 @@ const server = http.createServer((req, res) => {
 
       send(res, 200, "application/json", output.trim());
     } catch (err) {
+      console.error(err);
       send(res, 500, "application/json", JSON.stringify({
-        error: String(err.message || err),
-        stderr: String(err.stderr || "")
+        error: "Internal server error"
       }));
     }
 

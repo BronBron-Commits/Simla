@@ -1,5 +1,8 @@
 name: C Simla
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
