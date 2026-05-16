@@ -4,10 +4,11 @@ A deterministic simulation language for games and systems.
 
 
 
-Simla lets you define simulation logic once and run it across multiple run<img width="904" height="448" alt="1000008470" src="https://github.com/user-attachments/assets/8a86f4c5-c654-4a95-afbf-886eac4cb0e4" />
+<img width="904" height="448" alt="1000008470" src="https://github.com/user-attachments/assets/8a86f4c5-c654-4a95-afbf-886eac4cb0e4" />
 <img width="1860" height="895" alt="1000008472" src="https://github.com/user-attachments/assets/889eeb66-8543-4dfa-b320-62f37de2dfe4" />
 <img width="1845" height="948" alt="1000008473" src="https://github.com/user-attachments/assets/9da85688-aa88-45db-9924-7a11ded2111b" />
-times with identical results.
+
+Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
 ---
 
