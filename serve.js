@@ -9,8 +9,21 @@ const port = 8080;
 const ROOT = process.cwd();
 const START_TIME = Date.now();
 const DEFAULT_AW_BRIDGE_TIMEOUT_MS = 8000;
-const MIN_AW_BRIDGE_TIMEOUT_MS = 1000;
-const MAX_AW_BRIDGE_TIMEOUT_MS = 30000;
+const AW_BRIDGE_TIMEOUT_MS_BY_CMD = {
+  health: 4000,
+  state: 4000,
+  world_info: 4000,
+  world_attrs_scan: 8000,
+  object_path_set: 8000,
+  connect: 15000,
+  move: 4000,
+  teleport: 4000,
+  query: 20000,
+  object_query: 8000,
+  object_add: 30000,
+  object_delete: 30000,
+  disconnect: 4000,
+};
 
 let awBridgeProc = null;
 let awBridgeSeq = 1;
@@ -103,20 +116,15 @@ function ensureAwBridge() {
   return awBridgeProc;
 }
 
-function normalizeAwBridgeTimeout(timeoutMs) {
-  const parsed = Number(timeoutMs);
-  if (!Number.isFinite(parsed)) {
-    return DEFAULT_AW_BRIDGE_TIMEOUT_MS;
-  }
-  const rounded = Math.floor(parsed);
-  return Math.min(MAX_AW_BRIDGE_TIMEOUT_MS, Math.max(MIN_AW_BRIDGE_TIMEOUT_MS, rounded));
+function getAwBridgeTimeoutMs(cmd) {
+  return AW_BRIDGE_TIMEOUT_MS_BY_CMD[cmd] || DEFAULT_AW_BRIDGE_TIMEOUT_MS;
 }
 
-function callAwBridge(cmd, args = {}, timeoutMs = DEFAULT_AW_BRIDGE_TIMEOUT_MS) {
+function callAwBridge(cmd, args = {}) {
   return new Promise((resolve, reject) => {
     const proc = ensureAwBridge();
     const id = awBridgeSeq++;
-    const safeTimeoutMs = normalizeAwBridgeTimeout(timeoutMs);
+    const safeTimeoutMs = getAwBridgeTimeoutMs(cmd);
     const timeout = setTimeout(() => {
       awBridgePending.delete(id);
       reject(new Error(`AW bridge timeout for ${cmd}`));
@@ -163,7 +171,7 @@ function resolveWorkspacePath(file) {
 }
 
 async function getAwObjectPath() {
-  const data = await callAwBridge("world_info", { waitMs: 150 }, 4000);
+  const data = await callAwBridge("world_info", { waitMs: 150 });
   let objectPath = String(data.objectPath || "").trim();
   if (!data.connected) {
     throw new Error("AW is not connected");
@@ -183,19 +191,19 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith("/api/aw/")) {
     try {
       if (url.pathname === "/api/aw/health") {
-        const data = await callAwBridge("health", {}, 4000);
+        const data = await callAwBridge("health", {});
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/state") {
-        const data = await callAwBridge("state", { waitMs: 10 }, 4000);
+        const data = await callAwBridge("state", { waitMs: 10 });
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/world-info") {
-        const data = await callAwBridge("world_info", { waitMs: 150 }, 4000);
+        const data = await callAwBridge("world_info", { waitMs: 150 });
         respondJson(res, 200, data);
         return;
       }
@@ -205,14 +213,14 @@ const server = http.createServer(async (req, res) => {
         const data = await callAwBridge("world_attrs_scan", {
           start: parseInt(qs.get("start") || "40"),
           end: parseInt(qs.get("end") || "300"),
-        }, 8000);
+        });
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/object-path" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("object_path_set", body, 8000);
+        const data = await callAwBridge("object_path_set", body);
         modelCache.clear();
         respondJson(res, 200, data);
         return;
@@ -220,63 +228,55 @@ const server = http.createServer(async (req, res) => {
 
       if (url.pathname === "/api/aw/connect" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("connect", body, 15000);
+        const data = await callAwBridge("connect", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/move" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("move", body, 4000);
+        const data = await callAwBridge("move", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/teleport" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("teleport", body, 4000);
+        const data = await callAwBridge("teleport", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/query" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("query", body, 20000);
+        const data = await callAwBridge("query", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/object-query" && req.method === "POST") {
         const body = await parseBody(req);
-        const data = await callAwBridge("object_query", body, 8000);
+        const data = await callAwBridge("object_query", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/object-add" && req.method === "POST") {
         const body = await parseBody(req);
-        const requestedTimeout = Number(body && body.timeoutMs);
-        const bridgeTimeout = Number.isFinite(requestedTimeout)
-          ? normalizeAwBridgeTimeout(requestedTimeout + 5000)
-          : DEFAULT_AW_BRIDGE_TIMEOUT_MS;
-        const data = await callAwBridge("object_add", body, bridgeTimeout);
+        const data = await callAwBridge("object_add", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/object-delete" && req.method === "POST") {
         const body = await parseBody(req);
-        const requestedTimeout = Number(body && body.timeoutMs);
-        const bridgeTimeout = Number.isFinite(requestedTimeout)
-          ? normalizeAwBridgeTimeout(requestedTimeout + 5000)
-          : DEFAULT_AW_BRIDGE_TIMEOUT_MS;
-        const data = await callAwBridge("object_delete", body, bridgeTimeout);
+        const data = await callAwBridge("object_delete", body);
         respondJson(res, 200, data);
         return;
       }
 
       if (url.pathname === "/api/aw/disconnect" && req.method === "POST") {
-        const data = await callAwBridge("disconnect", {}, 4000);
+        const data = await callAwBridge("disconnect", {});
         respondJson(res, 200, data);
         return;
       }
