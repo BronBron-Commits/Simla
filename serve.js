@@ -140,6 +140,15 @@ function fetchText(url) {
   });
 }
 
+function resolveWorkspacePath(file) {
+  const abs = path.resolve(ROOT, file);
+  const rel = path.relative(ROOT, abs);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    return null;
+  }
+  return abs;
+}
+
 async function getAwObjectPath() {
   const data = await callAwBridge("world_info", { waitMs: 150 }, 4000);
   let objectPath = String(data.objectPath || "").trim();
@@ -311,15 +320,12 @@ const server = http.createServer(async (req, res) => {
       const file = url.searchParams.get("file");
       if (!file) { res.writeHead(400); res.end(JSON.stringify({ error: "missing ?file=" })); return; }
       if (/^https?:\/\//i.test(file)) {
-        const src = await fetchText(file);
-        const objects = parseRWX(src);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(objects));
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "remote URLs are not allowed" }));
         return;
       }
-      const abs = path.resolve(ROOT, file);
-      // security: must stay inside project root
-      if (!abs.startsWith(ROOT)) { res.writeHead(403); res.end(JSON.stringify({ error: "forbidden" })); return; }
+      const abs = resolveWorkspacePath(file);
+      if (!abs) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "forbidden" })); return; }
       const src = fs.readFileSync(abs, "utf8");
       const objects = parseRWX(src);
       res.writeHead(200, { "Content-Type": "application/json" });
