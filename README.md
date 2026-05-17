@@ -2,173 +2,162 @@ Simλ (Simla)
 
 A deterministic simulation language for games and systems.
 
-
+Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
 <img width="904" height="448" alt="1000008470" src="https://github.com/user-attachments/assets/8a86f4c5-c654-4a95-afbf-886eac4cb0e4" />
 <img width="1860" height="895" alt="1000008472" src="https://github.com/user-attachments/assets/889eeb66-8543-4dfa-b320-62f37de2dfe4" />
 <img width="1845" height="948" alt="1000008473" src="https://github.com/user-attachments/assets/9da85688-aa88-45db-9924-7a11ded2111b" />
 
-Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
----
 
-What is Simla?
+# Simla
 
-Simla is a small, functional DSL designed for:
+A deterministic simulation language for games and systems.
 
-* Game logic
-* Simulation systems
-* Deterministic rule execution
+Simla is an experimental programming language, compiler, and bytecode VM focused on simulations, gameplay logic, and interactive 3D runtime systems.
 
-It guarantees that the same .sim program produces identical results across:
+The project explores a complete pipeline from:
 
-* JavaScript VM
-* Native C Interpreter
-* Native C Bytecode VM
+Simla source code → parser/compiler → bytecode → VM → interactive scenes
 
----
+Simla programs can run across multiple runtimes with consistent behavior, including JavaScript and experimental C runtimes.
 
-Why Simla?
+## Features
 
-Game and simulation logic is typically:
+* Custom parser, compiler, and bytecode VM
+* Deterministic runtime experiments
+* JavaScript and C runtime implementations
+* Browser-based 3D rendering and simulation demos
+* ECS-like runtime systems and simulation logic
+* Self-hosting compiler experiments
+* Tactical arena, voxel world, and simulation viewers
 
-* duplicated across client and server
-* tightly coupled to engine code
-* difficult to test deterministically
+## Demo Scenes
 
-Simla solves this by making logic:
+### Voxel World Runtime
 
-* portable
-* deterministic
-* testable
-* runtime-independent
+Interactive voxel and terrain experiments rendered in the browser.
 
-Write once → run anywhere → same result
+### Library Simulation
 
----
+3D library environment with animated books, interaction systems, and runtime-generated scenes.
 
-Core Features
+### Simulation Scenes
 
-* Deterministic execution (same inputs → same outputs)
-* Functional style (no hidden side effects)
-* Cross-runtime parity (JS + C)
-* Bytecode compilation pipeline
-* Built-in list and functional primitives
-* Conformance and error test suites
-* Replay-friendly simulation model
+Large-scale scene rendering, AI experiments, runtime-driven entities, and environmental systems.
 
----
+## Quick Start
 
-Example
+Clone the repository:
 
-(if (and (gt 6 3) (lt 2 5)) 10 7)
+```bash
+git clone https://github.com/BronBron-Commits/Simla.git
+```
 
-Run:
+Enter the project directory:
 
-./simla.sh example.sim
+```bash
+cd Simla
+```
 
-Output:
+Install dependencies:
 
-10
+```bash
+npm install
+```
 
----
+Run validation checks:
 
-CLI
+```bash
+npm run check
+npm run conformance
+npm run errors
+```
 
-Run a simulation file:
+Start the local server:
 
-./simla.sh file.sim
+```bash
+node serve.js
+```
 
----
+Open in browser:
 
-Development Checks
+```text
+http://localhost:8080/
+```
 
-Run full validation:
+Example pages:
 
-./tools/check_all.sh
+```text
+http://localhost:8080/sim3d.html
+http://localhost:8080/voxel_world.html
+http://localhost:8080/static/library_viewer.html
+http://localhost:8080/simla3d_first_person.html
+```
 
-This executes:
-
-* Conformance tests (spec correctness)
-* Error tests (invalid program handling)
-* C build verification
-* Cross-runtime parity checks
-
----
-
-Architecture
-
-.sim source
-↓
-Parser / AST
-↓
-Compiler (optional → bytecode)
-
-Execution targets:
-
-* JavaScript VM
-* C Interpreter
-* C Bytecode VM
-
-All runtimes are expected to produce identical outputs.
-
----
-
-Project Structure
-
-c-simla/
-→ C interpreter and bytecode VM
+## Repository Structure
 
 src/
-→ JavaScript VM, compiler, runtime
-
-spec/
-→ language specification
-
-tests/
-→ conformance and error tests
-
-tools/
-→ runners, validation scripts
+Parser, compiler, VM, and runtime systems.
 
 examples/
-→ sample simulation programs
+Simla programs and runtime examples.
 
----
+static/
+Browser viewers, generated assets, and scene tools.
 
-Version
+c-simla/
+Experimental C runtime and parity tests.
 
-Current version: 0.1.0
+spec/
+Language notes, opcode behavior, determinism, and conformance documentation.
 
-Core guarantees:
+tools/
+Testing utilities, exporters, runners, and helper scripts.
 
-* Deterministic execution
-* Cross-runtime parity
-* Stable core primitives
+## Runtime Goals
 
----
+Simla explores:
 
-Philosophy
+* deterministic runtime execution
+* portable simulation logic
+* runtime parity between implementations
+* interactive browser-driven simulations
+* game and ECS-oriented scripting systems
+* self-hosting language experimentation
 
-Simla is not a general-purpose language.
+## Testing
 
-It is a deterministic logic layer:
+Run general validation:
 
-* define rules
-* simulate outcomes
-* guarantee consistency across systems
+```bash
+npm run check
+```
 
----
+Run conformance tests:
 
-Next Direction
+```bash
+npm run conformance
+```
 
-* Integration with rendering engines (Three.js / WebXR)
-* Higher-level simulation systems (AI, combat, world logic)
-* Expanded standard library (kept separate from core)
-* Tooling for replay, debugging, and visualization
+Run error behavior tests:
 
----
+```bash
+npm run errors
+```
 
-License
+## Contributing
 
-MIT
+Contributions, experiments, bug reports, and ideas are welcome.
+
+See CONTRIBUTING.md for setup instructions and contribution guidelines.
+
+## Project Status
+
+Simla is experimental and evolving rapidly.
+
+Some systems are stable enough for demonstrations and experimentation, while others are still active research and development areas.
+
+## License
+
+MIT License
