@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "serve": "node serve.js",
+    "test": "npm run check && npm run conformance && npm run errors",
     "simla": "node tools/run_js_vm.js",
     "check": "./tools/check_all.sh",
     "conformance": "./tools/conformance_check.sh",
     "errors": "./tools/error_conformance_check.sh"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "draco3dgltf": "^1.5.7"
   }
 }

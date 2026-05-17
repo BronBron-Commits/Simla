@@ -9,7 +9,6 @@ c-simla/vm_test
 c-simla/simla
 c-simla/compile_test
 c-simla/vm_test
-hello.sim
 node
 minicompiler@1.0.0
 .tmp/
