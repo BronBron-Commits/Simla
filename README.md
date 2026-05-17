@@ -10,10 +10,6 @@ Simla lets you define simulation logic once and run it across multiple runtimes 
 
 
 
-# Simla
-
-A deterministic simulation language for games and systems.
-
 Simla is an experimental programming language, compiler, and bytecode VM focused on simulations, gameplay logic, and interactive 3D runtime systems.
 
 The project explores a complete pipeline from:
