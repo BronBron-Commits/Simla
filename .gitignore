@@ -4,6 +4,7 @@ node_modules/
 c-simla/simla
 c-simla/compile_test
 c-simla/vm_test
+c-simla/shared_bytecode_run
 
 # Simla local/build outputs
 c-simla/simla
@@ -20,3 +21,15 @@ fix_*.js
 # Generated shared-bytecode and fuzz artifacts
 .simla-fuzz-*/
 *.sbc
+
+# Installer build artifacts
+installer/generated/
+installer/obj/
+installer/out/
+
+# Launcher build artifacts
+launcher/**/bin/
+launcher/**/obj/
+
+# Python cache
+tools/__pycache__/

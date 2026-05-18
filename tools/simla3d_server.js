@@ -1,5 +1,6 @@
 import http from "http";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execFileSync } from "child_process";
 
@@ -29,15 +30,20 @@ function injectTick(src, tick) {
   return `(begin\n  (let tick ${tick})\n  ${src}\n)`;
 }
 
+function getWritableTempDir() {
+  const tempDir = path.join(os.tmpdir(), "Simla");
+  fs.mkdirSync(tempDir, { recursive: true });
+  return tempDir;
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
   if (url.pathname === "/api/scene") {
     try {
       const file = url.searchParams.get("file") || "examples/simla3d_demo.sim";
-      const expandedPath = path.join(ROOT, ".tmp", "simla3d-expanded.sim");
-
-      fs.mkdirSync(path.join(ROOT, ".tmp"), { recursive: true });
+      const tempDir = getWritableTempDir();
+      const expandedPath = path.join(tempDir, "simla3d-expanded.sim");
 
       const expanded = execFileSync("node", ["tools/expand_imports.js", file], {
         cwd: ROOT,

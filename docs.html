@@ -4,102 +4,301 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Simλ — Deterministic Simulation Language</title>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
+    :root {
+      --bg: #07111d;
+      --bg-elevated: rgba(10, 18, 31, 0.78);
+      --panel: rgba(255, 255, 255, 0.06);
+      --panel-strong: rgba(11, 20, 35, 0.92);
+      --border: rgba(108, 185, 255, 0.18);
+      --border-strong: rgba(108, 185, 255, 0.34);
+      --text: #e7f3ff;
+      --muted: #a7c2d9;
+      --accent: #76c4ff;
+      --accent-strong: #b7e7ff;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.26);
+    }
+
     body {
       margin: 0;
       background:
-        radial-gradient(circle at 50% 0%, rgba(80,180,255,.22), transparent 34%),
-        radial-gradient(circle at 90% 20%, rgba(255,100,220,.10), transparent 28%),
-        #050812;
-      color: #e6f3ff;
-      font-family: system-ui, sans-serif;
+        radial-gradient(circle at 20% 0%, rgba(118,196,255,.24), transparent 28%),
+        radial-gradient(circle at 86% 12%, rgba(118,196,255,.12), transparent 24%),
+        linear-gradient(180deg, rgba(19, 33, 58, 0.45), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Aptos", sans-serif;
       line-height: 1.65;
       overflow-x: hidden;
     }
 
     .hero {
-      min-height: 72vh;
+      min-height: 70vh;
       display: grid;
-      place-items: center;
-      text-align: center;
-      padding: 32px 18px;
+      align-items: center;
+      padding: 42px 20px 28px;
       position: relative;
     }
 
-    .hero::before {
+    .hero-shell {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, .85fr);
+      gap: 22px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-copy,
+    .hero-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-copy {
+      padding: clamp(24px, 5vw, 44px);
+      overflow: hidden;
+    }
+
+    .hero-copy::after {
       content: "";
       position: absolute;
-      width: 320px;
-      height: 320px;
+      inset: auto -80px -120px auto;
+      width: 280px;
+      height: 280px;
       border-radius: 50%;
-      background: rgba(102,204,255,.12);
-      filter: blur(40px);
-      animation: pulse 4s ease-in-out infinite alternate;
+      background: radial-gradient(circle, rgba(118,196,255,.22), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
     }
 
     .brand {
       position: relative;
       font-size: clamp(72px, 18vw, 210px);
-      letter-spacing: 10px;
-      color: rgba(210,245,255,.96);
+      line-height: .9;
+      letter-spacing: 6px;
+      color: rgba(220, 244, 255, 0.98);
       text-shadow:
-        0 0 20px rgba(102,204,255,.9),
-        0 0 80px rgba(102,204,255,.55),
-        0 0 160px rgba(102,204,255,.25);
+        0 0 20px rgba(118,196,255,.8),
+        0 0 80px rgba(118,196,255,.45),
+        0 0 160px rgba(118,196,255,.18);
       animation: rise 1.4s ease both;
+      margin-bottom: 16px;
     }
 
     .tagline {
       position: relative;
       max-width: 720px;
-      margin: -20px auto 0;
-      font-size: clamp(18px, 4vw, 30px);
-      color: rgba(225,248,255,.86);
+      margin: 0;
+      font-size: clamp(22px, 3vw, 38px);
+      line-height: 1.14;
+      color: rgba(229, 247, 255, 0.92);
       animation: fadeIn 1.5s ease .4s both;
     }
 
-    .pill {
-      display: inline-block;
-      margin-top: 24px;
-      padding: 10px 16px;
-      border: 1px solid rgba(102,204,255,.28);
-      border-radius: 999px;
-      background: rgba(0,0,0,.35);
-      box-shadow: 0 0 30px rgba(102,204,255,.12);
-      color: #bcecff;
+    .hero-summary {
+      max-width: 720px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 1.5s ease .55s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
       animation: fadeIn 1.5s ease .7s both;
+      position: relative;
+      z-index: 1;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      background: rgba(14, 24, 42, 0.86);
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(118,196,255,.6);
+      background: rgba(18, 30, 50, 0.96);
+    }
+
+    .button.primary {
+      background: linear-gradient(135deg, rgba(118,196,255,.28), rgba(58,126,212,.24));
+    }
+
+    .hero-panel {
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      animation: fadeIn 1.5s ease .5s both;
+    }
+
+    .hero-panel h3 {
+      margin: 0;
+      color: var(--accent-strong);
+      font-size: 14px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .hero-panel p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .hero-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .hero-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(118,196,255,.12);
+    }
+
+    .hero-item strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .hero-item span {
+      color: var(--muted);
+      font-size: 14px;
     }
 
     main {
-      width: min(980px, calc(100vw - 28px));
+      width: min(1120px, calc(100vw - 28px));
       margin: 0 auto 80px;
     }
 
-    .cards {
+    .section-heading {
+      margin: 0 0 18px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      color: var(--text);
+    }
+
+    .section-copy {
+      max-width: 760px;
+      color: var(--muted);
+      margin: 0 0 26px;
+    }
+
+    .cards,
+    .doc-grid,
+    .feature-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 14px;
       margin: 0 0 34px;
     }
 
-    .card {
-      background: rgba(255,255,255,.055);
-      border: 1px solid rgba(102,204,255,.18);
+    .card,
+    .doc-card,
+    .feature-card,
+    .callout,
+    #content {
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: 18px;
       padding: 18px;
       box-shadow: 0 0 28px rgba(102,204,255,.08);
       backdrop-filter: blur(8px);
     }
 
-    .card h3 {
+    .card h3,
+    .doc-card h3,
+    .feature-card h3,
+    .callout h3 {
       margin-top: 0;
       color: #9fe4ff;
     }
 
+    .quick-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 16px;
+      margin: 0 0 40px;
+    }
+
+    .command-block {
+      background: #0c1525;
+      border: 1px solid rgba(118,196,255,.14);
+      border-radius: 16px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      color: #daf2ff;
+      white-space: pre;
+    }
+
+    .mini-note {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 12px;
+    }
+
+    .doc-card a,
+    .feature-card a,
+    .callout a {
+      color: var(--accent-strong);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .doc-card a:hover,
+    .feature-card a:hover,
+    .callout a:hover {
+      text-decoration: underline;
+    }
+
+    .doc-card p,
+    .feature-card p,
+    .callout p,
+    .card p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .section {
+      margin: 0 0 44px;
+    }
+
     #content {
-      background: rgba(0,0,0,.28);
-      border: 1px solid rgba(102,204,255,.16);
       border-radius: 22px;
       padding: clamp(18px, 4vw, 34px);
       box-shadow: 0 0 50px rgba(102,204,255,.08);
@@ -163,50 +362,364 @@
     }
 
     @media (max-width: 520px) {
-      .hero { min-height: 62vh; }
+      .hero { min-height: auto; }
       .brand { letter-spacing: 4px; }
-      .tagline { margin-top: -8px; }
       pre code { font-size: 13px; }
+    }
+
+    @media (max-width: 960px) {
+      .hero-shell,
+      .quick-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <section class="hero">
-    <div>
-      <div class="brand">Simλ</div>
-      <div class="tagline">A deterministic functional language for simulation, combat, and procedural worlds.</div>
-      <div class="pill">language → VM → simulation → renderer</div>
+    <div class="hero-shell">
+      <div class="hero-copy">
+        <div class="eyebrow">Deterministic Language and Runtime</div>
+        <div class="brand">Simλ</div>
+        <div class="tagline">Installable, runnable, and explorable simulation tooling for language work, demos, and interactive worlds.</div>
+        <p class="hero-summary">Simla now spans the language, VM, browser runtimes, Windows installer, native control deck launcher, and GitHub release packaging. This page is the fastest way to get oriented.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#quick-start">Quick Start</a>
+          <a class="button" href="#starter-docs">Starter Docs</a>
+          <a class="button" href="#language-spec">Language Spec</a>
+        </div>
+      </div>
+      <aside class="hero-panel">
+        <h3>Current Focus</h3>
+        <p>The stable entry points are the docs page, Voxel World, and the First Person Viewer. The Windows MSI packages the native launcher and local-service workflow.</p>
+        <div class="hero-list">
+          <div class="hero-item">
+            <strong>Windows Installer</strong>
+            <span>Classic MSI flow with launcher shortcuts, optional desktop shortcut, and post-install launch.</span>
+          </div>
+          <div class="hero-item">
+            <strong>Native Control Deck</strong>
+            <span>Full-screen dark launcher for Docs, Voxel World, and the First Person Viewer.</span>
+          </div>
+          <div class="hero-item">
+            <strong>Release Assets</strong>
+            <span>GitHub-ready MSI, zip bundle, and SHA256 checksum packaging under <code>installer/out/release/</code>.</span>
+          </div>
+        </div>
+      </aside>
     </div>
   </section>
 
   <main>
-    <section class="cards">
-      <div class="card">
-        <h3>Deterministic</h3>
-        <p>Same input, same output. Built for replay, testing, and simulation.</p>
-      </div>
-      <div class="card">
-        <h3>Functional</h3>
-        <p>Compose worlds with map, filter, reduce, recursion, and pure data transforms.</p>
-      </div>
-      <div class="card">
-        <h3>Visual</h3>
-        <p>Generate scenes, colors, motion, render settings, and battle reports from code.</p>
+    <section class="section" id="quick-start">
+      <h1 class="section-heading">Quick Start</h1>
+      <p class="section-copy">Choose the path that matches how you want to explore Simla: clone the repo, use the Windows bootstrap script, or ship the packaged MSI and release assets.</p>
+      <div class="quick-grid">
+        <div class="callout">
+          <h3>Repo Setup</h3>
+          <div class="command-block">git clone https://github.com/BronBron-Commits/Simla.git
+cd Simla
+npm install
+npm run simla -- examples/hello.sim</div>
+          <div class="mini-note">Use this when you want the full source tree, docs, and test scripts locally.</div>
+        </div>
+        <div class="callout">
+          <h3>Windows Paths</h3>
+          <p><strong>Bootstrap:</strong> <code>.\install_windows.cmd</code></p>
+          <p><strong>MSI Build:</strong> <code>npm run build:msi</code></p>
+          <p><strong>Release Package:</strong> <code>npm run build:release</code></p>
+          <p><strong>Local Server:</strong> <code>npm run serve</code> or <code>.\simla-serve.cmd</code></p>
+        </div>
       </div>
     </section>
 
-    <article id="content">Loading spec...</article>
+    <section class="section">
+      <div class="cards">
+        <div class="card">
+          <h3>Deterministic</h3>
+          <p>Same input, same output. Built for replay, testing, parity checks, and repeatable simulation behavior.</p>
+        </div>
+        <div class="card">
+          <h3>Cross-Runtime</h3>
+          <p>Simla programs target the JavaScript runtime today and continue to inform the experimental C runtime and bytecode work.</p>
+        </div>
+        <div class="card">
+          <h3>Packaged</h3>
+          <p>The repo now includes a branded MSI installer, a native launcher, and GitHub-release-ready Windows artifacts.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Install and Release</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Bootstrap Install</h3>
+          <p><code>install_windows.cmd</code> checks for Node.js, optionally runs <code>npm install</code>, and generates local launcher scripts like <code>simla-run.cmd</code> and <code>simla-serve.cmd</code>.</p>
+        </div>
+        <div class="feature-card">
+          <h3>MSI Installer</h3>
+          <p><code>npm run build:msi</code> produces a classic Windows setup wizard with Start Menu shortcuts, optional desktop shortcut, and post-install launcher startup.</p>
+        </div>
+        <div class="feature-card">
+          <h3>GitHub Release Package</h3>
+          <p><code>npm run build:release</code> stages the MSI, alternate zip bundle, and SHA256 checksum file under <code>installer/out/release/</code> for GitHub Releases.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Stable Entry Points</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Docs</h3>
+          <p><a href="docs.html">docs.html</a> is the landing page for current onboarding, release notes, and the language spec.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Voxel World</h3>
+          <p><a href="voxel_world.html">voxel_world.html</a> is the main browser runtime for terrain and simulation exploration.</p>
+        </div>
+        <div class="feature-card">
+          <h3>First Person Viewer</h3>
+          <p><a href="simla3d_first_person.html">simla3d_first_person.html</a> is the current first-person scene viewer entry point.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="starter-docs">
+      <h2>Starter Docs</h2>
+      <div class="doc-grid">
+        <div class="doc-card">
+          <h3>Getting Started</h3>
+          <p>Install Simla, run the hello example, start the local server, and open the stable demos.</p>
+          <p><a href="docs/getting_started.md">Open getting_started.md</a></p>
+        </div>
+        <div class="doc-card">
+          <h3>Runtime</h3>
+          <p>Understand the execution surface, browser workflows, and current runtime assumptions.</p>
+          <p><a href="docs/runtime.md">Open runtime.md</a></p>
+        </div>
+        <div class="doc-card">
+          <h3>Language</h3>
+          <p>See the Simla language model, syntax direction, and data-shaping conventions.</p>
+          <p><a href="docs/language.md">Open language.md</a></p>
+        </div>
+        <div class="doc-card">
+          <h3>Rendering</h3>
+          <p>Find the current rendering surfaces, viewer pages, and scene-oriented workflows.</p>
+          <p><a href="docs/rendering.md">Open rendering.md</a></p>
+        </div>
+        <div class="doc-card">
+          <h3>Roadmap</h3>
+          <p>Track where the project is heading across runtime parity, tooling, and packaging.</p>
+          <p><a href="docs/roadmap.md">Open roadmap.md</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="language-spec">
+      <h2>Language Spec</h2>
+      <p class="section-copy">The original language-spec content is still available below. It remains useful for the core execution model, but this page now frames it in the context of the broader repo and delivery workflow.</p>
+      <article id="content">
+        <h1>Simλ Language Specification</h1>
+
+        <h2>1. Overview</h2>
+        <p>Simλ (SimLambda) is a small, deterministic, functional programming language designed for:</p>
+        <ul>
+          <li>Simulation</li>
+          <li>Procedural scene generation</li>
+          <li>Deterministic systems such as combat, animation, and replay</li>
+        </ul>
+        <p>Simλ programs compile to bytecode and execute on a custom virtual machine.</p>
+
+        <h2>2. Core Principles</h2>
+        <ul>
+          <li>Deterministic: same input produces the same output</li>
+          <li>Functional-first: emphasis on pure transformations</li>
+          <li>Data-driven: programs construct and transform data</li>
+          <li>Minimal: a small set of primitives composes into more complex behavior</li>
+        </ul>
+
+        <h2>3. Syntax</h2>
+        <p>Simλ uses an S-expression syntax:</p>
+        <pre><code>(function arg1 arg2 ...)</code></pre>
+        <p>Examples:</p>
+        <pre><code>(add 1 2)
+(mul x 10)
+(if (gt x 5) 1 0)</code></pre>
+
+        <h2>4. Data Types</h2>
+        <h3>4.1 Numbers</h3>
+        <pre><code>42
+3.14</code></pre>
+
+        <h3>4.2 Booleans</h3>
+        <pre><code>true
+false</code></pre>
+
+        <h3>4.3 Lists</h3>
+        <pre><code>(list 1 2 3)</code></pre>
+
+        <h3>4.4 Objects (key-value lists)</h3>
+        <pre><code>(list "x" 1 "y" 2)</code></pre>
+        <p>Objects are represented as flat key-value lists.</p>
+
+        <h2>5. Variables</h2>
+        <p>Variables are introduced using <code>let</code>:</p>
+        <pre><code>(let x 10)</code></pre>
+        <p>Scope is lexical.</p>
+
+        <h2>6. Functions</h2>
+        <p>Functions are first-class values.</p>
+        <pre><code>(fn (x)
+  (mul x 2)
+)</code></pre>
+        <p>Function call:</p>
+        <pre><code>(f 10)</code></pre>
+
+        <h2>7. Recursion</h2>
+        <pre><code>(let fact
+  (fn (n)
+    (if (eq n 0)
+      1
+      (mul n (fact (sub n 1)))
+    )
+  )
+)</code></pre>
+
+        <h2>8. Control Flow</h2>
+        <p><code>if</code></p>
+        <pre><code>(if condition then else)</code></pre>
+        <p>Example:</p>
+        <pre><code>(if (gt x 5) 1 0)</code></pre>
+
+        <h2>9. Core Operations</h2>
+        <p>Arithmetic</p>
+        <pre><code>add sub mul div min max</code></pre>
+        <p>Comparison</p>
+        <pre><code>gt lt eq</code></pre>
+        <p>Logic</p>
+        <pre><code>and or</code></pre>
+
+        <h2>10. List Operations</h2>
+        <p><strong>map</strong><br>Applies a function to each element.</p>
+        <p><strong>filter</strong><br>Filters elements by predicate.</p>
+        <p><strong>reduce</strong><br>Reduces a list to a value.</p>
+        <p><strong>nth</strong><br>Access index: <code>(nth xs 0)</code></p>
+        <p><strong>concat</strong><br>Concatenate lists.</p>
+        <p><strong>slice</strong><br><code>(slice xs 1)</code></p>
+        <p><strong>empty</strong><br>Returns true if a list is empty.</p>
+
+        <h2>11. Function Semantics</h2>
+        <p>Functions return the last value produced.</p>
+        <p>Execution is stack-based and intermediate values should be consumed.</p>
+        <p>Example:</p>
+        <pre><code>(fn (x)
+  (mul x 2)
+)</code></pre>
+        <p>Returns: <code>x * 2</code></p>
+
+        <h2>12. Execution Model</h2>
+        <p>Simλ compiles to bytecode instructions such as:</p>
+        <pre><code>PUSH LOAD STORE CALL MAP FILTER IF</code></pre>
+        <p>Execution is stack-based.</p>
+
+        <h2>13. Determinism</h2>
+        <p>Simλ guarantees:</p>
+        <ul>
+          <li>No hidden state</li>
+          <li>No randomness unless explicitly added</li>
+          <li>Same inputs produce identical outputs</li>
+        </ul>
+
+        <h2>14. Built-in Simulation Ops</h2>
+        <p><strong>damage_all</strong><br>Applies combat damage across entities.</p>
+        <pre><code>(damage_all entities tick)</code></pre>
+        <p><strong>battle_report</strong><br>Produces summary statistics:</p>
+        <pre><code>(battle_report entities ticks initialPlayerHp initialEnemyHp)</code></pre>
+        <p>Returns:</p>
+        <pre><code>(list
+  "ticks" ...
+  "winner" ...
+  "playersAlive" ...
+  "enemiesAlive" ...
+)</code></pre>
+
+        <h2>15. CLI Usage</h2>
+        <p>Run a Simλ program:</p>
+        <pre><code>node simla.js file.sim</code></pre>
+        <p>Outputs JSON result.</p>
+
+        <h2>16. Example</h2>
+        <pre><code>(begin
+  (let xs (list 1 2 3 4))
+  (map (fn (x) (mul x 2)) xs)
+)</code></pre>
+        <p>Output:</p>
+        <pre><code>[2,4,6,8]</code></pre>
+
+        <h2>17. Status</h2>
+        <p>Simλ is an evolving language with:</p>
+        <ul>
+          <li>Recursion support</li>
+          <li>Deterministic VM</li>
+          <li>Functional core</li>
+          <li>Simulation primitives</li>
+        </ul>
+        <p>Future work includes:</p>
+        <ul>
+          <li>Improved object model</li>
+          <li>Better error handling</li>
+          <li>Expanded standard library</li>
+          <li>Rendering integration</li>
+        </ul>
+
+        <h2>18. Summary</h2>
+        <p>Simλ is a deterministic functional language for simulation and procedural systems.</p>
+      </article>
+    </section>
   </main>
 
-  <script>
-    fetch("docs/SPEC.md")
-      .then(r => r.text())
-      .then(md => {
-        document.getElementById("content").innerHTML = marked.parse(md);
-      })
-      .catch(err => {
-        document.getElementById("content").textContent = err.message;
-      });
-  </script>
+    <script>
+      (function () {
+        function scrollToHash(hash, updateUrl) {
+          if (!hash || hash === "#") {
+            return;
+          }
+
+          var target = document.getElementById(hash.slice(1));
+          if (!target) {
+            return;
+          }
+
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+
+          if (updateUrl && window.history && window.history.replaceState) {
+            window.history.replaceState(null, "", hash);
+          }
+        }
+
+        document.addEventListener("click", function (event) {
+          var link = event.target.closest('a[href^="#"]');
+          if (!link) {
+            return;
+          }
+
+          var href = link.getAttribute("href");
+          if (!href || href === "#") {
+            return;
+          }
+
+          event.preventDefault();
+          scrollToHash(href, true);
+        });
+
+        if (window.location.hash) {
+          window.addEventListener("load", function () {
+            scrollToHash(window.location.hash, false);
+          });
+        }
+      })();
+    </script>
 </body>
 </html>

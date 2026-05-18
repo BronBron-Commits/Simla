@@ -35,6 +35,26 @@
       color: #eaf6ff; cursor: pointer; font-size: 13px;
     }
     #fileinput button:hover { background: rgba(80,160,255,0.45); }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .row input {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(120,180,255,0.3);
+      color: #eaf6ff; border-radius: 8px; padding: 5px 10px; font-size: 13px;
+    }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    #awbox { margin-top: 12px; border-top: 1px solid rgba(120,180,255,0.2); padding-top: 10px; }
+    #awbox .btns { display: flex; gap: 8px; margin-top: 8px; }
+    #awbox button {
+      padding: 5px 12px; border-radius: 8px;
+      background: rgba(80,160,255,0.22); border: 1px solid rgba(80,160,255,0.5);
+      color: #eaf6ff; cursor: pointer; font-size: 12px;
+    }
+    #awstate { margin-top: 8px; font-size: 12px; color: #9be7d2; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -42,21 +62,89 @@
     <h1>RWX Viewer</h1>
     <p>Drag to orbit · Scroll to zoom · WASD to pan</p>
     <div id="fileinput">
-      <label>RWX file path (relative to project root):</label>
+      <label>Model path or URL (.rwx, .glb, .gltf):</label>
       <input type="text" id="rwxpath" value="examples/test.rwx" />
       <button id="loadbtn">Load</button>
+    </div>
+    <div id="awbox">
+      <label>Active Worlds Live Bridge</label>
+      <div class="row">
+        <input type="text" id="awHost" value="auth.deltaworlds.com" placeholder="host" />
+        <input type="text" id="awPort" value="6671" placeholder="port" />
+      </div>
+      <div class="row">
+        <input type="text" id="awWorld" value="Foundry" placeholder="world" />
+        <input type="text" id="awOwner" value="250" placeholder="owner id" />
+      </div>
+      <div class="row">
+        <input type="text" id="awPrivName" value="bronbron22" placeholder="cit name" />
+        <input type="password" id="awPrivPass" value="455669" placeholder="password" />
+      </div>
+      <div class="row">
+        <input type="text" id="awName" value="SimlaBot" placeholder="bot name" />
+      </div>
+      <div class="row">
+        <input type="text" id="awScale" value="100" placeholder="world->viewer scale" />
+        <input type="text" id="awStep" value="100" placeholder="move step" />
+      </div>
+      <div class="btns">
+        <button id="awConnectBtn">Connect</button>
+        <button id="awDisconnectBtn">Disconnect</button>
+        <button id="awLoadWorldBtn">Load World</button>
+      </div>
+      <div class="row">
+        <input type="text" id="awBuildModel" value="aw_beacon.rwx" placeholder="world model name for aw_object_add" />
+      </div>
+      <div class="btns">
+        <button id="awPreviewBeaconBtn">Preview Beacon</button>
+        <button id="awPreviewArchBtn">Preview Arch</button>
+        <button id="awPreviewPrimitivesBtn">Preview Primitives</button>
+        <button id="awBuildObjectBtn">Build Object</button>
+      </div>
+      <p class="mono">Preview buttons load local spec-based RWX files from /aw. Build uses the raw model string above.</p>
+      <p class="mono">Bot keys: I/K = +/-Z, J/L = +/-X, U/O = yaw</p>
+      <div id="awstate">AW: disconnected</div>
     </div>
     <div id="status">ready</div>
     <div id="error"></div>
   </div>
 
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
   <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
     const statusEl = document.getElementById("status");
     const errorEl  = document.getElementById("error");
     const pathEl   = document.getElementById("rwxpath");
     const loadBtn  = document.getElementById("loadbtn");
+    const awStateEl = document.getElementById("awstate");
+
+    const awHostEl = document.getElementById("awHost");
+    const awPortEl = document.getElementById("awPort");
+    const awWorldEl = document.getElementById("awWorld");
+    const awOwnerEl = document.getElementById("awOwner");
+    const awNameEl = document.getElementById("awName");
+    const awPrivNameEl = document.getElementById("awPrivName");
+    const awPrivPassEl = document.getElementById("awPrivPass");
+    const awScaleEl = document.getElementById("awScale");
+    const awStepEl = document.getElementById("awStep");
+    const awConnectBtn = document.getElementById("awConnectBtn");
+    const awDisconnectBtn = document.getElementById("awDisconnectBtn");
+    const awBuildModelEl = document.getElementById("awBuildModel");
+    const awPreviewBeaconBtn = document.getElementById("awPreviewBeaconBtn");
+    const awPreviewArchBtn = document.getElementById("awPreviewArchBtn");
+    const awPreviewPrimitivesBtn = document.getElementById("awPreviewPrimitivesBtn");
+    const awBuildObjectBtn = document.getElementById("awBuildObjectBtn");
 
     // ── scene setup ──────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
@@ -85,6 +173,26 @@
 
     const root = new THREE.Group();
     scene.add(root);
+
+    const awRoot = new THREE.Group();
+    scene.add(awRoot);
+
+    const awBot = new THREE.Group();
+    const awBody = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.08, 0.26, 4, 8),
+      new THREE.MeshStandardMaterial({ color: "#66ddff", emissive: "#114455", emissiveIntensity: 0.35 })
+    );
+    const awNose = new THREE.Mesh(
+      new THREE.ConeGeometry(0.05, 0.16, 8),
+      new THREE.MeshStandardMaterial({ color: "#e8f8ff", emissive: "#224466", emissiveIntensity: 0.2 })
+    );
+    awNose.rotation.x = Math.PI * 0.5;
+    awNose.position.set(0, 0.02, 0.15);
+    awBody.position.y = 0.18;
+    awBot.add(awBody);
+    awBot.add(awNose);
+    awBot.visible = false;
+    awRoot.add(awBot);
 
     // A simple grid for orientation
     const grid = new THREE.GridHelper(50, 50, "#223344", "#1a2a3a");
@@ -137,19 +245,46 @@
     // ── texture cache ────────────────────────────────────────────────────────
     const texCache = {};
     const texLoader = new THREE.TextureLoader();
+    const awKeys = new Set();
+
+    let awConnected = false;
+    let awPollTimer = null;
+    let awControlTimer = null;
 
     function getTexture(name) {
       if (!name) return null;
-      if (texCache[name]) return texCache[name];
-      // Try common image extensions; fall back gracefully if missing
+
+      const raw = String(name).trim();
+      if (!raw) return null;
+
+      // Accept RWX texture forms such as:
+      // - aw_stone
+      // - aw_stone.jpg
+      // - textures/aw_stone.jpg
+      // - /textures/aw_stone.jpg
+      let key = raw.replace(/\\/g, "/");
+      key = key.replace(/^\/+/, "");
+      if (key.toLowerCase().startsWith("textures/")) key = key.slice("textures/".length);
+
+      if (texCache[key]) return texCache[key];
+
+      const hasExt = /\.(jpg|jpeg|png|webp)$/i.test(key);
+      const candidates = hasExt
+        ? [`/textures/${key}`]
+        : [`/textures/${key}.jpg`, `/textures/${key}.png`, `/textures/${key}.webp`];
+
+      let idx = 0;
       const tex = texLoader.load(
-        `/textures/${name}.jpg`,
+        candidates[idx],
         undefined,
         undefined,
-        () => texLoader.load(`/textures/${name}.png`, undefined, undefined, () => {})
+        () => {
+          idx += 1;
+          if (idx < candidates.length) tex.image.src = candidates[idx];
+        }
       );
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      texCache[name] = tex;
+      texCache[key] = tex;
       return tex;
     }
 
@@ -268,6 +403,267 @@
       }
     }
 
+    function fitCameraToRoot() {
+      const box = new THREE.Box3().setFromObject(root);
+      if (box.isEmpty()) return;
+      const size = box.getSize(new THREE.Vector3()).length();
+      const center = box.getCenter(new THREE.Vector3());
+      radius = Math.max(2, size * 1.2);
+      orbitTarget.copy(center);
+    }
+
+    async function postJson(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    function awScale() {
+      const v = Number(awScaleEl.value);
+      return Number.isFinite(v) && v !== 0 ? v : 100;
+    }
+
+    function setAwState(text) {
+      awStateEl.textContent = text;
+    }
+
+    function renderAwPose(pose) {
+      const s = awScale();
+      const x = (pose.x || 0) / s;
+      const y = (pose.y || 0) / s;
+      const z = (pose.z || 0) / s;
+      awBot.visible = true;
+      awBot.position.set(x, y, z);
+      awBot.rotation.y = (pose.yaw || 0) * Math.PI / 180;
+      setAwState(
+        "AW: connected\n" +
+        `x=${pose.x} y=${pose.y} z=${pose.z}\n` +
+        `yaw=${pose.yaw} pitch=${pose.pitch} type=${pose.type}`
+      );
+    }
+
+    async function pollAwState() {
+      if (!awConnected) return;
+      try {
+        const data = await fetch("/api/aw/state").then(r => r.json());
+        if (!data.connected || !data.pose) {
+          awConnected = false;
+          awBot.visible = false;
+          setAwState("AW: disconnected");
+          return;
+        }
+        renderAwPose(data.pose);
+      } catch (err) {
+        setAwState("AW error: " + String(err.message || err));
+      }
+    }
+
+    function startAwLoops() {
+      if (!awPollTimer) awPollTimer = setInterval(pollAwState, 150);
+      if (!awControlTimer) {
+        awControlTimer = setInterval(async () => {
+          if (!awConnected || awKeys.size === 0) return;
+
+          let dx = 0, dz = 0, dyaw = 0;
+          const step = Number(awStepEl.value) || 100;
+
+          if (awKeys.has("i")) dz += step;
+          if (awKeys.has("k")) dz -= step;
+          if (awKeys.has("j")) dx -= step;
+          if (awKeys.has("l")) dx += step;
+          if (awKeys.has("u")) dyaw -= 5;
+          if (awKeys.has("o")) dyaw += 5;
+
+          if (!dx && !dz && !dyaw) return;
+          try {
+            const data = await postJson("/api/aw/move", { dx, dz, dyaw });
+            if (data.pose) renderAwPose(data.pose);
+          } catch (err) {
+            setAwState("AW move error: " + String(err.message || err));
+          }
+        }, 100);
+      }
+    }
+
+    function stopAwLoops() {
+      if (awPollTimer) {
+        clearInterval(awPollTimer);
+        awPollTimer = null;
+      }
+      if (awControlTimer) {
+        clearInterval(awControlTimer);
+        awControlTimer = null;
+      }
+    }
+
+    awConnectBtn.addEventListener("click", async () => {
+      try {
+        setAwState("AW: connecting...");
+        const data = await postJson("/api/aw/connect", {
+          host: awHostEl.value.trim(),
+          port: Number(awPortEl.value) || 6671,
+          world: awWorldEl.value.trim(),
+          owner: Number(awOwnerEl.value) || 0,
+          name: awNameEl.value.trim(),
+          privilegeName: awPrivNameEl.value.trim(),
+          privilegePassword: awPrivPassEl.value,
+        });
+        awConnected = !!data.connected || !!data.alreadyConnected;
+        startAwLoops();
+        await pollAwState();
+      } catch (err) {
+        awConnected = false;
+        awBot.visible = false;
+        setAwState("AW connect failed: " + String(err.message || err));
+      }
+    });
+
+    const awLoadWorldBtn = document.getElementById("awLoadWorldBtn");
+
+    awDisconnectBtn.addEventListener("click", async () => {
+      try {
+        await postJson("/api/aw/disconnect", {});
+      } catch {
+        // ignore disconnect errors
+      }
+      awConnected = false;
+      awBot.visible = false;
+      stopAwLoops();
+      setAwState("AW: disconnected");
+    });
+
+    // ── build a group of Three.js meshes from parsed RWX data ────────────────
+    function buildModelGroup(data) {
+      const group = new THREE.Group();
+      for (const obj of data) {
+        if (obj.type === "rwx_clump") group.add(buildClumpMesh(obj));
+        else if (obj.type === "rwx_primitive") group.add(buildPrimitiveMesh(obj));
+      }
+      return group;
+    }
+
+    // ── load the Active Worlds world objects around the bot ───────────────────
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+    const modelGroupCache = new Map(); // model name -> THREE.Group (template)
+
+    async function fetchModel(name) {
+      if (modelGroupCache.has(name)) return modelGroupCache.get(name);
+      try {
+        const res = await fetch("/api/aw/model?name=" + encodeURIComponent(name));
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!Array.isArray(data)) return null;
+        const g = buildModelGroup(data);
+        modelGroupCache.set(name, g);
+        return g;
+      } catch { return null; }
+    }
+
+    function disposeObjectTree(node) {
+      node.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+    }
+
+    function clearWorldGroup() {
+      while (worldGroup.children.length) {
+        const c = worldGroup.children[0];
+        worldGroup.remove(c);
+        disposeObjectTree(c);
+      }
+    }
+
+    function placeWorldObject(obj, template) {
+      const s = awScale();
+      const g = template.clone();
+      g.position.set(obj.x / s, obj.y / s, obj.z / s);
+      g.rotation.order = "YXZ";
+      g.rotation.y = -(obj.yaw / 10) * Math.PI / 180;
+      g.rotation.x = (obj.tilt / 10) * Math.PI / 180;
+      g.rotation.z = (obj.roll / 10) * Math.PI / 180;
+      worldGroup.add(g);
+      return g;
+    }
+
+    async function loadWorld() {
+      if (!awConnected) { setAwState("AW: connect first"); return; }
+      setAwState("AW: querying world...");
+      // clear previous world objects
+      clearWorldGroup();
+      try {
+        const result = await postJson("/api/aw/query", {});
+        const objs = result.objects || [];
+        // collect unique model names and fetch in parallel
+        const names = [...new Set(objs.map(o => o.model).filter(Boolean))];
+        await Promise.all(names.map(n => fetchModel(n)));
+
+        let placed = 0;
+        for (const obj of objs) {
+          if (!obj.model) continue;
+          const template = modelGroupCache.get(obj.model);
+          if (!template) continue;
+          placeWorldObject(obj, template);
+          placed++;
+        }
+        setAwState(`AW: loaded ${placed}/${objs.length} objects (sector ${result.sectorX},${result.sectorZ})`);
+      } catch (err) {
+        setAwState("AW load world failed: " + String(err.message || err));
+      }
+    }
+
+    awLoadWorldBtn.addEventListener("click", loadWorld);
+    awPreviewBeaconBtn.addEventListener("click", () => loadRWX("aw/aw_beacon.rwx"));
+    awPreviewArchBtn.addEventListener("click", () => loadRWX("aw/aw_arch.rwx"));
+    awPreviewPrimitivesBtn.addEventListener("click", () => loadRWX("aw/aw_primitives_showcase.rwx"));
+
+    awBuildObjectBtn.addEventListener("click", async () => {
+      if (!awConnected) {
+        setAwState("AW: connect first");
+        return;
+      }
+
+      const model = awBuildModelEl.value.trim();
+      if (!model) {
+        setAwState("AW: enter a model name first");
+        return;
+      }
+
+      try {
+        const state = await postJson("/api/aw/state", { waitMs: 10 });
+        const pose = state.pose || {};
+        const payload = {
+          type: 0,
+          x: Number(pose.x) || 0,
+          y: Number(pose.y) || 0,
+          z: Number(pose.z) || 0,
+          yaw: 0,
+          tilt: 0,
+          roll: 0,
+          model,
+          description: "Simla demo object",
+          action: "create color yellow",
+          timeoutMs: 5000,
+        };
+        const result = await postJson("/api/aw/object-add", payload);
+        const added = result.object || payload;
+        const template = await fetchModel(model);
+        if (template) {
+          placeWorldObject(added, template);
+          setAwState(`AW: built object #${result.number ?? "?"} using ${model}`);
+        } else {
+          setAwState(`AW: built object #${result.number ?? "?"}, but preview fetch failed for ${model}`);
+        }
+      } catch (err) {
+        setAwState("AW build failed: " + String(err.message || err));
+      }
+    });
+
     // ── load an RWX file via the server API ───────────────────────────────────
     async function loadRWX(filepath) {
       errorEl.textContent  = "";
@@ -292,14 +688,7 @@
           }
         }
 
-        // auto-fit camera
-        const box = new THREE.Box3().setFromObject(root);
-        if (!box.isEmpty()) {
-          const size   = box.getSize(new THREE.Vector3()).length();
-          const center = box.getCenter(new THREE.Vector3());
-          radius = size * 1.2;
-          orbitTarget.copy(center);
-        }
+        fitCameraToRoot();
 
         statusEl.textContent = `loaded — ${clumpCount} clump(s), ${primCount} primitive(s)`;
       } catch (err) {
@@ -308,11 +697,79 @@
       }
     }
 
-    loadBtn.addEventListener("click", () => loadRWX(pathEl.value.trim()));
+    async function loadGLB(filepath) {
+      errorEl.textContent = "";
+      statusEl.textContent = "loading glb…";
+      clearRoot();
+
+      try {
+        const url = /^https?:\/\//i.test(filepath)
+          ? filepath
+          : new URL(filepath, window.location.href).toString();
+
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.setDRACOLoader(dracoLoader);
+
+        const gltf = await new Promise((resolve, reject) => {
+          gltfLoader.load(url, resolve, undefined, reject);
+        });
+
+        const model = gltf.scene || gltf.scenes?.[0];
+        if (!model) throw new Error("GLB contained no scene");
+
+        model.traverse(o => {
+          if (o.isMesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+          }
+        });
+
+        root.add(model);
+        fitCameraToRoot();
+        statusEl.textContent = "loaded glb";
+      } catch (err) {
+        errorEl.textContent = String(err.message || err);
+        statusEl.textContent = "glb load failed";
+      }
+    }
+
+    function normalizeModelInput(path) {
+      let p = String(path || "").trim();
+      // Handle common malformed URL input like: http:\78.138.31.143\aw\file.rwx
+      p = p.replace(/\\/g, "/");
+      p = p.replace(/^https?:\/(?!\/)/i, m => m + "/");
+      return p;
+    }
+
+    function loadAnyModel(path) {
+      const p = normalizeModelInput(path);
+      if (!p) return;
+      const lower = p.toLowerCase();
+      if (lower.endsWith(".glb") || lower.endsWith(".gltf")) {
+        loadGLB(p);
+      } else {
+        loadRWX(p);
+      }
+    }
+
+    loadBtn.addEventListener("click", () => loadAnyModel(pathEl.value.trim()));
+
+    window.addEventListener("keydown", e => {
+      const k = e.key.toLowerCase();
+      if (["i", "j", "k", "l", "u", "o"].includes(k)) awKeys.add(k);
+    });
+
+    window.addEventListener("keyup", e => {
+      const k = e.key.toLowerCase();
+      if (["i", "j", "k", "l", "u", "o"].includes(k)) awKeys.delete(k);
+    });
 
     // ── URL param auto-load: rwx_viewer.html?file=path/to/model.rwx ───────────
     const autoFile = new URLSearchParams(location.search).get("file");
-    if (autoFile) { pathEl.value = autoFile; loadRWX(autoFile); }
+    if (autoFile) { pathEl.value = autoFile; loadAnyModel(autoFile); }
 
     // ── render loop ─────────────────────────────────────────────────────────
     function animate() {

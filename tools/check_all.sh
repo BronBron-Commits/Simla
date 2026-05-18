@@ -25,4 +25,10 @@ echo ""
 ./tools/test_bridge.sh
 
 echo ""
+./tools/test_trace_bridge.sh
+
+echo ""
+node tools/fuzz_parity.js --cases 50 --depth 4 --seed 20260515
+
+echo ""
 echo "All Simla checks passed"

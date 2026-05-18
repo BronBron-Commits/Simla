@@ -3947,6 +3947,18 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
       const leftFoot  = new THREE.Mesh(footGeo, bootMat); leftFoot.position.set(-0.11, -0.48, 0.05); group.add(leftFoot);
       const rightFoot = new THREE.Mesh(footGeo, bootMat); rightFoot.position.set( 0.11, -0.48, 0.05); group.add(rightFoot);
 
+      // ── Melee weapon (sword) parented to right arm ──
+      // Arm center is at y=0.42 in group space, arm half-height=0.25 → hand bottom at y=0.17 group
+      // Blade center in arm-local: hand bottom = -0.25, blade half-height = 0.29 → center at -0.54
+      const weapMat = new THREE.MeshStandardMaterial({ color: "#aaaabd", roughness: 0.35, metalness: 0.7 });
+      const hiltMat = new THREE.MeshStandardMaterial({ color: "#6a3a10", roughness: 0.85 });
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.58, 0.04), weapMat);
+      blade.position.set(0, -0.54, 0); // hang below hand
+      const hilt  = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.07, 0.06), hiltMat);
+      hilt.position.set(0, -0.27, 0); // crossguard at wrist
+      rightArm.add(blade);
+      rightArm.add(hilt);
+
       group.userData.parts    = { torso, leftArm, rightArm, leftLeg, rightLeg };
       group.userData.walkPhase = Math.random() * Math.PI * 2;
       return group;
@@ -4153,8 +4165,8 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
 
     function spawnCivilians() {
       const towns = [
-        { ...TOWN_A, count: 16 },
-        { ...TOWN_B, count: 16 },
+        { ...TOWN_A, count: 16, team: 0 },
+        { ...TOWN_B, count: 16, team: 1 },
       ];
       let civIdx = 0;
 
@@ -4167,7 +4179,6 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
           const hair  = ["#1a0f08","#3a2510","#8a6020","#a08040","#c8c0b0","#0a0a0a"][Math.floor(Math.random()*6)];
 
           const group = makeCivilianGroup(skin, shirt, pants, hair);
-          // scatter starting positions around the town
           const angle = Math.random() * Math.PI * 2;
           const r = Math.random() * 10;
           group.position.set(town.cx + Math.cos(angle)*r, 1, town.cz + Math.sin(angle)*r);
@@ -4178,16 +4189,22 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
             group,
             parts: group.userData.parts,
             phase: Math.random() * Math.PI * 2,
-            speed: 0.018 + Math.random() * 0.014,
+            speed: 0.045 + Math.random() * 0.02,
             home: new THREE.Vector3(town.cx, 1, town.cz),
             waypoints,
             wpIdx: startWp,
-            idleUntil: performance.now() + Math.random() * 4000,
+            idleUntil: performance.now() + Math.random() * 1500,
             dialogue: CIVILIAN_DIALOGUES[civIdx % CIVILIAN_DIALOGUES.length],
             npcId: "civ_" + civIdx,
+            team: town.team,
+            hp: 60,
+            maxHp: 60,
+            lastMelee: 0,
+            dead: false,
           });
           group.userData.npcId = "civ_" + civIdx;
           group.userData.isCivilian = true;
+          group.userData.team = town.team;
           civIdx++;
         }
       }
@@ -4197,48 +4214,85 @@ function dragonBreathHitsAgents(x, y, z, heading, dragonTeam) {
     function updateCivilians() {
       const now = performance.now();
       _civFrameSkip++;
-      // only animate every other frame to save CPU
       if (_civFrameSkip % 2 !== 0) return;
 
       for (const civ of civilians) {
+        if (civ.dead) continue;
         const g = civ.group;
         const parts = civ.parts;
-        const isIdle = now < civ.idleUntil;
 
-        if (!isIdle) {
-          const target = civ.waypoints[civ.wpIdx];
-          const dx = target.x - g.position.x;
-          const dz = target.z - g.position.z;
-          const dist = Math.hypot(dx, dz);
+        // ── Find nearest living enemy civilian ──
+        let nearestEnemy = null, nearestDist = Infinity;
+        for (const other of civilians) {
+          if (other === civ || other.dead || other.team === civ.team) continue;
+          const d = Math.hypot(other.group.position.x - g.position.x, other.group.position.z - g.position.z);
+          if (d < nearestDist) { nearestDist = d; nearestEnemy = other; }
+        }
 
-          if (dist < 0.6) {
-            // reached waypoint — idle for a moment then pick next
-            civ.idleUntil = now + 1500 + Math.random() * 3500;
-            civ.wpIdx = (civ.wpIdx + 1) % civ.waypoints.length;
+        const MELEE_RANGE = 1.4;
+        const CHARGE_SPEED = civ.speed;
+
+        if (nearestEnemy) {
+          const ex = nearestEnemy.group.position.x - g.position.x;
+          const ez = nearestEnemy.group.position.z - g.position.z;
+
+          if (nearestDist > MELEE_RANGE) {
+            // Charge toward enemy
+            g.position.x += (ex / nearestDist) * CHARGE_SPEED;
+            g.position.z += (ez / nearestDist) * CHARGE_SPEED;
+            g.rotation.y = Math.atan2(ex, ez);
           } else {
-            const nx = dx / dist, nz = dz / dist;
-            g.position.x += nx * civ.speed;
-            g.position.z += nz * civ.speed;
-            g.rotation.y = Math.atan2(nx, nz);
+            // In range — face them and strike
+            g.rotation.y = Math.atan2(ex, ez);
+            if (now - civ.lastMelee > 900) {
+              civ.lastMelee = now;
+              nearestEnemy.hp -= 8 + Math.random() * 6;
+              // death check
+              if (nearestEnemy.hp <= 0) {
+                nearestEnemy.dead = true;
+                // slump the corpse
+                nearestEnemy.group.rotation.z = Math.PI / 2;
+                nearestEnemy.group.position.y = 0.2;
+              }
+            }
+          }
+        } else {
+          // No enemies — wander waypoints
+          const isIdle = now < civ.idleUntil;
+          if (!isIdle) {
+            const target = civ.waypoints[civ.wpIdx];
+            const dx = target.x - g.position.x;
+            const dz = target.z - g.position.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist < 0.6) {
+              civ.idleUntil = now + 1000 + Math.random() * 2000;
+              civ.wpIdx = (civ.wpIdx + 1) % civ.waypoints.length;
+            } else {
+              g.position.x += (dx / dist) * civ.speed;
+              g.position.z += (dz / dist) * civ.speed;
+              g.rotation.y = Math.atan2(dx / dist, dz / dist);
+            }
           }
         }
 
-        // walk animation
-        const moving = !isIdle;
-        if (moving) g.userData.walkPhase += 0.09;
+        // ── Walk & combat animation ──
+        g.userData.walkPhase += 0.10;
         const wp = g.userData.walkPhase;
-        const swing = Math.sin(wp) * (moving ? 0.26 : 0);
-        const bob   = Math.abs(Math.sin(wp)) * (moving ? 0.03 : 0);
-        parts.leftArm.rotation.x  =  swing;
-        parts.rightArm.rotation.x = -swing;
+        const fighting = nearestEnemy && nearestDist <= MELEE_RANGE * 2;
+        const swing = Math.sin(wp) * 0.30;
+        const bob   = Math.abs(Math.sin(wp)) * 0.03;
+
+        parts.leftArm.rotation.x  = fighting ?  0.3 : swing;
         parts.leftLeg.rotation.x  = -swing * 0.7;
         parts.rightLeg.rotation.x =  swing * 0.7;
         parts.torso.position.y    = 0.44 + bob;
 
-        // idle gesture: slow arm raise when standing still
-        if (isIdle) {
-          const idleT = (now % 3000) / 3000;
-          parts.rightArm.rotation.x = Math.sin(idleT * Math.PI * 2) * 0.3;
+        // Sword arm: overhead slash when in combat, normal swing otherwise
+        if (fighting) {
+          const strikePhase = (now - civ.lastMelee) / 900;
+          parts.rightArm.rotation.x = -Math.PI * 0.55 + Math.sin(strikePhase * Math.PI) * Math.PI * 0.8;
+        } else {
+          parts.rightArm.rotation.x = -swing;
         }
       }
     }

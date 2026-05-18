@@ -61,6 +61,7 @@ typedef struct {
 } Program;
 
 int run(Program *p);
+int run_with_trace(Program *p, FILE *trace_out);
 int load_program_text(const char *path, Program *out);
 
 #endif

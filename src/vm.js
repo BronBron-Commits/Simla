@@ -39,7 +39,7 @@ function exec(code, env) {
 
       case "MUL": stack.push(stack.pop() * stack.pop()); break;
 
-      // ✅ ADD THIS BACK
+      // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADD THIS BACK
       case "OR": {
         const b = stack.pop();
         const a = stack.pop();
@@ -542,7 +542,11 @@ case "LIST": {
           const end = stack.pop();
           const start = stack.pop();
           const out = [];
-          for (let i = start; i < end; i++) out.push(i);
+          if (end >= start) {
+            for (let i = start; i < end; i++) out.push(i);
+          } else {
+            for (let i = start; i > end; i--) out.push(i);
+          }
           stack.push(out);
           break;
         }
@@ -609,13 +613,23 @@ function run(bytecode, input = {}) {
   };
 }
 
-function execSharedBytecode(code, owner, vars) {
+function emitSharedTrace(trace, depth, ip, ins, stack) {
+  if (!trace) return;
+
+  const top = stack.length > 0 ? String(stack[stack.length - 1]) : "EMPTY";
+  trace(`TRACE depth=${depth} ip=${ip} op=${ins.op} a=${ins.a} sp=${stack.length} top=${top}`);
+}
+
+function execSharedBytecode(code, owner, vars, trace = null, depth = 0) {
   const stack = [];
   const lists = [];
   let ip = 0;
 
   while (ip < code.length) {
+    const currentIp = ip;
     const ins = code[ip++];
+
+    emitSharedTrace(trace, depth, currentIp, ins, stack);
 
     switch (ins.op) {
       case 0:
@@ -773,7 +787,7 @@ function execSharedBytecode(code, owner, vars) {
         for (const item of src) {
           const localVars = new Array(256).fill(0);
           localVars[fn.param_slot] = item;
-          mapped.push(execSharedBytecode(fn.code, owner, localVars));
+          mapped.push(execSharedBytecode(fn.code, owner, localVars, trace, depth + 1));
         }
 
         lists.push(mapped);
@@ -800,7 +814,7 @@ function execSharedBytecode(code, owner, vars) {
         for (const item of src) {
           const localVars = new Array(256).fill(0);
           localVars[fn.param_slot] = item;
-          if (execSharedBytecode(fn.code, owner, localVars)) filtered.push(item);
+          if (execSharedBytecode(fn.code, owner, localVars, trace, depth + 1)) filtered.push(item);
         }
 
         lists.push(filtered);
@@ -824,7 +838,7 @@ function execSharedBytecode(code, owner, vars) {
           const localVars = new Array(256).fill(0);
           localVars[rf.acc_slot]  = acc;
           localVars[rf.item_slot] = item;
-          acc = execSharedBytecode(rf.code, owner, localVars);
+          acc = execSharedBytecode(rf.code, owner, localVars, trace, depth + 1);
         }
 
         stack.push(acc);
@@ -839,7 +853,7 @@ function execSharedBytecode(code, owner, vars) {
   return stack.length > 0 ? stack[stack.length - 1] : 0;
 }
 
-function runSharedBytecode(program) {
+function runSharedBytecode(program, options = {}) {
   if (!program || !Array.isArray(program.code)) {
     throw new Error("invalid shared bytecode program");
   }
@@ -852,7 +866,8 @@ function runSharedBytecode(program) {
   };
 
   const vars = new Array(256).fill(0);
-  return execSharedBytecode(owner.code, owner, vars);
+  const trace = typeof options.trace === "function" ? options.trace : null;
+  return execSharedBytecode(owner.code, owner, vars, trace, 0);
 }
 
 export { run, runSharedBytecode };

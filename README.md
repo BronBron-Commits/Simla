@@ -31,10 +31,35 @@ npm install
 Common entrypoints:
 
 ```bash
+npm run install:windows
 npm run serve
 npm test
 npm run simla -- examples/hello.sim
 ```
+
+On Windows, you can also bootstrap the repo directly with:
+
+```powershell
+.\install_windows.cmd
+```
+
+That installer checks for Node.js, runs `npm install`, and writes local launcher files such as `simla-run.cmd` and `simla-serve.cmd`.
+
+For a classic MSI-style package, build the Windows installer with:
+
+```powershell
+npm run build:msi
+```
+
+That path uses WiX and produces an old-school Windows Setup wizard with the standard install directory flow.
+
+To create a GitHub-release-ready Windows package instead:
+
+```powershell
+npm run build:release
+```
+
+That command builds the MSI, then stages a versioned MSI, zip bundle, and SHA256 checksum file under `installer/out/release/` for GitHub Release uploads.
 
 Open the local server at:
 
@@ -68,6 +93,12 @@ Run it with:
 npm run simla -- examples/hello.sim
 ```
 
+On Windows after running the installer:
+
+```powershell
+.\simla-run.cmd examples\hello.sim
+```
+
 Then try a minimal scene program:
 
 ```bash
@@ -86,6 +117,21 @@ If you are opening Simla for the first time, start here:
 * `http://localhost:8080/simla3d_first_person.html` for the first-person scene viewer
 
 Other pages in the repo are still useful, but many are active experiments rather than stable starting points.
+
+## Windows Notes
+
+The Windows installer is meant to make the project runnable without manual setup ceremony.
+
+It covers:
+
+* dependency install via `npm install`
+* a direct server launcher via `simla-serve.cmd`
+* a direct program runner via `simla-run.cmd`
+* a direct REPL launcher via `simla-repl.cmd`
+
+The default `npm test` path still shells out to `.sh` scripts, so full validation is best run from Git Bash or WSL until those checks are made cross-platform.
+
+If you want a redistributable package instead of an in-repo bootstrap script, use the MSI build under `installer/`.
 
 ## Demo Scenes
 

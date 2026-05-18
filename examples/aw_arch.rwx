@@ -1,0 +1,23 @@
+ModelBegin
+ ClumpBegin
+  Surface 0.7 0.85 0.1
+  Color 0.78 0.82 0.88
+  TransformBegin
+   Translate -1.1 1 0
+   Block 0.45 2 0.45
+  TransformEnd
+  TransformBegin
+   Translate 1.1 1 0
+   Block 0.45 2 0.45
+  TransformEnd
+  TransformBegin
+   Translate 0 2.1 0
+   Block 2.7 0.35 0.55
+  TransformEnd
+  TransformBegin
+   Translate 0 1.05 0
+   Color 0.22 0.5 0.82
+   Sphere 14 0 0 0 0.42
+  TransformEnd
+ ClumpEnd
+ModelEnd

@@ -10,6 +10,14 @@ cd Simla
 npm install
 ```
 
+On Windows, you can use the installer instead:
+
+```powershell
+.\install_windows.cmd
+```
+
+That script checks for Node.js, optionally runs `npm install`, and creates `simla-run.cmd`, `simla-serve.cmd`, and `simla-repl.cmd`.
+
 ## Run Your First Program
 
 ```bash
@@ -26,6 +34,12 @@ Hello from Simla
 
 ```bash
 npm run serve
+```
+
+Windows launcher:
+
+```powershell
+.\simla-serve.cmd
 ```
 
 Then open one of these pages:
