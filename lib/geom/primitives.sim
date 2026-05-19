@@ -1,0 +1,29 @@
+(begin
+
+  (fn cube (x y z size r g b)
+    (list
+      "type" "cube"
+      "x" x
+      "y" y
+      "z" z
+      "size" size
+      "r" r
+      "g" g
+      "b" b
+    )
+  )
+
+  (fn sphere (x y z radius r g b)
+    (list
+      "type" "sphere"
+      "x" x
+      "y" y
+      "z" z
+      "radius" radius
+      "r" r
+      "g" g
+      "b" b
+    )
+  )
+
+)

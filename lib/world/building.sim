@@ -1,0 +1,9 @@
+(begin
+
+  (fn build-wall (x y z length)
+    (list
+      (cube x y z 1 120 120 120)
+    )
+  )
+
+)
