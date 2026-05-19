@@ -1,0 +1,18 @@
+(begin
+
+  ;; future architecture testbed
+
+  ;; goals:
+  ;;
+  ;; - scalable structures
+  ;; - parameterized generation
+  ;; - reusable geometry
+  ;; - transform pipelines
+  ;; - procedural terrain
+  ;; - roads
+  ;; - buildings
+  ;; - staircases
+  ;; - towers
+  ;; - caves
+
+)
