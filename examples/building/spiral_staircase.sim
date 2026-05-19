@@ -1,0 +1,222 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; floor
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+
+        "sx" 80
+        "sy" 1
+        "sz" 80
+
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; pillar
+      (list
+        "type" "cylinder"
+
+        "x" 0
+        "y" 8
+        "z" 0
+
+        "radiusTop" 1
+        "radiusBottom" 1
+        "height" 18
+
+        "r" 180
+        "g" 160
+        "b" 120
+      )
+
+      ;; ====================================
+      ;; TRUE LOCAL-SPACE SPIRAL STAIRS
+      ;;
+      ;; each stair:
+      ;; 1. rotates around pillar
+      ;; 2. offsets outward locally
+      ;; ====================================
+
+      ;; step 1
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 0
+        "z" 0
+
+        "rotY" 0
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 2
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 1
+        "z" 0
+
+        "rotY" 0.785398
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 3
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 2
+        "z" 0
+
+        "rotY" 1.570796
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 4
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 3
+        "z" 0
+
+        "rotY" 2.356194
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 5
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 4
+        "z" 0
+
+        "rotY" 3.141592
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 6
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 5
+        "z" 0
+
+        "rotY" 3.926990
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 7
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 6
+        "z" 0
+
+        "rotY" 4.712388
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+      ;; step 8
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 7
+        "z" 0
+
+        "rotY" 5.497787
+
+        "localX" 3
+
+        "sx" 4
+        "sy" 0.6
+        "sz" 1.5
+
+        "r" 220
+        "g" 220
+        "b" 220
+      )
+
+    )
+
+  )
+
+)

@@ -5,10 +5,12 @@
 <title>Primitive World Viewer</title>
 
 <style>
+
 body {
   margin: 0;
   overflow: hidden;
   background: #202530;
+  touch-action: none;
 }
 
 #hud {
@@ -20,8 +22,40 @@ body {
   background: rgba(0,0,0,0.5);
   padding: 10px;
   border-radius: 8px;
-  z-index: 10;
+  z-index: 20;
 }
+
+.joystick {
+  position: fixed;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.15);
+  bottom: 24px;
+  z-index: 20;
+  touch-action: none;
+}
+
+#moveZone {
+  left: 24px;
+}
+
+#lookZone {
+  right: 24px;
+}
+
+.knob {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  left: 76px;
+  top: 76px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
 </style>
 </head>
 
@@ -29,6 +63,14 @@ body {
 
 <div id="hud">
 Simla Primitive Sandbox
+</div>
+
+<div id="moveZone" class="joystick">
+  <div id="moveKnob" class="knob"></div>
+</div>
+
+<div id="lookZone" class="joystick">
+  <div id="lookKnob" class="knob"></div>
 </div>
 
 <script type="module">
@@ -46,7 +88,6 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 camera.position.set(10, 8, 12);
-camera.lookAt(0,0,0);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true
@@ -65,7 +106,7 @@ const sun = new THREE.DirectionalLight(0xffffff, 2.0);
 sun.position.set(10,20,10);
 scene.add(sun);
 
-scene.add(new THREE.GridHelper(50,50));
+scene.add(new THREE.GridHelper(100,100));
 
 function prop(obj, key, fallback=null) {
 
@@ -98,13 +139,29 @@ function addCube(o) {
 
   const mesh = new THREE.Mesh(geo, mat);
 
-  mesh.position.set(
+  const group = new THREE.Group();
+
+  group.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  scene.add(mesh);
+  group.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  mesh.position.set(
+    prop(o, "localX", 0),
+    prop(o, "localY", 0),
+    prop(o, "localZ", 0)
+  );
+
+  group.add(mesh);
+
+  scene.add(group);
 }
 
 function addSphere(o) {
@@ -125,13 +182,29 @@ function addSphere(o) {
 
   const mesh = new THREE.Mesh(geo, mat);
 
-  mesh.position.set(
+  const group = new THREE.Group();
+
+  group.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  scene.add(mesh);
+  group.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  mesh.position.set(
+    prop(o, "localX", 0),
+    prop(o, "localY", 0),
+    prop(o, "localZ", 0)
+  );
+
+  group.add(mesh);
+
+  scene.add(group);
 }
 
 function addCylinder(o) {
@@ -153,24 +226,44 @@ function addCylinder(o) {
 
   const mesh = new THREE.Mesh(geo, mat);
 
-  mesh.position.set(
+  const group = new THREE.Group();
+
+  group.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  scene.add(mesh);
+  group.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  mesh.position.set(
+    prop(o, "localX", 0),
+    prop(o, "localY", 0),
+    prop(o, "localZ", 0)
+  );
+
+  group.add(mesh);
+
+  scene.add(group);
 }
 
 async function loadScene() {
 
+  const params = new URLSearchParams(location.search);
+
+  const sceneFile =
+    params.get("file")
+    || "examples/building/primitive_world.sim";
+
   const res = await fetch(
-    "/api/scene?file=examples/building/primitive_world.sim"
+    "/api/scene?file=" + encodeURIComponent(sceneFile)
   );
 
   const data = await res.json();
-
-  console.log(data);
 
   const objects =
     Array.isArray(data) && data[0] === "objects"
@@ -197,6 +290,68 @@ async function loadScene() {
 
 await loadScene();
 
+const moveInput = { x:0, y:0 };
+const lookInput = { x:0, y:0 };
+
+function setupJoystick(zoneId, knobId, state) {
+
+  const zone = document.getElementById(zoneId);
+  const knob = document.getElementById(knobId);
+
+  let active = false;
+
+  zone.addEventListener("touchstart", e => {
+    active = true;
+  });
+
+  zone.addEventListener("touchend", e => {
+
+    active = false;
+
+    state.x = 0;
+    state.y = 0;
+
+    knob.style.left = "76px";
+    knob.style.top = "76px";
+  });
+
+  zone.addEventListener("touchmove", e => {
+
+    if (!active) return;
+
+    const rect = zone.getBoundingClientRect();
+
+    const touch = e.touches[0];
+
+    const x = touch.clientX - rect.left - 70;
+    const y = touch.clientY - rect.top - 70;
+
+    const dist = Math.min(
+      90,
+      Math.hypot(x,y)
+    );
+
+    const ang = Math.atan2(y,x);
+
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist;
+
+    knob.style.left = (76 + dx) + "px";
+    knob.style.top = (76 + dy) + "px";
+
+    state.x = dx / 90;
+    state.y = dy / 90;
+
+  });
+
+}
+
+setupJoystick("moveZone", "moveKnob", moveInput);
+setupJoystick("lookZone", "lookKnob", lookInput);
+
+let yaw = 0;
+let pitch = -0.3;
+
 window.addEventListener("resize", () => {
 
   camera.aspect =
@@ -213,6 +368,48 @@ window.addEventListener("resize", () => {
 function animate() {
 
   requestAnimationFrame(animate);
+
+  yaw -= lookInput.x * 0.03;
+  pitch -= lookInput.y * 0.02;
+
+  pitch = Math.max(
+    -1.5,
+    Math.min(1.5, pitch)
+  );
+
+  const forward = new THREE.Vector3(
+    Math.sin(yaw),
+    0,
+    Math.cos(yaw)
+  ).normalize();
+
+  const right = new THREE.Vector3(
+    forward.z,
+    0,
+    -forward.x
+  ).normalize();
+
+  const moveSpeed = 0.15;
+
+  const moveForward =
+    -moveInput.y * moveSpeed;
+
+  const moveRight =
+    -moveInput.x * moveSpeed;
+
+  camera.position.x +=
+    forward.x * moveForward +
+    right.x * moveRight;
+
+  camera.position.z +=
+    forward.z * moveForward +
+    right.z * moveRight;
+
+  camera.lookAt(
+    camera.position.x + Math.sin(yaw),
+    camera.position.y + pitch,
+    camera.position.z + Math.cos(yaw)
+  );
 
   renderer.render(scene, camera);
 }
