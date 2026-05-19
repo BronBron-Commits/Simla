@@ -1,0 +1,145 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; ground
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+        "sx" 40
+        "sy" 1
+        "sz" 40
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; red cube
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 1
+        "z" 0
+        "size" 2
+        "r" 255
+        "g" 80
+        "b" 80
+      )
+
+      ;; blue sphere
+      (list
+        "type" "sphere"
+        "x" -5
+        "y" 1
+        "z" 0
+        "radius" 1.5
+        "r" 80
+        "g" 120
+        "b" 255
+      )
+
+      ;; green pillar
+      (list
+        "type" "cube"
+        "x" 5
+        "y" 2
+        "z" 0
+        "sx" 1
+        "sy" 4
+        "sz" 1
+        "r" 80
+        "g" 255
+        "b" 120
+      )
+
+      ;; yellow cylinder
+      (list
+        "type" "cylinder"
+        "x" 0
+        "y" 1
+        "z" 5
+        "radiusTop" 1
+        "radiusBottom" 1
+        "height" 3
+        "r" 255
+        "g" 220
+        "b" 80
+      )
+
+      ;; wall section
+      (list
+        "type" "cube"
+        "x" -8
+        "y" 1
+        "z" -5
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 140
+        "g" 140
+        "b" 140
+      )
+
+      (list
+        "type" "cube"
+        "x" -6
+        "y" 1
+        "z" -5
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 140
+        "g" 140
+        "b" 140
+      )
+
+      (list
+        "type" "cube"
+        "x" -4
+        "y" 1
+        "z" -5
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 140
+        "g" 140
+        "b" 140
+      )
+
+      ;; tower
+      (list
+        "type" "cylinder"
+        "x" 8
+        "y" 2
+        "z" -6
+        "radiusTop" 2
+        "radiusBottom" 2
+        "height" 5
+        "r" 180
+        "g" 180
+        "b" 200
+      )
+
+      ;; large sphere
+      (list
+        "type" "sphere"
+        "x" 0
+        "y" 4
+        "z" -8
+        "radius" 3
+        "r" 180
+        "g" 100
+        "b" 255
+      )
+
+    )
+
+  )
+
+)
