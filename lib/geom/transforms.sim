@@ -1,0 +1,34 @@
+(begin
+
+  ;; translate one object
+  (fn translate-object (o dx dy dz)
+
+    (list
+
+      "type" (get o "type")
+
+      "x" (add (get o "x") dx)
+      "y" (add (get o "y") dy)
+      "z" (add (get o "z") dz)
+
+      "sx" (get o "sx")
+      "sy" (get o "sy")
+      "sz" (get o "sz")
+
+      "size" (get o "size")
+
+      "radius" (get o "radius")
+
+      "radiusTop" (get o "radiusTop")
+      "radiusBottom" (get o "radiusBottom")
+      "height" (get o "height")
+
+      "r" (get o "r")
+      "g" (get o "g")
+      "b" (get o "b")
+
+    )
+
+  )
+
+)

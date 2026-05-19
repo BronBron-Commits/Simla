@@ -1,0 +1,65 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; original cube
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 1
+        "z" 0
+        "size" 2
+        "r" 255
+        "g" 80
+        "b" 80
+      )
+
+      ;; translated copy
+      (translate-object
+
+        (list
+          "type" "cube"
+          "x" 0
+          "y" 1
+          "z" 0
+          "size" 2
+          "r" 80
+          "g" 120
+          "b" 255
+        )
+
+        5
+        0
+        0
+
+      )
+
+      ;; translated sphere
+      (translate-object
+
+        (list
+          "type" "sphere"
+          "x" 0
+          "y" 1
+          "z" 0
+          "radius" 1.5
+          "r" 80
+          "g" 255
+          "b" 120
+        )
+
+        -5
+        0
+        0
+
+      )
+
+    )
+
+  )
+
+)
