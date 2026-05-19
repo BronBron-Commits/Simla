@@ -2,173 +2,252 @@ Simλ (Simla)
 
 A deterministic simulation language for games and systems.
 
-
+Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
 <img width="904" height="448" alt="1000008470" src="https://github.com/user-attachments/assets/8a86f4c5-c654-4a95-afbf-886eac4cb0e4" />
 <img width="1860" height="895" alt="1000008472" src="https://github.com/user-attachments/assets/889eeb66-8543-4dfa-b320-62f37de2dfe4" />
 <img width="1845" height="948" alt="1000008473" src="https://github.com/user-attachments/assets/9da85688-aa88-45db-9924-7a11ded2111b" />
 
-Simla lets you define simulation logic once and run it across multiple runtimes with identical results.
 
----
 
-What is Simla?
+Simla is an experimental programming language, compiler, and bytecode VM focused on simulations, gameplay logic, and interactive 3D runtime systems.
 
-Simla is a small, functional DSL designed for:
+The project explores a complete pipeline from:
 
-* Game logic
-* Simulation systems
-* Deterministic rule execution
+Simla source code → parser/compiler → bytecode → VM → interactive scenes
 
-It guarantees that the same .sim program produces identical results across:
+Simla programs can run across multiple runtimes with consistent behavior, including JavaScript and experimental C runtimes.
 
-* JavaScript VM
-* Native C Interpreter
-* Native C Bytecode VM
+## Quick Start
 
----
+Clone the repository:
 
-Why Simla?
+```bash
+git clone https://github.com/BronBron-Commits/Simla.git
+cd Simla
+npm install
+```
 
-Game and simulation logic is typically:
+Common entrypoints:
 
-* duplicated across client and server
-* tightly coupled to engine code
-* difficult to test deterministically
+```bash
+npm run install:windows
+npm run serve
+npm test
+npm run simla -- examples/hello.sim
+```
 
-Simla solves this by making logic:
+On Windows, you can also bootstrap the repo directly with:
 
-* portable
-* deterministic
-* testable
-* runtime-independent
+```powershell
+.\install_windows.cmd
+```
 
-Write once → run anywhere → same result
+That installer checks for Node.js, runs `npm install`, and writes local launcher files such as `simla-run.cmd` and `simla-serve.cmd`.
 
----
+For a classic MSI-style package, build the Windows installer with:
 
-Core Features
+```powershell
+npm run build:msi
+```
 
-* Deterministic execution (same inputs → same outputs)
-* Functional style (no hidden side effects)
-* Cross-runtime parity (JS + C)
-* Bytecode compilation pipeline
-* Built-in list and functional primitives
-* Conformance and error test suites
-* Replay-friendly simulation model
+That path uses WiX and produces an old-school Windows Setup wizard with the standard install directory flow.
 
----
+To create a GitHub-release-ready Windows package instead:
 
-Example
+```powershell
+npm run build:release
+```
 
-(if (and (gt 6 3) (lt 2 5)) 10 7)
+That command builds the MSI, then stages a versioned MSI, zip bundle, and SHA256 checksum file under `installer/out/release/` for GitHub Release uploads.
 
-Run:
+Open the local server at:
 
-./simla.sh example.sim
+```text
+http://localhost:8080/
+```
 
-Output:
+## Features
 
-10
+* Custom parser, compiler, and bytecode VM
+* Deterministic runtime experiments
+* JavaScript and C runtime implementations
+* Browser-based 3D rendering and simulation demos
+* ECS-like runtime systems and simulation logic
+* Self-hosting compiler experiments
+* Tactical arena, voxel world, and simulation viewers
 
----
+## Your First Simla Program
 
-CLI
+Start with a program that simply evaluates to a string:
 
-Run a simulation file:
+```lisp
+(begin
+	"Hello from Simla"
+)
+```
 
-./simla.sh file.sim
+Run it with:
 
----
+```bash
+npm run simla -- examples/hello.sim
+```
 
-Development Checks
+On Windows after running the installer:
 
-Run full validation:
+```powershell
+.\simla-run.cmd examples\hello.sim
+```
 
-./tools/check_all.sh
+Then try a minimal scene program:
 
-This executes:
+```bash
+npm run simla -- examples/first_scene.sim
+```
 
-* Conformance tests (spec correctness)
-* Error tests (invalid program handling)
-* C build verification
-* Cross-runtime parity checks
+That second example returns a scene-shaped data structure that can be used as a stepping stone toward the browser viewers.
 
----
+## Stable Demos
 
-Architecture
+If you are opening Simla for the first time, start here:
 
-.sim source
-↓
-Parser / AST
-↓
-Compiler (optional → bytecode)
+* `http://localhost:8080/voxel_world.html` for the voxel and terrain runtime
+* `http://localhost:8080/sim3d.html` for the browser simulation sandbox
+* `http://localhost:8080/rwx_viewer.html` for RWX model inspection
+* `http://localhost:8080/simla3d_first_person.html` for the first-person scene viewer
 
-Execution targets:
+Other pages in the repo are still useful, but many are active experiments rather than stable starting points.
 
-* JavaScript VM
-* C Interpreter
-* C Bytecode VM
+## Windows Notes
 
-All runtimes are expected to produce identical outputs.
+The Windows installer is meant to make the project runnable without manual setup ceremony.
 
----
+It covers:
 
-Project Structure
+* dependency install via `npm install`
+* a direct server launcher via `simla-serve.cmd`
+* a direct program runner via `simla-run.cmd`
+* a direct REPL launcher via `simla-repl.cmd`
 
-c-simla/
-→ C interpreter and bytecode VM
+The default `npm test` path still shells out to `.sh` scripts, so full validation is best run from Git Bash or WSL until those checks are made cross-platform.
+
+If you want a redistributable package instead of an in-repo bootstrap script, use the MSI build under `installer/`.
+
+## Demo Scenes
+
+### Voxel World Runtime
+
+Interactive voxel and terrain experiments rendered in the browser.
+
+### Library Simulation
+
+3D library environment with animated books, interaction systems, and runtime-generated scenes.
+
+### Simulation Scenes
+
+Large-scale scene rendering, AI experiments, runtime-driven entities, and environmental systems.
+
+## Repository Structure
 
 src/
-→ JavaScript VM, compiler, runtime
-
-spec/
-→ language specification
-
-tests/
-→ conformance and error tests
-
-tools/
-→ runners, validation scripts
+Parser, compiler, VM, and runtime systems.
 
 examples/
-→ sample simulation programs
+Simla programs and runtime examples.
 
----
+docs/
+Getting-started notes, runtime guidance, and language documentation.
 
-Version
+c-simla/
+Experimental C runtime and parity tests.
 
-Current version: 0.1.0
+spec/
+Language notes, opcode behavior, determinism, and conformance documentation.
 
-Core guarantees:
+tools/
+Testing utilities, exporters, runners, and helper scripts.
 
-* Deterministic execution
-* Cross-runtime parity
-* Stable core primitives
+## Starter Docs
 
----
+For a guided pass through the project, start with:
 
-Philosophy
+* [docs/getting_started.md](c:/Projects/Simla/docs/getting_started.md)
+* [docs/runtime.md](c:/Projects/Simla/docs/runtime.md)
+* [docs/language.md](c:/Projects/Simla/docs/language.md)
+* [docs/rendering.md](c:/Projects/Simla/docs/rendering.md)
+* [docs/roadmap.md](c:/Projects/Simla/docs/roadmap.md)
 
-Simla is not a general-purpose language.
+## Runtime Goals
 
-It is a deterministic logic layer:
+Simla explores:
 
-* define rules
-* simulate outcomes
-* guarantee consistency across systems
+* deterministic runtime execution
+* portable simulation logic
+* runtime parity between implementations
+* interactive browser-driven simulations
+* game and ECS-oriented scripting systems
+* self-hosting language experimentation
 
----
+## Testing
 
-Next Direction
+Run general validation:
 
-* Integration with rendering engines (Three.js / WebXR)
-* Higher-level simulation systems (AI, combat, world logic)
-* Expanded standard library (kept separate from core)
-* Tooling for replay, debugging, and visualization
+```bash
+npm run check
+```
 
----
+Run conformance tests:
 
-License
+```bash
+npm run conformance
+```
 
-MIT
+Run error behavior tests:
+
+```bash
+npm run errors
+```
+
+Run the full default validation bundle:
+
+```bash
+npm test
+```
+
+## Contributing
+
+Contributions, experiments, bug reports, and ideas are welcome.
+
+See CONTRIBUTING.md for setup instructions and contribution guidelines.
+
+## Project Status
+
+Simla is experimental and evolving rapidly.
+
+Some systems are stable enough for demonstrations and experimentation, while others are still active research and development areas.
+
+## Roadmap Snapshot
+
+Near-term focus:
+
+* onboarding improvements
+* runtime stability and parity
+* mobile support and browser polish
+* deterministic replay tooling
+
+Mid-term focus:
+
+* ECS runtime systems
+* networking experiments
+* stronger developer tooling
+* asset pipeline cleanup
+
+Long-term direction:
+
+* self-hosting compiler work
+* standalone runtime packaging
+* multiplayer simulation support
+
+## License
+
+MIT License

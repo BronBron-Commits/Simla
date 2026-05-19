@@ -1,0 +1,170 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="Simla"
+    Manufacturer="BronBron"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="5E24B140-5921-4EB7-90F0-7716B07BC7D5"
+    InstallerVersion="500"
+    Scope="perMachine"
+    Language="1033"
+    Compressed="yes">
+
+    <SummaryInformation Description="Simla classic Windows installer" Manufacturer="BronBron" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/BronBron-Commits/Simla" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/BronBron-Commits/Simla/releases" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Setup is complete. Open Start Menu > Simla to launch Docs, Voxel World, or the First Person demo." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Simla Launcher now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <Property Id="NODEINSTALLDIR">
+      <RegistrySearch Id="NodeInstallDirSearch" Root="HKLM" Key="SOFTWARE\Node.js" Name="InstallPath" Type="raw" />
+    </Property>
+
+    <Launch
+      Condition="Installed OR NODEINSTALLDIR"
+      Message="Simla requires Node.js to be installed first. Install Node.js from https://nodejs.org/ and then run this installer again." />
+
+    <Feature Id="MainFeature" Title="Simla" Level="1">
+      <ComponentGroupRef Id="RepoFiles" />
+      <ComponentGroupRef Id="LauncherComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+      <Feature
+        Id="DesktopShortcutFeature"
+        Title="Desktop Shortcut"
+        Description="Add a Simla Launcher shortcut to the desktop."
+        Level="1">
+        <ComponentGroupRef Id="DesktopShortcutComponents" />
+      </Feature>
+    </Feature>
+
+    <CustomAction
+      Id="LaunchSimlaLauncher"
+      FileRef="NativeLauncherFile"
+      ExeCommand=""
+      Return="asyncNoWait"
+      Impersonate="yes" />
+
+    <ui:WixUI Id="WixUI_Mondo" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(sys.SOURCEFILEDIR)License.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(sys.SOURCEFILEDIR)generated\branding\WixUIBanner.png" />
+    <UI>
+      <Publish
+        Dialog="ExitDialog"
+        Control="Finish"
+        Event="DoAction"
+        Value="LaunchSimlaLauncher"
+        Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed"
+        Order="999" />
+    </UI>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Simla" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="Simla" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="LauncherComponents">
+      <Component Id="NativeLauncherComponent" Directory="INSTALLFOLDER" Guid="03B6AB8C-96B5-4E00-9D68-E386318B9781">
+        <File Id="NativeLauncherFile" Source="$(var.RepoRoot)\installer\generated\launcher\SimlaLauncher.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ShortcutComponents">
+      <Component Id="StartMenuShortcuts" Directory="ProgramMenuDir" Guid="D1D82C09-CF65-44BC-92D2-54F0EF535507">
+        <Shortcut
+          Id="SimlaLauncherShortcut"
+          Name="Simla Launcher"
+          Description="Open the native Simla demo launcher"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaServerShortcut"
+          Name="Simla Server"
+          Description="Start the Simla local server"
+          Target="[INSTALLFOLDER]simla-serve.cmd"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaReplShortcut"
+          Name="Simla REPL"
+          Description="Launch the Simla REPL"
+          Target="[INSTALLFOLDER]simla-repl.cmd"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaHelloShortcut"
+          Name="Run Hello Example"
+          Description="Run the Simla hello world example"
+          Target="[INSTALLFOLDER]simla-run.cmd"
+          Arguments="examples\hello.sim"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaDocsShortcut"
+          Name="Docs"
+          Description="Open the native Simla launcher directly to the docs"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          Arguments="docs"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaVoxelShortcut"
+          Name="Voxel World"
+          Description="Open the native Simla launcher directly to the Voxel World demo"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          Arguments="voxel"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaSim3dShortcut"
+          Name="Sim3D"
+          Description="Open the native Simla launcher directly to the Sim3D demo"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          Arguments="sim3d"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaRwxViewerShortcut"
+          Name="RWX Viewer"
+          Description="Open the native Simla launcher directly to the RWX viewer"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          Arguments="rwx"
+          WorkingDirectory="INSTALLFOLDER" />
+        <Shortcut
+          Id="SimlaFirstPersonShortcut"
+          Name="First Person Viewer"
+          Description="Open the native Simla launcher directly to the first-person Simla viewer"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          Arguments="firstperson"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\BronBron\Simla" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="DesktopShortcutComponents">
+      <Component Id="DesktopLauncherShortcutComponent" Directory="DesktopFolder" Guid="4EE50401-BC84-438F-9722-86F0CF2CC41D">
+        <Shortcut
+          Id="DesktopLauncherShortcut"
+          Name="Simla Launcher"
+          Description="Open the native Simla demo launcher"
+          Target="[INSTALLFOLDER]SimlaLauncher.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\BronBron\Simla" Name="DesktopShortcutInstalled" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -11,11 +11,30 @@ static int read_labeled_int(FILE *f, const char *label, int *out) {
   return 1;
 }
 
+static void emit_trace(
+  FILE *trace_out,
+  int depth,
+  int ip,
+  Instruction ins,
+  int sp,
+  int stack[STACK_MAX]
+) {
+  if (!trace_out) return;
+
+  if (sp > 0) {
+    fprintf(trace_out, "TRACE depth=%d ip=%d op=%d a=%d sp=%d top=%d\n", depth, ip, ins.op, ins.a, sp, stack[sp - 1]);
+  } else {
+    fprintf(trace_out, "TRACE depth=%d ip=%d op=%d a=%d sp=%d top=EMPTY\n", depth, ip, ins.op, ins.a, sp);
+  }
+}
+
 static int run_code(
   Instruction *code,
   int count,
   Program *owner,
-  int vars[256]
+  int vars[256],
+  FILE *trace_out,
+  int depth
 ) {
   int stack[STACK_MAX];
   int lists[256][256] = {{0}};
@@ -25,6 +44,8 @@ static int run_code(
 
   for (int ip = 0; ip < count; ip++) {
     Instruction ins = code[ip];
+
+    emit_trace(trace_out, depth, ip, ins, sp, stack);
 
     switch (ins.op) {
       case OP_CONST:
@@ -188,7 +209,7 @@ static int run_code(
           int local_vars[256] = {0};
           local_vars[fn->param_slot] = lists[src_id][i];
 
-          int mapped = run_code(fn->code, fn->count, owner, local_vars);
+          int mapped = run_code(fn->code, fn->count, owner, local_vars, trace_out, depth + 1);
           lists[out_id][list_counts[out_id]++] = mapped;
         }
 
@@ -217,7 +238,7 @@ static int run_code(
           int local_vars[256] = {0};
           local_vars[fn->param_slot] = lists[src_id][i];
 
-          int keep = run_code(fn->code, fn->count, owner, local_vars);
+          int keep = run_code(fn->code, fn->count, owner, local_vars, trace_out, depth + 1);
           if (keep) {
             lists[out_id][list_counts[out_id]++] = lists[src_id][i];
           }
@@ -244,7 +265,7 @@ static int run_code(
           local_vars[rfn->acc_slot] = acc;
           local_vars[rfn->item_slot] = lists[src_id][i];
 
-          acc = run_code(rfn->code, rfn->count, owner, local_vars);
+          acc = run_code(rfn->code, rfn->count, owner, local_vars, trace_out, depth + 1);
         }
 
         stack[sp++] = acc;
@@ -258,7 +279,12 @@ static int run_code(
 
 int run(Program *p) {
   int vars[256] = {0};
-  return run_code(p->code, p->count, p, vars);
+  return run_code(p->code, p->count, p, vars, NULL, 0);
+}
+
+int run_with_trace(Program *p, FILE *trace_out) {
+  int vars[256] = {0};
+  return run_code(p->code, p->count, p, vars, trace_out, 0);
 }
 
 int load_program_text(const char *path, Program *out) {

@@ -1,6 +1,7 @@
 import http from "http";
 import https from "https";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execFileSync, spawn } from "child_process";
 import { parseRWX } from "./tools/parse_rwx.js";
@@ -55,6 +56,12 @@ function parseBody(req) {
     });
     req.on("error", reject);
   });
+}
+
+function getWritableTempDir() {
+  const tempDir = path.join(os.tmpdir(), "Simla");
+  fs.mkdirSync(tempDir, { recursive: true });
+  return tempDir;
 }
 
 function rejectPendingAwBridge(err) {
@@ -354,7 +361,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/scene") {
     try {
       const file = url.searchParams.get("file") || "examples/simla3d_demo.sim";
-      fs.mkdirSync(path.join(ROOT, ".tmp"), { recursive: true });
+      const tempDir = getWritableTempDir();
 
       const expanded = execFileSync("node", ["tools/expand_imports.js", file], {
         cwd: ROOT,
@@ -363,7 +370,7 @@ const server = http.createServer(async (req, res) => {
 
       const tick = Date.now() - START_TIME;
       const withTick = injectTick(expanded, tick);
-      const expandedPath = path.join(ROOT, ".tmp", "simla3d-expanded.sim");
+      const expandedPath = path.join(tempDir, "simla3d-expanded.sim");
       fs.writeFileSync(expandedPath, withTick);
 
       const output = execFileSync("node", ["tools/run_js_vm.js", expandedPath], {

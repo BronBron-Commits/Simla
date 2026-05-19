@@ -116,11 +116,18 @@ function parseSharedBytecode(text) {
   };
 }
 
-const inputPath = process.argv[2];
+const args = process.argv.slice(2);
+const traceEnabled = args.includes("--trace");
+const inputPath = args.find((arg) => arg !== "--trace");
+
 if (!inputPath) {
-  console.error("usage: node tools/run_shared_bytecode.js <program.sbc>");
+  console.error("usage: node tools/run_shared_bytecode.js <program.sbc> [--trace]");
   process.exit(1);
 }
 
 const program = parseSharedBytecode(fs.readFileSync(inputPath, "utf-8"));
-console.log(`Result: ${runSharedBytecode(program)}`);
+const result = runSharedBytecode(program, {
+  trace: traceEnabled ? (line) => console.error(line) : null
+});
+
+console.log(`Result: ${result}`);

@@ -1,0 +1,19 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.0.0</ProductVersion>
+    <RepoRoot Condition="'$(RepoRoot)' == ''">$(MSBuildProjectDirectory)\..</RepoRoot>
+    <DefineConstants>ProductVersion=$(ProductVersion);RepoRoot=$(RepoRoot)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="generated\RepoFiles.wxs" Condition="Exists('generated\RepoFiles.wxs')" />
+  </ItemGroup>
+</Project>
