@@ -1,9 +1,29 @@
 (begin
 
-  (fn build-wall (x y z length)
-    (list
-      (cube x y z 1 120 120 120)
+  (fn wall-step (x y z i len)
+    (if (gte i len)
+      (list)
+
+      (append
+        (list
+          (cube
+            (add x i)
+            y
+            z
+            1
+            140
+            140
+            140
+          )
+        )
+
+        (wall-step x y z (add i 1) len)
+      )
     )
+  )
+
+  (fn build-wall (x y z len)
+    (wall-step x y z 0 len)
   )
 
 )

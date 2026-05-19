@@ -1,0 +1,79 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; floor
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+        "sx" 60
+        "sy" 1
+        "sz" 60
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; rotated beam
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 2
+        "z" 0
+
+        "sx" 6
+        "sy" 1
+        "sz" 1
+
+        "rotY" 0.8
+
+        "r" 255
+        "g" 120
+        "b" 120
+      )
+
+      ;; rotated tower
+      (list
+        "type" "cylinder"
+
+        "x" 8
+        "y" 3
+        "z" 0
+
+        "radiusTop" 1.5
+        "radiusBottom" 2
+        "height" 6
+
+        "rotX" 0.5
+
+        "r" 120
+        "g" 180
+        "b" 255
+      )
+
+      ;; tilted sphere platform
+      (list
+        "type" "sphere"
+
+        "x" -8
+        "y" 3
+        "z" 0
+
+        "radius" 2
+
+        "r" 200
+        "g" 120
+        "b" 255
+      )
+
+    )
+
+  )
+
+)

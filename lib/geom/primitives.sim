@@ -3,23 +3,37 @@
   (fn cube (x y z size r g b)
     (list
       "type" "cube"
+
       "x" x
       "y" y
       "z" z
+
       "size" size
+
+      "sx" size
+      "sy" size
+      "sz" size
+
       "r" r
       "g" g
       "b" b
+
+      "rotX" 0
+      "rotY" 0
+      "rotZ" 0
     )
   )
 
   (fn sphere (x y z radius r g b)
     (list
       "type" "sphere"
+
       "x" x
       "y" y
       "z" z
+
       "radius" radius
+
       "r" r
       "g" g
       "b" b

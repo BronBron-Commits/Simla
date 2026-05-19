@@ -1,0 +1,90 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; ====================================
+      ;; FLOOR
+      ;; ====================================
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" -40
+
+        "sx" 140
+        "sy" 1
+        "sz" 140
+
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; ==================================================
+      ;; ARCH MODULE 1
+      ;; ==================================================
+
+      (list "type" "cube" "x" -6 "y" 2 "z" 0 "sx" 1.2 "sy" 5 "sz" 1.2 "r" 180 "g" 180 "b" 190)
+      (list "type" "cube" "x" 6 "y" 2 "z" 0 "sx" 1.2 "sy" 5 "sz" 1.2 "r" 180 "g" 180 "b" 190)
+
+      (list "type" "cube" "x" 5.93 "y" 0.90 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.42 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 5.73 "y" 1.77 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.27 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 5.40 "y" 2.61 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.12 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 4.95 "y" 3.39 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.97 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 4.39 "y" 4.09 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.82 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 3.73 "y" 4.69 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.67 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 2.99 "y" 5.20 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.52 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 2.17 "y" 5.59 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.37 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 1.31 "y" 5.85 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.22 "r" 230 "g" 230 "b" 240)
+
+      (list "type" "cube" "x" 0 "y" 6 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0 "r" 250 "g" 250 "b" 255)
+
+      (list "type" "cube" "x" -1.31 "y" 5.85 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.22 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -2.17 "y" 5.59 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.37 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -2.99 "y" 5.20 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.52 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -3.73 "y" 4.69 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.67 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -4.39 "y" 4.09 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.82 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -4.95 "y" 3.39 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.97 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.40 "y" 2.61 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.12 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.73 "y" 1.77 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.27 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.93 "y" 0.90 "z" 0 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.42 "r" 230 "g" 230 "b" 240)
+
+      ;; ==================================================
+      ;; ARCH MODULE 2
+      ;; ==================================================
+
+      (list "type" "cube" "x" -6 "y" 2 "z" -8 "sx" 1.2 "sy" 5 "sz" 1.2 "r" 180 "g" 180 "b" 190)
+      (list "type" "cube" "x" 6 "y" 2 "z" -8 "sx" 1.2 "sy" 5 "sz" 1.2 "r" 180 "g" 180 "b" 190)
+
+      (list "type" "cube" "x" 5.93 "y" 0.90 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.42 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 5.73 "y" 1.77 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.27 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 5.40 "y" 2.61 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -1.12 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 4.95 "y" 3.39 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.97 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 4.39 "y" 4.09 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.82 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 3.73 "y" 4.69 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.67 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 2.99 "y" 5.20 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.52 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 2.17 "y" 5.59 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.37 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" 1.31 "y" 5.85 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" -0.22 "r" 230 "g" 230 "b" 240)
+
+      (list "type" "cube" "x" 0 "y" 6 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0 "r" 250 "g" 250 "b" 255)
+
+      (list "type" "cube" "x" -1.31 "y" 5.85 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.22 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -2.17 "y" 5.59 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.37 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -2.99 "y" 5.20 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.52 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -3.73 "y" 4.69 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.67 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -4.39 "y" 4.09 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.82 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -4.95 "y" 3.39 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 0.97 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.40 "y" 2.61 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.12 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.73 "y" 1.77 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.27 "r" 230 "g" 230 "b" 240)
+      (list "type" "cube" "x" -5.93 "y" 0.90 "z" -8 "sx" 1.1 "sy" 0.45 "sz" 1 "rotZ" 1.42 "r" 230 "g" 230 "b" 240)
+
+    )
+
+  )
+
+)

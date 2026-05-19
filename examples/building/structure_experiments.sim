@@ -1,0 +1,135 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; ground
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+        "sx" 60
+        "sy" 1
+        "sz" 60
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; wall
+      (list
+        "type" "cube"
+        "x" -10
+        "y" 1
+        "z" -8
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 180
+        "g" 180
+        "b" 180
+      )
+
+      (list
+        "type" "cube"
+        "x" -8
+        "y" 1
+        "z" -8
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 180
+        "g" 180
+        "b" 180
+      )
+
+      (list
+        "type" "cube"
+        "x" -6
+        "y" 1
+        "z" -8
+        "sx" 1
+        "sy" 3
+        "sz" 1
+        "r" 180
+        "g" 180
+        "b" 180
+      )
+
+      ;; tower
+      (list
+        "type" "cylinder"
+        "x" 10
+        "y" 3
+        "z" -8
+        "radiusTop" 2
+        "radiusBottom" 2
+        "height" 6
+        "r" 120
+        "g" 120
+        "b" 255
+      )
+
+      ;; arch left
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 2
+        "z" 10
+        "sx" 1
+        "sy" 5
+        "sz" 1
+        "r" 220
+        "g" 180
+        "b" 120
+      )
+
+      ;; arch right
+      (list
+        "type" "cube"
+        "x" 4
+        "y" 2
+        "z" 10
+        "sx" 1
+        "sy" 5
+        "sz" 1
+        "r" 220
+        "g" 180
+        "b" 120
+      )
+
+      ;; arch top
+      (list
+        "type" "cube"
+        "x" 2
+        "y" 5
+        "z" 10
+        "sx" 5
+        "sy" 1
+        "sz" 1
+        "r" 240
+        "g" 210
+        "b" 150
+      )
+
+      ;; giant sphere
+      (list
+        "type" "sphere"
+        "x" -14
+        "y" 5
+        "z" 8
+        "radius" 3
+        "r" 180
+        "g" 120
+        "b" 255
+      )
+
+    )
+
+  )
+
+)

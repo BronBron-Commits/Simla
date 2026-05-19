@@ -1,0 +1,147 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; floor
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+
+        "sx" 80
+        "sy" 1
+        "sz" 80
+
+        "r" 70
+        "g" 70
+        "b" 70
+      )
+
+      ;; step 1
+      (list
+        "type" "cube"
+
+        "x" 0
+        "y" 0
+        "z" 0
+
+        "sx" 2
+        "sy" 1
+        "sz" 4
+
+        "r" 180
+        "g" 180
+        "b" 180
+      )
+
+      ;; step 2
+      (list
+        "type" "cube"
+
+        "x" 2
+        "y" 1
+        "z" 0
+
+        "sx" 2
+        "sy" 1
+        "sz" 4
+
+        "r" 190
+        "g" 190
+        "b" 190
+      )
+
+      ;; step 3
+      (list
+        "type" "cube"
+
+        "x" 4
+        "y" 2
+        "z" 0
+
+        "sx" 2
+        "sy" 1
+        "sz" 4
+
+        "r" 200
+        "g" 200
+        "b" 200
+      )
+
+      ;; step 4
+      (list
+        "type" "cube"
+
+        "x" 6
+        "y" 3
+        "z" 0
+
+        "sx" 2
+        "sy" 1
+        "sz" 4
+
+        "r" 210
+        "g" 210
+        "b" 210
+      )
+
+      ;; landing
+      (list
+        "type" "cube"
+
+        "x" 10
+        "y" 4
+        "z" 0
+
+        "sx" 6
+        "sy" 1
+        "sz" 6
+
+        "r" 120
+        "g" 180
+        "b" 255
+      )
+
+      ;; support pillar
+      (list
+        "type" "cylinder"
+
+        "x" 10
+        "y" 1
+        "z" 0
+
+        "radiusTop" 1
+        "radiusBottom" 1
+
+        "height" 4
+
+        "r" 255
+        "g" 180
+        "b" 120
+      )
+
+      ;; floating orb
+      (list
+        "type" "sphere"
+
+        "x" 10
+        "y" 8
+        "z" 0
+
+        "radius" 2
+
+        "r" 220
+        "g" 120
+        "b" 255
+      )
+
+    )
+
+  )
+
+)

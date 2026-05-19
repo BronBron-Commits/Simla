@@ -297,7 +297,7 @@
       document.body.requestPointerLock?.();
     });
 
-    const sceneFile = new URLSearchParams(location.search).get("file") || "examples/simla3d_demo.sim";
+    const sceneFile = new URLSearchParams(location.search).get("file") || "examples/building/basic_wall.sim";
     const isDragonScene = sceneFile.includes("dragon");
 
     const scene = new THREE.Scene();
