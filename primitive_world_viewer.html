@@ -122,6 +122,10 @@ document.body.appendChild(renderer.domElement);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
 scene.add(ambientLight);
 
+// Soft sky/ground fill so nights are readable without washing out daytime contrast.
+const fillLight = new THREE.HemisphereLight(0xddeeff, 0x4a5566, 0.45);
+scene.add(fillLight);
+
 const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
 sunLight.position.set(10, 20, 10);
 scene.add(sunLight);
@@ -1030,6 +1034,99 @@ function addStair(o) {
   scene.add(group);
 }
 
+function addExtendedGround(objects) {
+  if (!objects || objects.length === 0) return;
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let minY = Infinity;
+
+  for (const o of objects) {
+    const x = prop(o, "x", 0);
+    const y = prop(o, "y", 0);
+    const z = prop(o, "z", 0);
+
+    const scaleX = prop(o, "worldScaleX", 1);
+    const scaleY = prop(o, "worldScaleY", 1);
+    const scaleZ = prop(o, "worldScaleZ", 1);
+
+    const sx = prop(o, "sx", prop(o, "width", prop(o, "size", prop(o, "radius", 1) * 2))) * scaleX;
+    const sy = prop(o, "sy", prop(o, "height", prop(o, "size", prop(o, "radius", 1) * 2))) * scaleY;
+    const sz = prop(o, "sz", prop(o, "depth", prop(o, "size", prop(o, "radius", 1) * 2))) * scaleZ;
+
+    minX = Math.min(minX, x - sx / 2);
+    maxX = Math.max(maxX, x + sx / 2);
+    minZ = Math.min(minZ, z - sz / 2);
+    maxZ = Math.max(maxZ, z + sz / 2);
+    minY = Math.min(minY, y - sy / 2);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minZ) || !Number.isFinite(maxZ)) {
+    return;
+  }
+
+  const padding = 320;
+  const spanX = maxX - minX + padding * 2;
+  const spanZ = maxZ - minZ + padding * 2;
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+  const groundY = Math.min(0, minY) - 0.08;
+
+  const extendedGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(spanX, spanZ),
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x2f2f2f),
+      roughness: 0.9,
+      metalness: 0,
+      map: generateAsphaltTexture()
+    })
+  );
+
+  if (extendedGround.material.map) {
+    extendedGround.material.map.wrapS = THREE.RepeatWrapping;
+    extendedGround.material.map.wrapT = THREE.RepeatWrapping;
+    extendedGround.material.map.repeat.set(Math.max(4, spanX / 150), Math.max(4, spanZ / 150));
+  }
+
+  extendedGround.rotation.x = -Math.PI / 2;
+  extendedGround.position.set(centerX, groundY, centerZ);
+  scene.add(extendedGround);
+}
+
+function extendPrimaryGroundObject(objects) {
+  let bestGround = null;
+  let bestArea = 0;
+
+  for (const o of objects) {
+    if (prop(o, "type") !== "cube") continue;
+
+    const sx = prop(o, "sx", prop(o, "size", 1));
+    const sy = prop(o, "sy", prop(o, "size", 1));
+    const sz = prop(o, "sz", prop(o, "size", 1));
+    const y = prop(o, "y", 0);
+
+    const isGroundCandidate = sy < 2 && sx > 20 && sz > 20 && y <= 2;
+    if (!isGroundCandidate) continue;
+
+    const area = sx * sz;
+    if (area > bestArea) {
+      bestArea = area;
+      bestGround = o;
+    }
+  }
+
+  if (!bestGround) return false;
+
+  const currentSX = prop(bestGround, "sx", prop(bestGround, "size", 1));
+  const currentSZ = prop(bestGround, "sz", prop(bestGround, "size", 1));
+
+  bestGround.sx = Math.max(currentSX, currentSX + 600);
+  bestGround.sz = Math.max(currentSZ, currentSZ + 600);
+  return true;
+}
+
 async function loadScene() {
 
   const params =
@@ -1050,6 +1147,9 @@ async function loadScene() {
 
   const objects =
     normalizeSceneItems(raw);
+
+  const extendedPrimaryGround =
+    extendPrimaryGroundObject(objects);
 
   console.log(
     "NORMALIZED OBJECTS",
@@ -1086,6 +1186,10 @@ async function loadScene() {
     else if (type === "stair") {
       addStair(o);
     }
+  }
+
+  if (!extendedPrimaryGround) {
+    addExtendedGround(objects);
   }
 }
 
@@ -1369,16 +1473,14 @@ function animate() {
   camera.position.x = characterPosition.x - Math.sin(yaw) * CAMERA_DISTANCE;
   camera.position.y = characterPosition.y + CAMERA_HEIGHT;
   camera.position.z = characterPosition.z - Math.cos(yaw) * CAMERA_DISTANCE;
-  // Look at head bone if available, else at character
-  if (playerCharacter && playerCharacter.lastHeadBone) {
-    // Get world position of head bone
-    playerCharacter.updateMatrixWorld(true);
-    const headWorldPos = new THREE.Vector3();
-    playerCharacter.lastHeadBone.getWorldPosition(headWorldPos);
-    camera.lookAt(headWorldPos);
-  } else {
-    camera.lookAt(characterPosition.x, characterPosition.y + 1, characterPosition.z);
-  }
+  // Aim camera using yaw + pitch so mouse can look up/down.
+  const lookDirection = new THREE.Vector3(
+    Math.sin(yaw) * Math.cos(pitch),
+    Math.sin(pitch),
+    Math.cos(yaw) * Math.cos(pitch)
+  ).normalize();
+  const lookTarget = new THREE.Vector3().copy(camera.position).addScaledVector(lookDirection, 120);
+  camera.lookAt(lookTarget);
 
   // Keep skybox centered on camera
   skybox.position.copy(camera.position);
@@ -1460,9 +1562,10 @@ function animate() {
   
   // Update directional light to follow sun and change intensity
   sunLight.position.copy(sunObject.position);
-  const lightIntensity = Math.max(0.2, Math.sin(sunAngle) + 0.5); // 0.2 at night, 1.5 at noon
-  sunLight.intensity = lightIntensity * 2;
-  ambientLight.intensity = Math.max(0.1, lightIntensity * 0.5);
+  const lightIntensity = Math.max(0.35, Math.sin(sunAngle) + 0.6); // 0.35 at night, 1.6 at noon
+  sunLight.intensity = lightIntensity * 2.2;
+  ambientLight.intensity = Math.max(0.25, lightIntensity * 0.65);
+  fillLight.intensity = Math.max(0.35, lightIntensity * 0.35);
   
   // Update skybox texture based on time
   skyboxMaterial.map = generateSkyTextureForTime(cycleTime);

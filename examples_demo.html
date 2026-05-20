@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simla Examples Demo</title>
+<style>
+  :root {
+    --bg0: #0f1720;
+    --bg1: #152534;
+    --bg2: #20384d;
+    --card: #0f1f2d;
+    --line: #35546d;
+    --text: #e8f2f8;
+    --muted: #9bb4c6;
+    --accent: #72f2c8;
+    --accent2: #ffd28c;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 10% -20%, #244663, transparent 60%),
+      radial-gradient(1000px 600px at 110% 0%, #2b3e56, transparent 60%),
+      linear-gradient(180deg, var(--bg1), var(--bg0));
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.7rem, 1.2rem + 2vw, 2.5rem);
+    letter-spacing: 0.02em;
+  }
+
+  .subtitle {
+    margin: 10px 0 0;
+    color: var(--muted);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 22px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, #13283a, var(--card));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+
+  .card h2 {
+    margin: 0 0 6px;
+    font-size: 1.12rem;
+  }
+
+  .card p {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .links {
+    display: grid;
+    gap: 8px;
+  }
+
+  a.demo-link {
+    display: inline-block;
+    padding: 9px 10px;
+    border-radius: 9px;
+    border: 1px solid #4d6b83;
+    color: var(--text);
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.03);
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+
+  a.demo-link:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+    background: rgba(114, 242, 200, 0.08);
+  }
+
+  .pill {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #102230;
+    background: var(--accent2);
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-weight: 600;
+  }
+
+  .footer {
+    margin-top: 24px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Simla Examples Demo</h1>
+    <p class="subtitle">Quick launcher for scenes currently present in the workspace.</p>
+
+    <section class="row">
+      <article class="card">
+        <h2>Primitive World Viewer</h2>
+        <p>Best for cube, sphere, and cylinder scene files under examples/building.</p>
+        <div class="links">
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/primitive_world.sim">Primitive World</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/procedural_dungeon.sim">Procedural Dungeon</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/procedural_connected_dungeon.sim">Connected Dungeon</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/arched_hallway.sim">Arched Hallway</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/procedural_arch_hallway.sim">Procedural Arch Hallway</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/scenegraph_city.sim">Scenegraph City</a>
+          <a class="demo-link" href="/primitive_world_viewer.html?file=examples/building/shapes_demo.sim">Shapes Demo</a>
+        </div>
+        <span class="pill">Buildings and structures</span>
+      </article>
+
+      <article class="card">
+        <h2>Simla3D First Person</h2>
+        <p>First-person scene viewer that also accepts file query parameter.</p>
+        <div class="links">
+          <a class="demo-link" href="/simla3d_first_person.html?file=examples/building/basic_wall.sim">Basic Wall</a>
+          <a class="demo-link" href="/simla3d_first_person.html?file=examples/building/procedural_hallway.sim">Procedural Hallway</a>
+          <a class="demo-link" href="/simla3d_first_person.html?file=examples/building/staircase_test.sim">Staircase Test</a>
+          <a class="demo-link" href="/simla3d_first_person.html?file=examples/building/vaulted_archway.sim">Vaulted Archway</a>
+        </div>
+        <span class="pill">Walkthrough preview</span>
+      </article>
+
+      <article class="card">
+        <h2>Other Scene Demos</h2>
+        <p>Specialized viewers for city, terrain, voxel, and combat examples.</p>
+        <div class="links">
+          <a class="demo-link" href="/simla3d_viewer.html">Simla3D Demo Scene</a>
+          <a class="demo-link" href="/city_three_viewer.html">City Sim Viewer</a>
+          <a class="demo-link" href="/terrain.html">Terrain 16</a>
+          <a class="demo-link" href="/voxel_world.html?file=examples/voxel/procedural_world.sim">Voxel Procedural World</a>
+          <a class="demo-link" href="/combat_viewer.html">Combat Loop</a>
+          <a class="demo-link" href="/sim3d.html">Tactical Arena</a>
+        </div>
+        <span class="pill">Mixed demos</span>
+      </article>
+    </section>
+
+    <p class="footer">Tip: hard refresh if your browser is holding stale cached pages.</p>
+  </main>
+</body>
+</html>
