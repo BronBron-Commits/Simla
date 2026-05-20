@@ -18,4 +18,9 @@ const ast = parse(tokenize(code));
 const bytecode = compile(ast);
 const step = run(bytecode, {});
 
-console.log(`Result: ${step.result}`);
+const result =
+  step && typeof step === "object" && "result" in step
+    ? step.result
+    : step;
+
+console.log(`Result: ${result}`);
