@@ -1,7 +1,7 @@
 (begin
   (import "../lib/simla3d.sim")
 
-  (scene
+  (scene_auto 1
     (list
       (floor 200 200 "#203020")
 

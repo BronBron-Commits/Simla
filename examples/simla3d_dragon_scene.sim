@@ -1,7 +1,7 @@
 (begin
   (import "../lib/simla3d.sim")
 
-  (scene
+  (scene_auto 1
     (list
       (floor 190 190 "#2f4f2f")
       (light "sun" -8 24 8 1.5 "#ffffff")

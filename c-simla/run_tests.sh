@@ -25,5 +25,8 @@ run_test c-simla/list_test.sim 40
 run_test c-simla/map_test.sim 5
 run_test c-simla/filter_test.sim 2
 run_test c-simla/reduce_test.sim 10
+run_test c-simla/typed_object_test.sim 1
+run_test c-simla/typed_node_test.sim 1
+run_test c-simla/typed_vec3_test.sim 1
 
 echo "All C Simλ tests passed"

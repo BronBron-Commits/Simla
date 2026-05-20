@@ -13,6 +13,116 @@ function lookup(env, name) {
   return 0;
 }
 
+function isSimlaObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && value.__simlaKind === "object";
+}
+
+function isSimlaNode(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && value.__simlaKind === "node";
+}
+
+function isSimlaTuple(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && value.__simlaKind === "tuple";
+}
+
+function isPairList(value) {
+  if (!Array.isArray(value) || value.length % 2 !== 0) return false;
+  for (let i = 0; i < value.length; i += 2) {
+    if (typeof value[i] !== "string") return false;
+  }
+  return true;
+}
+
+function makeObjectFromPairs(pairs) {
+  const props = {};
+  for (let i = 0; i < pairs.length; i += 2) {
+    props[String(pairs[i])] = pairs[i + 1];
+  }
+  return { __simlaKind: "object", props };
+}
+
+function objectFromValue(value) {
+  if (isSimlaObject(value)) return value;
+  if (isPairList(value)) return makeObjectFromPairs(value);
+  return { __simlaKind: "object", props: {} };
+}
+
+function kindOf(value) {
+  if (value === null || value === undefined) return "nil";
+  if (isSimlaNode(value)) return "node";
+  if (isSimlaObject(value)) return "object";
+  if (isSimlaTuple(value)) return value.tupleKind || "tuple";
+  if (Array.isArray(value)) return "list";
+  if (typeof value === "number") return "number";
+  if (typeof value === "string") return "string";
+  if (typeof value === "boolean") return "boolean";
+  if (value && Array.isArray(value.params)) return "function";
+  return "unknown";
+}
+
+function getProperty(container, key) {
+  const propKey = String(key);
+
+  if (isSimlaObject(container)) {
+    return container.props[propKey] ?? 0;
+  }
+
+  if (isSimlaNode(container)) {
+    if (propKey === "kind") return container.kind;
+    if (propKey === "children") return Array.isArray(container.children) ? container.children : [];
+    return container.props[propKey] ?? 0;
+  }
+
+  if (isSimlaTuple(container)) {
+    if (propKey === "x") return container.values[0] ?? 0;
+    if (propKey === "y") return container.values[1] ?? 0;
+    if (propKey === "z") return container.values[2] ?? 0;
+  }
+
+  if (isPairList(container)) {
+    for (let i = 0; i < container.length; i += 2) {
+      if (container[i] === propKey) return container[i + 1];
+    }
+  }
+
+  return 0;
+}
+
+function setProperty(container, key, value) {
+  const propKey = String(key);
+
+  if (isSimlaObject(container)) {
+    return {
+      __simlaKind: "object",
+      props: {
+        ...container.props,
+        [propKey]: value
+      }
+    };
+  }
+
+  if (isSimlaNode(container)) {
+    return {
+      __simlaKind: "node",
+      kind: container.kind,
+      props: {
+        ...container.props,
+        [propKey]: value
+      },
+      children: Array.isArray(container.children) ? [...container.children] : []
+    };
+  }
+
+  const asObj = objectFromValue(container);
+  return {
+    __simlaKind: "object",
+    props: {
+      ...asObj.props,
+      [propKey]: value
+    }
+  };
+}
+
 function exec(code, env) {
   const stack = [];
   let ip = 0;
@@ -219,18 +329,76 @@ case "LIST": {
       case "TYPE": {
         const value = stack.pop();
 
-        if (Array.isArray(value)) {
-          stack.push("list");
-        } else if (typeof value === "number") {
-          stack.push("number");
-        } else if (typeof value === "string") {
-          stack.push("string");
-        } else if (value && Array.isArray(value.params)) {
-          stack.push("function");
-        } else {
-          stack.push("unknown");
-        }
+        stack.push(kindOf(value));
+        break;
+      }
 
+      case "KIND": {
+        const value = stack.pop();
+        stack.push(kindOf(value));
+        break;
+      }
+
+      case "IS_NODE": {
+        const value = stack.pop();
+        stack.push(isSimlaNode(value) ? 1 : 0);
+        break;
+      }
+
+      case "CHILDREN": {
+        const value = stack.pop();
+        stack.push(isSimlaNode(value) ? [...value.children] : []);
+        break;
+      }
+
+      case "OBJ": {
+        const entries = new Array(a);
+        for (let i = a - 1; i >= 0; i--) {
+          entries[i] = stack.pop();
+        }
+        stack.push(makeObjectFromPairs(entries));
+        break;
+      }
+
+      case "NODE": {
+        const children = stack.pop();
+        const props = stack.pop();
+        const nodeKind = stack.pop();
+        const propObj = objectFromValue(props);
+
+        stack.push({
+          __simlaKind: "node",
+          kind: String(nodeKind),
+          props: { ...propObj.props },
+          children: Array.isArray(children) ? [...children] : []
+        });
+        break;
+      }
+
+      case "VEC3": {
+        const z = stack.pop();
+        const y = stack.pop();
+        const x = stack.pop();
+        stack.push({
+          __simlaKind: "tuple",
+          tupleKind: "vec3",
+          values: [x, y, z]
+        });
+        break;
+      }
+
+      case "GETP": {
+        const key = stack.pop();
+        const container = stack.pop();
+        stack.push(getProperty(container, key));
+        break;
+      }
+
+      case "SETP": {
+        const value = stack.pop();
+        const key = stack.pop();
+        const container = stack.pop();
+        stack.push(setProperty(container, key, value));
         break;
       }
 
@@ -561,6 +729,9 @@ case "LIST": {
 
         case "FLATTEN": {
           const list = stack.pop();
+          if (isSimlaNode(list)) {
+            throw new Error("flatten does not accept node values");
+          }
           if (!Array.isArray(list)) {
             stack.push([]);
             break;

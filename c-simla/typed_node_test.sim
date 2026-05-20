@@ -1,0 +1,16 @@
+(begin
+  (let n
+    (node
+      "transform"
+      (obj "x" 1 "y" 2)
+      (list
+        (node "primitive" (obj "type" "cube") (list))
+      )
+    )
+  )
+  (if
+    (and (eq (kind n) "node") (eq (len (children n)) 1))
+    1
+    0
+  )
+)

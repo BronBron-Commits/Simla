@@ -227,6 +227,73 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "obj") {
+      if (node.args.length % 2 !== 0) {
+        throw new Error("obj expects an even number of args (key/value pairs)");
+      }
+      for (const arg of node.args) {
+        compile(arg, out);
+      }
+      out.push(["OBJ", node.args.length]);
+      return out;
+    }
+
+    if (name === "node") {
+      expectArgs(node, "node", 3);
+      compile(node.args[0], out); // semantic kind
+      compile(node.args[1], out); // props object
+      compile(node.args[2], out); // child list
+      out.push(["NODE"]);
+      return out;
+    }
+
+    if (name === "vec3") {
+      expectArgs(node, "vec3", 3);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      out.push(["VEC3"]);
+      return out;
+    }
+
+    if (name === "getp") {
+      expectArgs(node, "getp", 2);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["GETP"]);
+      return out;
+    }
+
+    if (name === "setp") {
+      expectArgs(node, "setp", 3);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      out.push(["SETP"]);
+      return out;
+    }
+
+    if (name === "kind") {
+      expectArgs(node, "kind", 1);
+      compile(node.args[0], out);
+      out.push(["KIND"]);
+      return out;
+    }
+
+    if (name === "is_node") {
+      expectArgs(node, "is_node", 1);
+      compile(node.args[0], out);
+      out.push(["IS_NODE"]);
+      return out;
+    }
+
+    if (name === "children") {
+      expectArgs(node, "children", 1);
+      compile(node.args[0], out);
+      out.push(["CHILDREN"]);
+      return out;
+    }
+
     if (compileBinaryOpCall(node, out, compile, LEGACY_BINARY_OPS, (target, op) => target.push([op]))) {
       return out;
     }

@@ -1,0 +1,8 @@
+(begin
+  (let o (obj "x" 1 "y" 2))
+  (let o2 (setp o "x" 9))
+  (if (eq (getp o2 "x") 9)
+    1
+    0
+  )
+)

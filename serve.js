@@ -177,6 +177,125 @@ function resolveWorkspacePath(file) {
   return abs;
 }
 
+function isPairList(value) {
+  if (!Array.isArray(value) || value.length % 2 !== 0) return false;
+  for (let i = 0; i < value.length; i += 2) {
+    if (typeof value[i] !== "string") return false;
+  }
+  return true;
+}
+
+function isSimlaObject(value) {
+  return !!value && typeof value === "object" && value.__simlaKind === "object" && value.props && typeof value.props === "object";
+}
+
+function isSimlaNode(value) {
+  return !!value && typeof value === "object" && value.__simlaKind === "node";
+}
+
+function pairsToObj(arr) {
+  const obj = {};
+  for (let i = 0; i < arr.length - 1; i += 2) {
+    if (typeof arr[i] === "string") obj[arr[i]] = arr[i + 1];
+  }
+  return obj;
+}
+
+function objectProps(value) {
+  if (isSimlaObject(value)) return value.props;
+  if (isPairList(value)) return pairsToObj(value);
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  return {};
+}
+
+function mergeTransform(inherited, local) {
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  return {
+    x: num(inherited.x) + num(local.x),
+    y: num(inherited.y) + num(local.y),
+    z: num(inherited.z) + num(local.z),
+    rotX: num(inherited.rotX) + num(local.rotX),
+    rotY: num(inherited.rotY) + num(local.rotY),
+    rotZ: num(inherited.rotZ) + num(local.rotZ)
+  };
+}
+
+function applyTransform(props, tf) {
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  return {
+    ...props,
+    x: num(props.x) + num(tf.x),
+    y: num(props.y) + num(tf.y),
+    z: num(props.z) + num(tf.z),
+    rotX: num(props.rotX) + num(tf.rotX),
+    rotY: num(props.rotY) + num(tf.rotY),
+    rotZ: num(props.rotZ) + num(tf.rotZ)
+  };
+}
+
+function normalizeScenePayload(payload) {
+  // tools/run_js_vm.js emits { result, state }, and scene value is under result.
+  const vmResult = payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
+  const out = [];
+
+  function walkNode(node, inheritedTf) {
+    const props = objectProps(node.props);
+    const nextTf = mergeTransform(inheritedTf, props);
+    if (props.type) out.push(applyTransform(props, inheritedTf));
+
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) {
+      if (isSimlaNode(child)) {
+        walkNode(child, nextTf);
+        continue;
+      }
+      if (isPairList(child)) {
+        out.push(pairsToObj(child));
+        continue;
+      }
+      if (isSimlaObject(child)) {
+        out.push({ ...child.props });
+        continue;
+      }
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        out.push(child);
+      }
+    }
+  }
+
+  if (Array.isArray(vmResult)) {
+    for (const item of vmResult) {
+      if (isSimlaNode(item)) {
+        walkNode(item, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+        continue;
+      }
+      if (isPairList(item)) {
+        out.push(pairsToObj(item));
+        continue;
+      }
+      if (isSimlaObject(item)) {
+        out.push({ ...item.props });
+        continue;
+      }
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        out.push(item);
+      }
+    }
+  } else if (isSimlaNode(vmResult)) {
+    walkNode(vmResult, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+  }
+
+  return out;
+}
+
 async function getAwObjectPath() {
   const data = await callAwBridge("world_info", { waitMs: 150 });
   let objectPath = String(data.objectPath || "").trim();
@@ -378,8 +497,17 @@ const server = http.createServer(async (req, res) => {
         encoding: "utf8"
       });
 
+      let parsed = null;
+      try {
+        parsed = JSON.parse(output);
+      } catch {
+        // Keep existing behavior if tool output is not JSON.
+      }
+
+      const normalized = parsed ? normalizeScenePayload(parsed) : [];
+
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(output.trim());
+      res.end(JSON.stringify(normalized));
     } catch (err) {
       console.error(err);
       res.writeHead(500, { "Content-Type": "application/json" });

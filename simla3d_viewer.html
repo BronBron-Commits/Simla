@@ -164,10 +164,110 @@
       }
     }
 
+    function isPairList(value) {
+      if (!Array.isArray(value) || value.length % 2 !== 0) return false;
+      for (let i = 0; i < value.length; i += 2) {
+        if (typeof value[i] !== "string") return false;
+      }
+      return true;
+    }
+
+    function isSimlaObject(value) {
+      return !!value && typeof value === "object" && value.__simlaKind === "object" && value.props && typeof value.props === "object";
+    }
+
+    function isSimlaNode(value) {
+      return !!value && typeof value === "object" && value.__simlaKind === "node";
+    }
+
     function pairsToObj(arr) {
       const obj = {};
-      for (let i = 0; i < arr.length - 1; i += 2) obj[arr[i]] = arr[i + 1];
+      for (let i = 0; i < arr.length - 1; i += 2) {
+        if (typeof arr[i] === "string") obj[arr[i]] = arr[i + 1];
+      }
       return obj;
+    }
+
+    function objectProps(value) {
+      if (isSimlaObject(value)) return value.props;
+      if (isPairList(value)) return pairsToObj(value);
+      if (value && typeof value === "object" && !Array.isArray(value)) return value;
+      return {};
+    }
+
+    function mergeTransform(inherited, local) {
+      return {
+        x: num(inherited.x) + num(local.x),
+        y: num(inherited.y) + num(local.y),
+        z: num(inherited.z) + num(local.z),
+        rotX: num(inherited.rotX) + num(local.rotX),
+        rotY: num(inherited.rotY) + num(local.rotY),
+        rotZ: num(inherited.rotZ) + num(local.rotZ)
+      };
+    }
+
+    function applyTransform(props, tf) {
+      return {
+        ...props,
+        x: num(props.x) + num(tf.x),
+        y: num(props.y) + num(tf.y),
+        z: num(props.z) + num(tf.z),
+        rotX: num(props.rotX) + num(tf.rotX),
+        rotY: num(props.rotY) + num(tf.rotY),
+        rotZ: num(props.rotZ) + num(tf.rotZ)
+      };
+    }
+
+    function normalizeSceneItems(payload) {
+      const root = payload && payload.result ? payload.result : payload;
+      const out = [];
+
+      function walkNode(node, inheritedTf) {
+        const props = objectProps(node.props);
+        const nextTf = mergeTransform(inheritedTf, props);
+        const emitted = props.type ? applyTransform(props, inheritedTf) : null;
+
+        if (emitted) out.push(emitted);
+
+        const children = Array.isArray(node.children) ? node.children : [];
+        for (const child of children) {
+          if (isSimlaNode(child)) {
+            walkNode(child, nextTf);
+            continue;
+          }
+          if (isPairList(child)) {
+            out.push(pairsToObj(child));
+            continue;
+          }
+          if (isSimlaObject(child)) {
+            out.push({ ...child.props });
+          }
+        }
+      }
+
+      if (Array.isArray(root)) {
+        for (const item of root) {
+          if (isSimlaNode(item)) {
+            walkNode(item, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+            continue;
+          }
+          if (isPairList(item)) {
+            out.push(pairsToObj(item));
+            continue;
+          }
+          if (isSimlaObject(item)) {
+            out.push({ ...item.props });
+            continue;
+          }
+          if (item && typeof item === "object" && !Array.isArray(item)) {
+            out.push(item);
+          }
+        }
+      } else if (isSimlaNode(root)) {
+        walkNode(root, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+      }
+
+      return out;
     }
 
     function disposeObj(obj) {
@@ -613,18 +713,15 @@
 
       try {
         const res = await fetch("/api/scene?file=examples/simla3d_demo.sim&cacheBust=" + Date.now());
-        const data = await res.json();
-
-        if (!Array.isArray(data)) throw new Error(JSON.stringify(data, null, 2));
+        const raw = await res.json();
+        const data = normalizeSceneItems(raw);
 
         clearRoot();
 
         let count = 0;
 
-        for (const item of data) {
-          if (!Array.isArray(item)) continue;
-
-          const o = pairsToObj(item);
+        for (const o of data) {
+          if (!o || typeof o !== "object") continue;
 
           if (o.type === "floor") addFloor(o);
           else if (o.type === "cube") addCube(o);

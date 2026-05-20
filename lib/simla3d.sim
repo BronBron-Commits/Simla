@@ -1,5 +1,6 @@
 (begin
   (let vec3 (fn (x y z) (list "vec3" x y z)))
+  (let vec3_t (fn (x y z) (vec3 x y z)))
   (let lerp (fn (a b t) (add a (mul (sub b a) t))))
   (let move_between
     (fn (startX startZ targetX targetZ progress)
@@ -98,5 +99,135 @@
     )
   )
 
+  (let primitive_node
+    (fn (props)
+      (node "primitive" props (list))
+    )
+  )
+
+  (let transform_node
+    (fn (x y z children)
+      (node "transform" (obj "x" x "y" y "z" z) children)
+    )
+  )
+
+  (let scene_group
+    (fn (children)
+      (node "group" (obj) children)
+    )
+  )
+
+  (let agent_t
+    (fn (id x z target color team)
+      (primitive_node
+        (obj
+          "type" "agent"
+          "id" id
+          "x" x
+          "y" 1
+          "z" z
+          "target" target
+          "color" color
+          "team" team
+        )
+      )
+    )
+  )
+
+  (let role_agent_t
+    (fn (id x z target color role team)
+      (primitive_node
+        (obj
+          "type" "agent"
+          "id" id
+          "x" x
+          "y" 1
+          "z" z
+          "target" target
+          "color" color
+          "role" role
+          "team" team
+        )
+      )
+    )
+  )
+
+  (let dragon_flight_t
+    (fn (id baseX baseZ phase scale colorA colorB team)
+      (primitive_node
+        (obj
+          "type" "dragon_flight"
+          "id" id
+          "baseX" baseX
+          "baseZ" baseZ
+          "phase" phase
+          "scale" scale
+          "colorA" colorA
+          "colorB" colorB
+          "team" team
+        )
+      )
+    )
+  )
+
+  (let location_t
+    (fn (id x z color)
+      (primitive_node
+        (obj "type" "location" "id" id "x" x "y" 0.08 "z" z "color" color)
+      )
+    )
+  )
+
+  (let floor_t
+    (fn (w d color)
+      (primitive_node
+        (obj "type" "floor" "id" "floor" "x" 0 "y" 0 "z" 0 "w" w "d" d "color" color)
+      )
+    )
+  )
+
+  (let light_t
+    (fn (id x y z intensity color)
+      (primitive_node
+        (obj "type" "light" "id" id "x" x "y" y "z" z "intensity" intensity "color" color)
+      )
+    )
+  )
+
+  (let camera_t
+    (fn (x y z tx ty tz)
+      (primitive_node
+        (obj "type" "camera" "id" "camera" "x" x "y" y "z" z "tx" tx "ty" ty "tz" tz)
+      )
+    )
+  )
+
+  (let block_t
+    (fn (id kind x y z)
+      (primitive_node
+        (obj
+          "type" "block"
+          "id" id
+          "kind" kind
+          "x" x
+          "y" y
+          "z" z
+          "w" 1
+          "h" 1
+          "d" 1
+        )
+      )
+    )
+  )
+
   (let scene (fn (objects) objects))
+  (let scene_typed (fn (children) (scene_group children)))
+  (let scene_auto
+    (fn (useTyped objects)
+      (if useTyped
+        (scene_typed objects)
+        (scene objects)
+      )
+    )
+  )
 )

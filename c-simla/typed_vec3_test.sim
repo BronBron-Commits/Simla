@@ -1,0 +1,8 @@
+(begin
+  (let v (vec3 1 2 3))
+  (if
+    (and (eq (kind v) "vec3") (eq (getp v "z") 3))
+    1
+    0
+  )
+)
