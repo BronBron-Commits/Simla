@@ -84,7 +84,7 @@ const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  1000
+  2000
 );
 
 camera.position.set(0, 45, 140);
@@ -106,16 +106,19 @@ const sun = new THREE.DirectionalLight(0xffffff, 2.0);
 sun.position.set(10,20,10);
 scene.add(sun);
 
-scene.add(new THREE.GridHelper(100,100));
+scene.add(new THREE.GridHelper(200,200));
 
 function prop(obj, key, fallback=null) {
 
   if (Array.isArray(obj)) {
+
     for (let i = 0; i < obj.length; i += 2) {
+
       if (obj[i] === key) {
         return obj[i + 1];
       }
     }
+
     return fallback;
   }
 
@@ -127,110 +130,345 @@ function prop(obj, key, fallback=null) {
 }
 
 function isPairList(value) {
-  if (!Array.isArray(value) || value.length % 2 !== 0) return false;
+
+  if (!Array.isArray(value)) return false;
+  if (value.length % 2 !== 0) return false;
+
   for (let i = 0; i < value.length; i += 2) {
-    if (typeof value[i] !== "string") return false;
+
+    if (typeof value[i] !== "string") {
+      return false;
+    }
   }
+
   return true;
 }
 
 function isSimlaObject(value) {
-  return !!value && typeof value === "object" && value.__simlaKind === "object" && value.props && typeof value.props === "object";
+
+  return (
+    !!value
+    && typeof value === "object"
+    && value.__simlaKind === "object"
+    && value.props
+  );
 }
 
 function isSimlaNode(value) {
-  return !!value && typeof value === "object" && value.__simlaKind === "node";
+
+  return (
+    !!value
+    && typeof value === "object"
+    && value.__simlaKind === "node"
+  );
 }
 
 function pairsToObj(arr) {
+
   const obj = {};
+
   for (let i = 0; i < arr.length - 1; i += 2) {
-    if (typeof arr[i] === "string") obj[arr[i]] = arr[i + 1];
+
+    if (typeof arr[i] === "string") {
+      obj[arr[i]] = arr[i + 1];
+    }
   }
+
   return obj;
 }
 
 function objectProps(value) {
-  if (isSimlaObject(value)) return value.props;
-  if (isPairList(value)) return pairsToObj(value);
-  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+
+  if (isSimlaObject(value)) {
+    return value.props;
+  }
+
+  if (isPairList(value)) {
+    return pairsToObj(value);
+  }
+
+  if (
+    value
+    && typeof value === "object"
+    && !Array.isArray(value)
+  ) {
+    return value;
+  }
+
   return {};
 }
 
 function mergeTransform(inherited, local) {
+
   return {
-    x: Number(inherited.x || 0) + Number(local.x || 0),
-    y: Number(inherited.y || 0) + Number(local.y || 0),
-    z: Number(inherited.z || 0) + Number(local.z || 0),
-    rotX: Number(inherited.rotX || 0) + Number(local.rotX || 0),
-    rotY: Number(inherited.rotY || 0) + Number(local.rotY || 0),
-    rotZ: Number(inherited.rotZ || 0) + Number(local.rotZ || 0)
+
+    x:
+      Number(inherited.x || 0)
+      + Number(local.x || 0),
+
+    y:
+      Number(inherited.y || 0)
+      + Number(local.y || 0),
+
+    z:
+      Number(inherited.z || 0)
+      + Number(local.z || 0),
+
+    rotX:
+      Number(inherited.rotX || 0)
+      + Number(local.rotX || 0),
+
+    rotY:
+      Number(inherited.rotY || 0)
+      + Number(local.rotY || 0),
+
+    rotZ:
+      Number(inherited.rotZ || 0)
+      + Number(local.rotZ || 0)
   };
 }
 
 function applyTransform(props, tf) {
+
   return {
+
     ...props,
-    x: Number(props.x || 0) + Number(tf.x || 0),
-    y: Number(props.y || 0) + Number(tf.y || 0),
-    z: Number(props.z || 0) + Number(tf.z || 0),
-    rotX: Number(props.rotX || 0) + Number(tf.rotX || 0),
-    rotY: Number(props.rotY || 0) + Number(tf.rotY || 0),
-    rotZ: Number(props.rotZ || 0) + Number(tf.rotZ || 0)
+
+    x:
+      Number(props.x || 0)
+      + Number(tf.x || 0),
+
+    y:
+      Number(props.y || 0)
+      + Number(tf.y || 0),
+
+    z:
+      Number(props.z || 0)
+      + Number(tf.z || 0),
+
+    rotX:
+      Number(props.rotX || 0)
+      + Number(tf.rotX || 0),
+
+    rotY:
+      Number(props.rotY || 0)
+      + Number(tf.rotY || 0),
+
+    rotZ:
+      Number(props.rotZ || 0)
+      + Number(tf.rotZ || 0)
   };
 }
 
 function normalizeSceneItems(payload) {
-  const rootValue = payload && payload.result ? payload.result : payload;
+
+  const rootValue =
+    payload && payload.result
+      ? payload.result
+      : payload;
+
   const out = [];
 
-  function walkNode(node, inheritedTf) {
-    const props = objectProps(node.props);
-    const nextTf = mergeTransform(inheritedTf, props);
+  function walkLegacyNode(node, inheritedTf) {
+
+    const props =
+      Array.isArray(node)
+        ? pairsToObj(node)
+        : node;
+
+    const nextTf =
+      mergeTransform(inheritedTf, props);
 
     if (props.type) {
-      out.push(applyTransform(props, inheritedTf));
+
+      out.push(
+        applyTransform(props, inheritedTf)
+      );
     }
 
-    const children = Array.isArray(node.children) ? node.children : [];
+    const children =
+      Array.isArray(props.children)
+        ? props.children
+        : [];
+
     for (const child of children) {
+
+      if (Array.isArray(child)) {
+
+        walkLegacyNode(
+          pairsToObj(child),
+          nextTf
+        );
+
+        continue;
+      }
+
+      if (
+        child
+        && typeof child === "object"
+      ) {
+
+        walkLegacyNode(
+          child,
+          nextTf
+        );
+      }
+    }
+  }
+
+  function walkNode(node, inheritedTf) {
+
+    const props =
+      objectProps(node.props);
+
+    const nextTf =
+      mergeTransform(inheritedTf, props);
+
+    if (props.type) {
+
+      out.push(
+        applyTransform(props, inheritedTf)
+      );
+    }
+
+    const children =
+      Array.isArray(node.children)
+        ? node.children
+        : [];
+
+    for (const child of children) {
+
       if (isSimlaNode(child)) {
+
         walkNode(child, nextTf);
         continue;
       }
+
       if (isPairList(child)) {
-        out.push(pairsToObj(child));
+
+        walkLegacyNode(child, nextTf);
+
         continue;
       }
+
       if (isSimlaObject(child)) {
-        out.push({ ...child.props });
+
+        out.push(
+          applyTransform(
+            child.props,
+            nextTf
+          )
+        );
       }
     }
   }
 
   if (Array.isArray(rootValue)) {
+
     for (const item of rootValue) {
+
       if (isSimlaNode(item)) {
-        walkNode(item, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+
+        walkNode(
+          item,
+          {
+            x:0,
+            y:0,
+            z:0,
+            rotX:0,
+            rotY:0,
+            rotZ:0
+          }
+        );
+
         continue;
       }
+
       if (isPairList(item)) {
-        out.push(pairsToObj(item));
+
+        walkLegacyNode(
+          item,
+          {
+            x:0,
+            y:0,
+            z:0,
+            rotX:0,
+            rotY:0,
+            rotZ:0
+          }
+        );
+
         continue;
       }
+
+      if (
+        item
+        && typeof item === "object"
+        && item.children
+      ) {
+
+        walkLegacyNode(
+          item,
+          {
+            x:0,
+            y:0,
+            z:0,
+            rotX:0,
+            rotY:0,
+            rotZ:0
+          }
+        );
+
+        continue;
+      }
+
       if (isSimlaObject(item)) {
-        out.push({ ...item.props });
+
+        out.push(
+          { ...item.props }
+        );
+
         continue;
       }
-      if (item && typeof item === "object" && !Array.isArray(item)) {
+
+      if (
+        item
+        && typeof item === "object"
+        && !Array.isArray(item)
+      ) {
         out.push(item);
       }
     }
-  } else if (isSimlaNode(rootValue)) {
-    walkNode(rootValue, { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 });
+  }
+
+  else if (isSimlaNode(rootValue)) {
+
+    walkNode(
+      rootValue,
+      {
+        x:0,
+        y:0,
+        z:0,
+        rotX:0,
+        rotY:0,
+        rotZ:0
+      }
+    );
   }
 
   return out;
+}
+
+function makeMaterial(o) {
+
+  return new THREE.MeshStandardMaterial({
+
+    color: new THREE.Color(
+      prop(o, "r", 255) / 255,
+      prop(o, "g", 255) / 255,
+      prop(o, "b", 255) / 255
+    )
+  });
 }
 
 function addCube(o) {
@@ -241,246 +479,116 @@ function addCube(o) {
     prop(o, "sz", prop(o, "size", 1))
   );
 
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(
-      prop(o, "r", 255) / 255,
-      prop(o, "g", 255) / 255,
-      prop(o, "b", 255) / 255
-    )
-  });
+  const mesh =
+    new THREE.Mesh(
+      geo,
+      makeMaterial(o)
+    );
 
-  const mesh = new THREE.Mesh(geo, mat);
-
-  const group = new THREE.Group();
-
-  group.position.set(
+  mesh.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  group.rotation.set(
+  mesh.rotation.set(
     prop(o, "rotX", 0),
     prop(o, "rotY", 0),
     prop(o, "rotZ", 0)
   );
 
-  mesh.position.set(
-    prop(o, "localX", 0),
-    prop(o, "localY", 0),
-    prop(o, "localZ", 0)
-  );
-
-  group.add(mesh);
-
-  scene.add(group);
+  scene.add(mesh);
 }
 
 function addSphere(o) {
 
-  const geo = new THREE.SphereGeometry(
-    prop(o, "radius", 1),
-    32,
-    16
-  );
+  const geo =
+    new THREE.SphereGeometry(
+      prop(o, "radius", 1),
+      32,
+      16
+    );
 
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(
-      prop(o, "r", 255) / 255,
-      prop(o, "g", 255) / 255,
-      prop(o, "b", 255) / 255
-    )
-  });
+  const mesh =
+    new THREE.Mesh(
+      geo,
+      makeMaterial(o)
+    );
 
-  const mesh = new THREE.Mesh(geo, mat);
-
-  const group = new THREE.Group();
-
-  group.position.set(
+  mesh.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  group.rotation.set(
-    prop(o, "rotX", 0),
-    prop(o, "rotY", 0),
-    prop(o, "rotZ", 0)
-  );
-
-  mesh.position.set(
-    prop(o, "localX", 0),
-    prop(o, "localY", 0),
-    prop(o, "localZ", 0)
-  );
-
-  group.add(mesh);
-
-  scene.add(group);
+  scene.add(mesh);
 }
 
 function addCylinder(o) {
 
-  const geo = new THREE.CylinderGeometry(
-    prop(o, "radiusTop", 1),
-    prop(o, "radiusBottom", 1),
-    prop(o, "height", 2),
-    24
-  );
+  const geo =
+    new THREE.CylinderGeometry(
+      prop(o, "radiusTop", 1),
+      prop(o, "radiusBottom", 1),
+      prop(o, "height", 2),
+      24
+    );
 
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(
-      prop(o, "r", 255) / 255,
-      prop(o, "g", 255) / 255,
-      prop(o, "b", 255) / 255
-    )
-  });
+  const mesh =
+    new THREE.Mesh(
+      geo,
+      makeMaterial(o)
+    );
 
-  const mesh = new THREE.Mesh(geo, mat);
-
-  const group = new THREE.Group();
-
-  group.position.set(
+  mesh.position.set(
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
   );
 
-  group.rotation.set(
-    prop(o, "rotX", 0),
-    prop(o, "rotY", 0),
-    prop(o, "rotZ", 0)
-  );
-
-  mesh.position.set(
-    prop(o, "localX", 0),
-    prop(o, "localY", 0),
-    prop(o, "localZ", 0)
-  );
-
-  group.add(mesh);
-
-  scene.add(group);
+  scene.add(mesh);
 }
 
 async function loadScene() {
 
-  const params = new URLSearchParams(location.search);
+  const params =
+    new URLSearchParams(location.search);
 
   const sceneFile =
     params.get("file")
     || "examples/building/primitive_world.sim";
 
   const res = await fetch(
-    "/api/scene?file=" + encodeURIComponent(sceneFile)
+    "/api/scene?file="
+    + encodeURIComponent(sceneFile)
   );
 
   const raw = await res.json();
-  const objects = normalizeSceneItems(raw);
 
-  
+  console.log("RAW", raw);
 
-    function isPrimitive(node) {
+  const objects =
+    normalizeSceneItems(raw);
 
-      return (
-        Array.isArray(node)
-        && node.includes("type")
-      );
-    }
-
-    function mergeTransform(parent, node) {
-
-      return {
-
-        x:
-          (parent.x || 0)
-          + prop(node, "x", 0),
-
-        y:
-          (parent.y || 0)
-          + prop(node, "y", 0),
-
-        z:
-          (parent.z || 0)
-          + prop(node, "z", 0)
-      };
-    }
-
-    function applyTransform(node, t) {
-
-      const out = [...node];
-
-      function setProp(k, v) {
-
-        const i = out.indexOf(k);
-
-        if (i >= 0) out[i + 1] = v;
-        else out.push(k, v);
-      }
-
-      setProp("x", t.x || 0);
-      setProp("y", t.y || 0);
-      setProp("z", t.z || 0);
-
-      return out;
-    }
-
-    function renderNode(node, parentTransform = {}) {
-
-      if (!node) return;
-
-      if (isPrimitive(node)) {
-
-        const finalNode =
-          applyTransform(
-            node,
-            mergeTransform(parentTransform, node)
-          );
-
-        const type = prop(finalNode, "type");
-
-
-        console.log(
-          "RENDERING",
-          type,
-          finalNode
-        );
-
-
-        if (type === "cube") addCube(finalNode);
-        else if (type === "sphere") addSphere(finalNode);
-        else if (type === "cylinder") addCylinder(finalNode);
-
-        return;
-      }
-
-      if (Array.isArray(node)) {
-
-        if (node.includes("children")) {
-
-          const idx =
-            node.indexOf("children");
-
-          const children =
-            node[idx + 1];
-
-          const localTransform =
-            mergeTransform(parentTransform, node);
-
-          renderNode(children, localTransform);
-
-          return;
-        }
-
-        for (const child of node) {
-          renderNode(child, parentTransform);
-        }
-      }
-    }
+  console.log(
+    "NORMALIZED OBJECTS",
+    objects
+  );
 
   for (const o of objects) {
-    renderNode(o);
-  }
+
+    const type =
+      prop(o, "type");
+
+    console.log(
+      "DRAW",
+      type,
+      o
+    );
+
+    if (type === "cube") {
+      addCube(o);
+    }
 
     else if (type === "sphere") {
       addSphere(o);
@@ -496,19 +604,36 @@ await loadScene();
 
 const moveInput = { x:0, y:0 };
 const lookInput = { x:0, y:0 };
+const keyState = {
+  w: false,
+  a: false,
+  s: false,
+  d: false
+};
+
+const hud = document.getElementById("hud");
+
+hud.innerHTML = [
+  "Simla Primitive Sandbox",
+  "Click to lock mouse",
+  "WASD to move"
+].join("<br>");
 
 function setupJoystick(zoneId, knobId, state) {
 
-  const zone = document.getElementById(zoneId);
-  const knob = document.getElementById(knobId);
+  const zone =
+    document.getElementById(zoneId);
+
+  const knob =
+    document.getElementById(knobId);
 
   let active = false;
 
-  zone.addEventListener("touchstart", e => {
+  zone.addEventListener("touchstart", () => {
     active = true;
   });
 
-  zone.addEventListener("touchend", e => {
+  zone.addEventListener("touchend", () => {
 
     active = false;
 
@@ -521,37 +646,120 @@ function setupJoystick(zoneId, knobId, state) {
 
   zone.addEventListener("touchmove", e => {
 
+    e.preventDefault();
+
     if (!active) return;
 
-    const rect = zone.getBoundingClientRect();
+    const rect =
+      zone.getBoundingClientRect();
 
     const touch = e.touches[0];
 
-    const x = touch.clientX - rect.left - 70;
-    const y = touch.clientY - rect.top - 70;
+    const x =
+      touch.clientX
+      - rect.left
+      - 70;
 
-    const dist = Math.min(
-      90,
-      Math.hypot(x,y)
-    );
+    const y =
+      touch.clientY
+      - rect.top
+      - 70;
 
-    const ang = Math.atan2(y,x);
+    const dist =
+      Math.min(
+        90,
+        Math.hypot(x,y)
+      );
 
-    const dx = Math.cos(ang) * dist;
-    const dy = Math.sin(ang) * dist;
+    const ang =
+      Math.atan2(y,x);
 
-    knob.style.left = (76 + dx) + "px";
-    knob.style.top = (76 + dy) + "px";
+    const dx =
+      Math.cos(ang) * dist;
+
+    const dy =
+      Math.sin(ang) * dist;
+
+    knob.style.left =
+      (76 + dx) + "px";
+
+    knob.style.top =
+      (76 + dy) + "px";
 
     state.x = dx / 90;
     state.y = dy / 90;
-
   });
-
 }
 
-setupJoystick("moveZone", "moveKnob", moveInput);
-setupJoystick("lookZone", "lookKnob", lookInput);
+setupJoystick(
+  "moveZone",
+  "moveKnob",
+  moveInput
+);
+
+setupJoystick(
+  "lookZone",
+  "lookKnob",
+  lookInput
+);
+
+renderer.domElement.addEventListener("click", () => {
+
+  if (document.pointerLockElement !== renderer.domElement) {
+    renderer.domElement.requestPointerLock();
+  }
+});
+
+document.addEventListener("pointerlockchange", () => {
+
+  if (document.pointerLockElement === renderer.domElement) {
+
+    hud.innerHTML = [
+      "Simla Primitive Sandbox",
+      "Mouse look active (Esc to unlock)",
+      "WASD to move"
+    ].join("<br>");
+  }
+
+  else {
+
+    hud.innerHTML = [
+      "Simla Primitive Sandbox",
+      "Click to lock mouse",
+      "WASD to move"
+    ].join("<br>");
+  }
+});
+
+document.addEventListener("mousemove", e => {
+
+  if (document.pointerLockElement !== renderer.domElement) {
+    return;
+  }
+
+  yaw -= e.movementX * 0.0022;
+  pitch -= e.movementY * 0.0018;
+});
+
+window.addEventListener("keydown", e => {
+
+  const key = e.key.toLowerCase();
+
+  if (key === "w") keyState.w = true;
+  if (key === "a") keyState.a = true;
+  if (key === "s") keyState.s = true;
+  if (key === "d") keyState.d = true;
+});
+
+window.addEventListener("keyup", e => {
+
+  const key = e.key.toLowerCase();
+
+  if (key === "w") keyState.w = false;
+  if (key === "a") keyState.a = false;
+  if (key === "s") keyState.s = false;
+  if (key === "d") keyState.d = false;
+});
 
 let yaw = 0;
 let pitch = -0.3;
@@ -559,7 +767,8 @@ let pitch = -0.3;
 window.addEventListener("resize", () => {
 
   camera.aspect =
-    window.innerWidth / window.innerHeight;
+    window.innerWidth
+    / window.innerHeight;
 
   camera.updateProjectionMatrix();
 
@@ -581,25 +790,41 @@ function animate() {
     Math.min(1.5, pitch)
   );
 
-  const forward = new THREE.Vector3(
-    Math.sin(yaw),
-    0,
-    Math.cos(yaw)
-  ).normalize();
+  const forward =
+    new THREE.Vector3(
+      Math.sin(yaw),
+      0,
+      Math.cos(yaw)
+    ).normalize();
 
-  const right = new THREE.Vector3(
-    forward.z,
-    0,
-    -forward.x
-  ).normalize();
+  const right =
+    new THREE.Vector3(
+      forward.z,
+      0,
+      -forward.x
+    ).normalize();
 
   const moveSpeed = 0.15;
 
+  let keyX = 0;
+  let keyY = 0;
+
+  if (keyState.w) keyY -= 1;
+  if (keyState.s) keyY += 1;
+  if (keyState.a) keyX -= 1;
+  if (keyState.d) keyX += 1;
+
+  const totalX =
+    Math.max(-1, Math.min(1, moveInput.x + keyX));
+
+  const totalY =
+    Math.max(-1, Math.min(1, moveInput.y + keyY));
+
   const moveForward =
-    -moveInput.y * moveSpeed;
+    -totalY * moveSpeed;
 
   const moveRight =
-    -moveInput.x * moveSpeed;
+    -totalX * moveSpeed;
 
   camera.position.x +=
     forward.x * moveForward +
