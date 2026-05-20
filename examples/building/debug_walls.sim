@@ -1,0 +1,27 @@
+(let room-size 12)
+
+(let make-walls
+  (fn (cx cz)
+
+    (map
+      (fn (x)
+
+        (if (lt x 2)
+
+          (list)
+
+          (list
+            "type" "cube"
+            "x" (+ cx x)
+            "y" 1
+            "z" cz
+          )
+        )
+      )
+
+      (range 0 5)
+    )
+  )
+)
+
+(make-walls 0 0)

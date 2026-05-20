@@ -1,0 +1,9 @@
+(map
+  (fn (x)
+    (list
+      "type" "cube"
+      "x" x
+    )
+  )
+  (range 0 5)
+)

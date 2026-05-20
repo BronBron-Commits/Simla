@@ -1,0 +1,16 @@
+(map
+  (fn (x)
+
+    (if (lt x 2)
+
+      (list)
+
+      (list
+        "type" "cube"
+        "x" x
+      )
+    )
+  )
+
+  (range 0 5)
+)

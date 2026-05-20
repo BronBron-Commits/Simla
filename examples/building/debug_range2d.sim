@@ -1,0 +1,27 @@
+(let range2d
+  (fn (x1 x2 z1 z2)
+
+    (reduce
+      (fn (acc z)
+
+        (concat
+          acc
+
+          (map
+            (fn (x)
+              (list x z)
+            )
+
+            (range x1 x2)
+          )
+        )
+      )
+
+      (list)
+
+      (range z1 z2)
+    )
+  )
+)
+
+(range2d -2 3 -2 3)

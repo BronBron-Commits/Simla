@@ -1,0 +1,23 @@
+(begin
+
+  (let make-corridor-floor
+    (fn (x1 x2 z)
+
+      (map
+        (fn (x)
+
+          (list
+            "type" "cube"
+            "x" x
+            "y" 0
+            "z" z
+          )
+        )
+
+        (range x1 x2)
+      )
+    )
+  )
+
+  (make-corridor-floor 0 5 0)
+)

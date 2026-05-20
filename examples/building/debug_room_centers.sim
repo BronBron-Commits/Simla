@@ -1,0 +1,50 @@
+(let range2d
+  (fn (x1 x2 z1 z2)
+
+    (reduce
+      (fn (acc z)
+
+        (concat
+          acc
+
+          (map
+            (fn (x)
+              (list x z)
+            )
+
+            (range x1 x2)
+          )
+        )
+      )
+
+      (list)
+
+      (range z1 z2)
+    )
+  )
+)
+
+(let room-spacing 24)
+
+(map
+  (fn (p)
+
+    (let gx (get p 0))
+    (let gz (get p 1))
+
+    (list
+      "type" "cube"
+      "x" (mul gx room-spacing)
+      "y" 0
+      "z" (mul gz room-spacing)
+      "sx" 4
+      "sy" 4
+      "sz" 4
+      "r" 255
+      "g" 0
+      "b" 0
+    )
+  )
+
+  (range2d -1 2 -1 2)
+)

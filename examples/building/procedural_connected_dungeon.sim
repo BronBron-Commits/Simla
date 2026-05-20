@@ -1,0 +1,108 @@
+(let room-spacing 24)
+
+(let range2d
+  (fn (x1 x2 z1 z2)
+
+    (reduce
+      (fn (acc z)
+
+        (concat
+          acc
+
+          (map
+            (fn (x)
+              (list x z)
+            )
+
+            (range x1 x2)
+          )
+        )
+      )
+
+      (list)
+
+      (range z1 z2)
+    )
+  )
+)
+
+(let make-room
+
+  (fn (cx cz)
+
+    (map
+      (fn (p)
+
+        (let x (get p 0))
+        (let z (get p 1))
+
+        (list
+          "type" "cube"
+
+          "x" (add cx x)
+          "y" 0
+          "z" (add cz z)
+
+          "sx" 2
+          "sy" 1
+          "sz" 2
+
+          "r" 80
+          "g" 80
+          "b" 90
+        )
+      )
+
+      (range2d -4 5 -4 5)
+    )
+  )
+)
+
+(let make-corridor
+
+  (fn (x1 x2 z)
+
+    (map
+      (fn (x)
+
+        (list
+          "type" "cube"
+
+          "x" x
+          "y" 0
+          "z" z
+
+          "sx" 2
+          "sy" 1
+          "sz" 2
+
+          "r" 120
+          "g" 100
+          "b" 70
+        )
+      )
+
+      (range x1 x2)
+    )
+  )
+)
+
+(concat
+
+  (concat
+    (concat
+      (make-room -24 -24)
+      (make-room  24 -24)
+    )
+
+    (concat
+      (make-room -24 24)
+      (make-room  24 24)
+    )
+  )
+
+  (concat
+    (make-corridor -24 24 -24)
+    (make-corridor -24 24 24)
+  )
+)

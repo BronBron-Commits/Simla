@@ -378,7 +378,99 @@ async function loadScene() {
   const raw = await res.json();
   const objects = normalizeSceneItems(raw);
 
-  for (const o of objects) {
+  
+
+    function isPrimitive(node) {
+
+      return (
+        Array.isArray(node)
+        && node.includes("type")
+      );
+    }
+
+    function mergeTransform(parent, node) {
+
+      return {
+
+        x:
+          (parent.x || 0)
+          + prop(node, "x", 0),
+
+        y:
+          (parent.y || 0)
+          + prop(node, "y", 0),
+
+        z:
+          (parent.z || 0)
+          + prop(node, "z", 0)
+      };
+    }
+
+    function applyTransform(node, t) {
+
+      const out = [...node];
+
+      function setProp(k, v) {
+
+        const i = out.indexOf(k);
+
+        if (i >= 0) out[i + 1] = v;
+        else out.push(k, v);
+      }
+
+      setProp("x", t.x || 0);
+      setProp("y", t.y || 0);
+      setProp("z", t.z || 0);
+
+      return out;
+    }
+
+    function renderNode(node, parentTransform = {}) {
+
+      if (!node) return;
+
+      if (isPrimitive(node)) {
+
+        const finalNode =
+          applyTransform(
+            node,
+            mergeTransform(parentTransform, node)
+          );
+
+        const type = prop(finalNode, "type");
+
+        if (type === "cube") addCube(finalNode);
+        else if (type === "sphere") addSphere(finalNode);
+        else if (type === "cylinder") addCylinder(finalNode);
+
+        return;
+      }
+
+      if (Array.isArray(node)) {
+
+        if (node.includes("children")) {
+
+          const idx =
+            node.indexOf("children");
+
+          const children =
+            node[idx + 1];
+
+          const localTransform =
+            mergeTransform(parentTransform, node);
+
+          renderNode(children, localTransform);
+
+          return;
+        }
+
+        for (const child of node) {
+          renderNode(child, parentTransform);
+        }
+      }
+    }
+
+for (const o of objects) {
 
     const type = prop(o, "type");
 

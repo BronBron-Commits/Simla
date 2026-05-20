@@ -1,3 +1,9 @@
+
+import { trace } from "../runtime/debug.js";
+
+const VM_TRACE =
+  process.env.SIMLA_TRACE === "1";
+
 let GLOBAL_ENV = null;
 
 function makeEnv(parent = null) {
@@ -6,11 +12,18 @@ function makeEnv(parent = null) {
 
 function lookup(env, name) {
   let cur = env;
+
   while (cur) {
-    if (name in cur.vars) return cur.vars[name];
+    if (name in cur.vars) {
+      return cur.vars[name];
+    }
+
     cur = cur.parent;
   }
-  return 0;
+
+  throw new Error(
+    "[VM] Undefined symbol: " + name
+  );
 }
 
 function isSimlaObject(value) {
@@ -127,7 +140,13 @@ function exec(code, env) {
   const stack = [];
   let ip = 0;
 
-  while (ip < code.length) {
+  
+while (ip < code.length) {
+
+      if (VM_TRACE) {
+        trace(ip, code[ip], stack);
+      }
+
     const [op, a, b] = code[ip++];
 
     switch (op) {
@@ -632,7 +651,22 @@ case "LIST": {
           const fn = stack.pop();
 
           if (!fn || !Array.isArray(fn.params)) {
-            throw new Error("Tried to call non-function");
+            console.error("\n=== CALL FAILURE ===");
+            console.error("VALUE:");
+            console.error(fn);
+
+            console.error("\nSTACK:");
+            console.error(
+              JSON.stringify(
+                stack,
+                null,
+                2
+              )
+            );
+
+            throw new Error(
+              "Tried to call non-function"
+            );
           }
 
           const newEnv = makeEnv(fn.closure);
@@ -804,7 +838,13 @@ function execSharedBytecode(code, owner, vars, trace = null, depth = 0) {
   const lists = [];
   let ip = 0;
 
-  while (ip < code.length) {
+  
+while (ip < code.length) {
+
+      if (VM_TRACE) {
+        trace(ip, code[ip], stack);
+      }
+
     const currentIp = ip;
     const ins = code[ip++];
 
