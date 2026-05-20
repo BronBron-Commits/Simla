@@ -100,13 +100,175 @@ renderer.setSize(
 
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
 
-const sun = new THREE.DirectionalLight(0xffffff, 2.0);
-sun.position.set(10,20,10);
-scene.add(sun);
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+sunLight.position.set(10, 20, 10);
+scene.add(sunLight);
 
-scene.add(new THREE.GridHelper(200,200));
+scene.add(new THREE.GridHelper(200, 200));
+
+// Sun and Moon objects
+const sunGeometry = new THREE.SphereGeometry(100, 32, 32);
+const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
+const sunObject = new THREE.Mesh(sunGeometry, sunMaterial);
+scene.add(sunObject);
+
+const moonGeometry = new THREE.SphereGeometry(80, 32, 32);
+const moonMaterial = new THREE.MeshStandardMaterial({ 
+  color: 0xdddddd,
+  roughness: 0.8,
+  metalness: 0
+});
+const moonObject = new THREE.Mesh(moonGeometry, moonMaterial);
+scene.add(moonObject);
+
+// Day-night cycle time (0 to 1, where 0=midnight, 0.5=noon)
+let cycleTime = 0.3; // Start at morning
+
+function updateSkyForTime(time) {
+  // time goes 0 to 1 for full day cycle
+  // 0 = midnight (dark), 0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 1 = back to midnight
+  
+  let r, g, b;
+  
+  if (time < 0.25) {
+    // Night to sunrise (dark blue to orange)
+    const t = time / 0.25;
+    r = Math.floor(10 + (200 - 10) * t);
+    g = Math.floor(10 + (150 - 10) * t);
+    b = Math.floor(20 + (80 - 20) * t);
+  } else if (time < 0.5) {
+    // Sunrise to noon (orange to blue)
+    const t = (time - 0.25) / 0.25;
+    r = Math.floor(200 + (0 - 200) * t);
+    g = Math.floor(150 + (102 - 150) * t);
+    b = Math.floor(80 + (204 - 80) * t);
+  } else if (time < 0.75) {
+    // Noon to sunset (blue to orange)
+    const t = (time - 0.5) / 0.25;
+    r = Math.floor(0 + (180 - 0) * t);
+    g = Math.floor(102 + (100 - 102) * t);
+    b = Math.floor(204 + (50 - 204) * t);
+  } else {
+    // Sunset to night (orange to dark)
+    const t = (time - 0.75) / 0.25;
+    r = Math.floor(180 + (10 - 180) * t);
+    g = Math.floor(100 + (10 - 100) * t);
+    b = Math.floor(50 + (20 - 50) * t);
+  }
+  
+  return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) };
+}
+
+function generateSkyTextureForTime(time) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  
+  const skyColor = updateSkyForTime(time);
+  
+  // Create equirectangular sky texture
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  for (let y = 0; y < canvas.height; y++) {
+    const lat = (y / canvas.height) * Math.PI;
+    const v = lat / Math.PI;
+    
+    // Gradient from sky color at top to lighter at horizon
+    let r = Math.floor(skyColor.r * (1 - v * 0.3));
+    let g = Math.floor(skyColor.g * (1 - v * 0.3));
+    let b = Math.floor(skyColor.b + (255 - skyColor.b) * v * 0.3);
+    
+    for (let x = 0; x < canvas.width; x++) {
+      const idx = (y * canvas.width + x) * 4;
+      
+      // Add clouds with better distribution
+      const cloudDensity = Math.sin(x * 0.01 + y * 0.005) * 0.5 + 0.5;
+      const cloudNoise = Math.sin(x * 0.002) * Math.cos(y * 0.003) * 0.3;
+      const cloudAmount = cloudDensity * cloudNoise;
+      
+      if (v > 0.15 && v < 0.75 && cloudAmount > 0.2) {
+        const cloudOpacity = Math.max(0, (cloudAmount - 0.2) * 0.15);
+        data[idx] = Math.min(255, r + (255 - r) * cloudOpacity);
+        data[idx + 1] = Math.min(255, g + (255 - g) * cloudOpacity);
+        data[idx + 2] = Math.min(255, b + (255 - b) * cloudOpacity);
+      } else {
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+      }
+      
+      data[idx + 3] = 255;
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
+const skyboxGeometry = new THREE.SphereGeometry(1500, 32, 32);
+const skyboxMaterial = new THREE.MeshBasicMaterial({ 
+  map: generateSkyTextureForTime(0.3), 
+  side: THREE.BackSide 
+});
+const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+scene.add(skybox);
+
+// 3D floating clouds
+const clouds = [];
+
+function createCloud(x, y, z, scale) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  
+  const cloudMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xcccccc,
+    roughness: 0.8,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.7,
+  });
+  
+  // Create cloud from overlapping spheres
+  for (let i = 0; i < 6; i++) {
+    const sphereGeo = new THREE.SphereGeometry(scale * (0.5 + Math.random() * 0.5), 16, 16);
+    const sphere = new THREE.Mesh(sphereGeo, cloudMaterial);
+    
+    const angle = (i / 6) * Math.PI * 2;
+    sphere.position.x = Math.cos(angle) * scale * 0.6;
+    sphere.position.y = Math.sin(angle * 0.5) * scale * 0.4;
+    sphere.position.z = Math.sin(angle) * scale * 0.6;
+    
+    group.add(sphere);
+  }
+  
+  scene.add(group);
+  
+  return {
+    mesh: group,
+    speed: 0.05 + Math.random() * 0.05,
+    direction: Math.random() * Math.PI * 2,
+    yVariation: (Math.random() - 0.5) * 0.02
+  };
+}
+
+// Create several clouds at different heights
+for (let i = 0; i < 6; i++) {
+  const x = (Math.random() - 0.5) * 800;
+  const y = 200 + Math.random() * 400;
+  const z = (Math.random() - 0.5) * 800;
+  const scale = 30 + Math.random() * 50;
+  clouds.push(createCloud(x, y, z, scale));
+}
 
 function prop(obj, key, fallback=null) {
 
@@ -403,16 +565,97 @@ function normalizeSceneItems(payload) {
   return out;
 }
 
+function generateFacadeTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  
+  const ctx = canvas.getContext("2d");
+  
+  // Base color (concrete/brick)
+  ctx.fillStyle = "#8B8680";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add subtle noise
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 20;
+    data[i] += noise;
+    data[i + 1] += noise;
+    data[i + 2] += noise;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  
+  // Window grid
+  const windowSize = 16;
+  const gap = 4;
+  
+  for (let row = 0; row < 256 / (windowSize + gap); row++) {
+    for (let col = 0; col < 256 / (windowSize + gap); col++) {
+      const x = col * (windowSize + gap) + 2;
+      const y = row * (windowSize + gap) + 2;
+      
+      // Random window light (80% chance lit)
+      const isLit = Math.random() < 0.8;
+      ctx.fillStyle = isLit ? "#FFE5B4" : "#1a1a1a";
+      ctx.fillRect(x, y, windowSize - 2, windowSize - 2);
+      
+      // Window frame (dark)
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, windowSize - 2, windowSize - 2);
+      
+      // Vertical mullion
+      ctx.strokeRect(x + (windowSize - 2) * 0.5, y, 0.5, windowSize - 2);
+    }
+  }
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  return texture;
+}
+
 function makeMaterial(o) {
 
-  return new THREE.MeshStandardMaterial({
-
+  const baseConfig = {
     color: new THREE.Color(
       prop(o, "r", 255) / 255,
       prop(o, "g", 255) / 255,
       prop(o, "b", 255) / 255
-    )
-  });
+    ),
+    roughness: prop(o, "roughness", 0.8),
+    metalness: prop(o, "metallic", 0),
+  };
+
+  const emissiveValue = prop(o, "emissive", null);
+  if (emissiveValue !== null) {
+    if (typeof emissiveValue === "string") {
+      baseConfig.emissive = new THREE.Color(emissiveValue);
+    } else {
+      const em = emissiveValue;
+      baseConfig.emissive = new THREE.Color(em / 255 || 0, em / 255 || 0, em / 255 || 0);
+    }
+  }
+
+  // Apply building facade texture to tall structures
+  const isTall = prop(o, "sy", 1) > 5 || prop(o, "sy", 1) / prop(o, "sx", 1) > 1.5;
+  
+  if (isTall && !prop(o, "noTexture", false)) {
+    const facadeMat = new THREE.MeshStandardMaterial({
+      ...baseConfig,
+      map: generateFacadeTexture()
+    });
+    
+    const roofMat = new THREE.MeshStandardMaterial(baseConfig);
+    
+    // Material array: [right, left, top, bottom, front, back]
+    // Top (index 2) gets flat roof, others get facade
+    return [facadeMat, facadeMat, roofMat, facadeMat, facadeMat, facadeMat];
+  }
+
+  return new THREE.MeshStandardMaterial(baseConfig);
 }
 
 function addCube(o) {
@@ -837,6 +1080,13 @@ window.addEventListener("keydown", e => {
   if (key === "a") keyState.a = true;
   if (key === "s") keyState.s = true;
   if (key === "d") keyState.d = true;
+  if (key === " ") {
+    e.preventDefault();
+    if (isOnGround) {
+      playerVelocityY = JUMP_FORCE;
+      isOnGround = false;
+    }
+  }
 });
 
 window.addEventListener("keyup", e => {
@@ -851,6 +1101,28 @@ window.addEventListener("keyup", e => {
 
 let yaw = 0;
 let pitch = -0.3;
+
+// Player physics
+let playerVelocityY = 0;
+const GRAVITY = 0.03;
+const PLAYER_HEIGHT = 20;
+const FLOOR_Y = PLAYER_HEIGHT / 2; // Bottom of capsule at ground level
+const JUMP_FORCE = 0.8;
+let isOnGround = false;
+
+// Create player capsule visualization
+const capsuleGeometry = new THREE.CapsuleGeometry(8, 20, 4, 8);
+const capsuleMaterial = new THREE.MeshStandardMaterial({ 
+  color: 0x00aa00,
+  roughness: 0.5,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.6
+});
+const playerCapsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
+playerCapsule.castShadow = true;
+playerCapsule.receiveShadow = true;
+scene.add(playerCapsule);
 
 window.addEventListener("resize", () => {
 
@@ -877,6 +1149,19 @@ function animate() {
     -1.5,
     Math.min(1.5, pitch)
   );
+
+  // Apply gravity
+  playerVelocityY -= GRAVITY;
+  camera.position.y += playerVelocityY;
+
+  // Floor collision
+  if (camera.position.y < FLOOR_Y) {
+    camera.position.y = FLOOR_Y;
+    playerVelocityY = 0;
+    isOnGround = true;
+  } else {
+    isOnGround = false;
+  }
 
   const forward =
     new THREE.Vector3(
@@ -927,6 +1212,86 @@ function animate() {
     camera.position.y + pitch,
     camera.position.z + Math.cos(yaw)
   );
+
+  // Keep skybox centered on camera
+  skybox.position.copy(camera.position);
+
+  // Update day-night cycle
+  cycleTime += 0.0001; // Slow day-night cycle
+  if (cycleTime >= 1) cycleTime -= 1;
+  
+  // Position sun and moon
+  const sunAngle = cycleTime * Math.PI * 2; // 0 = east, PI = west
+  const sunDistance = 1000;
+  const sunHeight = Math.sin(sunAngle - Math.PI / 2) * sunDistance + 500; // Oscillates +/- 1000 around 500
+  
+  sunObject.position.x = Math.cos(sunAngle) * sunDistance;
+  sunObject.position.y = sunHeight;
+  sunObject.position.z = Math.sin(sunAngle) * sunDistance * 0.5;
+  
+  // Moon is opposite sun
+  const moonAngle = sunAngle + Math.PI;
+  moonObject.position.x = Math.cos(moonAngle) * sunDistance;
+  moonObject.position.y = Math.sin(moonAngle - Math.PI / 2) * sunDistance + 500;
+  moonObject.position.z = Math.sin(moonAngle) * sunDistance * 0.5;
+  
+  // Update sun color based on time
+  let sunColor = 0xffdd00; // Bright yellow at noon
+  if (cycleTime < 0.25) {
+    // Night to sunrise - orange
+    sunColor = 0xff8800;
+  } else if (cycleTime < 0.35) {
+    // Sunrise - orange to yellow
+    const t = (cycleTime - 0.25) / 0.1;
+    sunColor = new THREE.Color().lerpColors(new THREE.Color(0xff8800), new THREE.Color(0xffdd00), t).getHex();
+  } else if (cycleTime < 0.65) {
+    // Day - bright yellow
+    sunColor = 0xffdd00;
+  } else if (cycleTime < 0.75) {
+    // Sunset - yellow to orange
+    const t = (cycleTime - 0.65) / 0.1;
+    sunColor = new THREE.Color().lerpColors(new THREE.Color(0xffdd00), new THREE.Color(0xff8800), t).getHex();
+  } else {
+    // Night - orange red
+    sunColor = 0xff4400;
+  }
+  sunMaterial.color.setHex(sunColor);
+  
+  // Update directional light to follow sun and change intensity
+  sunLight.position.copy(sunObject.position);
+  const lightIntensity = Math.max(0.2, Math.sin(sunAngle) + 0.5); // 0.2 at night, 1.5 at noon
+  sunLight.intensity = lightIntensity * 2;
+  ambientLight.intensity = Math.max(0.1, lightIntensity * 0.5);
+  
+  // Update skybox texture based on time
+  skyboxMaterial.map = generateSkyTextureForTime(cycleTime);
+  skyboxMaterial.map.needsUpdate = true;
+
+  // Update player capsule position and orientation
+  playerCapsule.position.copy(camera.position);
+  playerCapsule.position.y -= PLAYER_HEIGHT / 2; // Center capsule on camera
+  playerCapsule.rotation.order = "YXZ";
+  playerCapsule.rotation.y = yaw;
+  playerCapsule.rotation.x = pitch;
+
+  // Animate clouds
+  const time = Date.now() * 0.0001;
+  for (let i = 0; i < clouds.length; i++) {
+    const cloud = clouds[i];
+    const cloudTime = time + i * 10;
+    
+    // Circular movement pattern
+    cloud.mesh.position.x = Math.cos(cloudTime * cloud.speed) * 400 + (i % 3 - 1) * 200;
+    cloud.mesh.position.z = Math.sin(cloudTime * cloud.speed * 0.7) * 400 + Math.floor(i / 3) * 300 - 300;
+    
+    // Gentle up-down bobbing
+    cloud.mesh.position.y += cloud.yVariation;
+    if (cloud.mesh.position.y < 100) cloud.yVariation = Math.abs(cloud.yVariation);
+    if (cloud.mesh.position.y > 600) cloud.yVariation = -Math.abs(cloud.yVariation);
+    
+    // Slow rotation
+    cloud.mesh.rotation.y += 0.0001;
+  }
 
   renderer.render(scene, camera);
 }
