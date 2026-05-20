@@ -1,0 +1,279 @@
+(begin
+
+  ;; ====================================
+  ;; CONFIG
+  ;; ====================================
+
+  (let roomCount 12)
+  (let tileSize 2)
+
+  ;; ====================================
+  ;; ROOM GENERATION
+  ;; ====================================
+
+  (let rooms
+
+    (map
+
+      (fn (i)
+
+        (list
+          "x" (sub (mul (mod i 4) 18) 24)
+          "z" (sub (mul (div i 4) 18) 24)
+          "w" 10
+          "h" 10
+        )
+
+      )
+
+      (range 0 roomCount)
+
+    )
+
+  )
+
+  ;; ====================================
+  ;; ROOM FLOOR TILES
+  ;; ====================================
+
+  (let floorTiles
+
+    (flatten
+
+      (map
+
+        (fn (room)
+
+          (let rx (get room "x"))
+          (let rz (get room "z"))
+          (let rw (get room "w"))
+          (let rh (get room "h"))
+
+          (flatten
+
+            (map
+
+              (fn (tx)
+
+                (map
+
+                  (fn (tz)
+
+                    (list
+                      "type" "cube"
+
+                      "x" (mul (add rx tx) tileSize)
+                      "y" -1
+                      "z" (mul (add rz tz) tileSize)
+
+                      "sx" tileSize
+                      "sy" 0.5
+                      "sz" tileSize
+
+                      "r" 70
+                      "g" 70
+                      "b" 80
+                    )
+
+                  )
+
+                  (range 0 rh)
+
+                )
+
+              )
+
+              (range 0 rw)
+
+            )
+
+          )
+
+        )
+
+        rooms
+
+      )
+
+    )
+
+  )
+
+  ;; ====================================
+  ;; WALLS
+  ;; ====================================
+
+  (let walls
+
+    (flatten
+
+      (map
+
+        (fn (room)
+
+          (let rx (get room "x"))
+          (let rz (get room "z"))
+          (let rw (get room "w"))
+          (let rh (get room "h"))
+
+          (concat
+
+            ;; north/south walls
+            (flatten
+
+              (map
+
+                (fn (i)
+
+                  (list
+
+                    (list
+                      "type" "cube"
+
+                      "x" (mul (add rx i) tileSize)
+                      "y" 2
+                      "z" (mul rz tileSize)
+
+                      "sx" tileSize
+                      "sy" 5
+                      "sz" 1
+
+                      "r" 120
+                      "g" 120
+                      "b" 130
+                    )
+
+                    (list
+                      "type" "cube"
+
+                      "x" (mul (add rx i) tileSize)
+                      "y" 2
+                      "z" (mul (add rz rh) tileSize)
+
+                      "sx" tileSize
+                      "sy" 5
+                      "sz" 1
+
+                      "r" 120
+                      "g" 120
+                      "b" 130
+                    )
+
+                  )
+
+                )
+
+                (range 0 rw)
+
+              )
+
+            )
+
+            ;; east/west walls
+            (flatten
+
+              (map
+
+                (fn (i)
+
+                  (list
+
+                    (list
+                      "type" "cube"
+
+                      "x" (mul rx tileSize)
+                      "y" 2
+                      "z" (mul (add rz i) tileSize)
+
+                      "sx" 1
+                      "sy" 5
+                      "sz" tileSize
+
+                      "r" 120
+                      "g" 120
+                      "b" 130
+                    )
+
+                    (list
+                      "type" "cube"
+
+                      "x" (mul (add rx rw) tileSize)
+                      "y" 2
+                      "z" (mul (add rz i) tileSize)
+
+                      "sx" 1
+                      "sy" 5
+                      "sz" tileSize
+
+                      "r" 120
+                      "g" 120
+                      "b" 130
+                    )
+
+                  )
+
+                )
+
+                (range 0 rh)
+
+              )
+
+            )
+
+          )
+
+        )
+
+        rooms
+
+      )
+
+    )
+
+  )
+
+  ;; ====================================
+  ;; TORCHES
+  ;; ====================================
+
+  (let torches
+
+    (map
+
+      (fn (room)
+
+        (list
+          "type" "sphere"
+
+          "x" (mul (get room "x") tileSize)
+          "y" 3
+          "z" (mul (get room "z") tileSize)
+
+          "sx" 0.8
+          "sy" 0.8
+          "sz" 0.8
+
+          "r" 255
+          "g" 180
+          "b" 40
+        )
+
+      )
+
+      rooms
+
+    )
+
+  )
+
+  ;; ====================================
+  ;; FINAL SCENE
+  ;; ====================================
+
+  (concat
+    floorTiles
+    walls
+    torches
+  )
+
+)

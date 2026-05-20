@@ -1,0 +1,85 @@
+(begin
+
+  (let spacing 1.0)
+
+  (list
+
+    "objects"
+
+    (concat
+
+      (list
+
+        (list
+          "type" "cube"
+
+          "x" 0
+          "y" -1
+          "z" -12
+
+          "sx" 220
+          "sy" 1
+          "sz" 220
+
+          "r" 70
+          "g" 70
+          "b" 70
+        )
+
+      )
+
+      (reduce
+
+        (fn (acc i)
+
+          (let z (mul i (mul spacing -1)))
+
+          (concat
+
+            acc
+
+            (list
+
+              (list
+                "type" "cube"
+                "x" -6
+                "y" 2
+                "z" z
+                "sx" 1.2
+                "sy" 5
+                "sz" 1.2
+                "r" 180
+                "g" 180
+                "b" 190
+              )
+
+              (list
+                "type" "cube"
+                "x" 6
+                "y" 2
+                "z" z
+                "sx" 1.2
+                "sy" 5
+                "sz" 1.2
+                "r" 180
+                "g" 180
+                "b" 190
+              )
+
+            )
+
+          )
+
+        )
+
+        (list)
+
+        (range 0 32)
+
+      )
+
+    )
+
+  )
+
+)

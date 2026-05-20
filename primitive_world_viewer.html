@@ -263,12 +263,16 @@ async function loadScene() {
     "/api/scene?file=" + encodeURIComponent(sceneFile)
   );
 
-  const data = await res.json();
+  const raw = await res.json();
+
+  const data = raw && raw.result ? raw.result : raw;
 
   const objects =
-    Array.isArray(data) && data[0] === "objects"
-      ? data[1]
-      : [];
+    Array.isArray(data)
+      ? data
+      : Array.isArray(data?.result)
+        ? data.result
+        : []; 
 
   for (const o of objects) {
 

@@ -21,7 +21,7 @@ function parse(tokens) {
       // 🔥 FIX:
       // only treat as CALL if it clearly has arguments
       if (
-        elements.length > 1 &&
+        elements.length >= 1 &&
         elements[0].type === "identifier"
       ) {
         return {

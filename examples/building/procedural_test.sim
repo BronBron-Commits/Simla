@@ -1,0 +1,45 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (reduce
+
+      (range 0 3)
+
+      (list)
+
+      (fn (acc i)
+
+        (concat
+
+          acc
+
+          (list
+
+            (list
+              "type" "cube"
+
+              "x" (mul i 3)
+              "y" 1
+              "z" 0
+
+              "size" 1
+
+              "r" 255
+              "g" 80
+              "b" 80
+            )
+
+          )
+
+        )
+
+      )
+
+    )
+
+  )
+
+)

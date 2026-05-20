@@ -116,20 +116,29 @@ case "LIST": {
         break;
       }
 
-      case "FN":
-        stack.push({ params: a, body: b, closure: env });
-        break;
+      case "FN": {
+          stack.push({ params: a, body: b, closure: env });
+          break;
+        }
 
       case "MAP": {
-        const fn = stack.pop();
-        const list = stack.pop();
+          const fn = stack.pop();
+          const list = stack.pop();
 
         if (!Array.isArray(list)) {
           stack.push([]);
           break;
         }
 
-        const result = [];
+        if (!fn || !Array.isArray(fn.params)) {
+            throw new Error("MAP expected function");
+          }
+
+          if (!fn || !Array.isArray(fn.params)) {
+            throw new Error("MAP expected function");
+          }
+
+          const result = [];
 
         for (const item of list) {
           const newEnv = makeEnv(fn.closure);
@@ -289,7 +298,6 @@ case "LIST": {
 
       case "DEBUG": {
         const value = stack.pop();
-        console.log("DEBUG", JSON.stringify(value));
         stack.push(value);
         break;
       }

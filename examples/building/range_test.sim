@@ -1,0 +1,11 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (debug (range 0 5))
+
+  )
+
+)

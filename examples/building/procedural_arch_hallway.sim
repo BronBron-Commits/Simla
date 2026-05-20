@@ -1,0 +1,182 @@
+(begin
+
+  (let hallwayCount 24)
+  (let hallwaySpacing 1.2)
+
+  (let archRadius 6)
+  (let archSegments 20)
+
+  (list
+
+    "objects"
+
+    (concat
+
+      ;; ====================================
+      ;; FLOOR
+      ;; ====================================
+
+      (list
+
+        (list
+          "type" "cube"
+
+          "x" 0
+          "y" -1
+          "z" -18
+
+          "sx" 220
+          "sy" 1
+          "sz" 220
+
+          "r" 70
+          "g" 70
+          "b" 70
+        )
+
+      )
+
+      ;; ====================================
+      ;; GENERATED HALLWAY
+      ;; ====================================
+
+      (reduce
+
+        (fn (hall i)
+
+          (let z (mul i (mul hallwaySpacing -1)))
+
+          (concat
+
+            hall
+
+            ;; ==============================
+            ;; one arch module
+            ;; ==============================
+
+            (concat
+
+              ;; supports
+
+              (list
+
+                (list
+                  "type" "cube"
+
+                  "x" -6
+                  "y" 2
+                  "z" z
+
+                  "sx" 1.2
+                  "sy" 5
+                  "sz" 1.2
+
+                  "r" 180
+                  "g" 180
+                  "b" 190
+                )
+
+                (list
+                  "type" "cube"
+
+                  "x" 6
+                  "y" 2
+                  "z" z
+
+                  "sx" 1.2
+                  "sy" 5
+                  "sz" 1.2
+
+                  "r" 180
+                  "g" 180
+                  "b" 190
+                )
+
+              )
+
+              ;; ============================
+              ;; generated arch curve
+              ;; ============================
+
+              (reduce
+
+                (fn (acc s)
+
+                  (let t (div s archSegments))
+
+                  (let theta
+                    (sub
+                      (mul t 3.14159)
+                      1.57079
+                    )
+                  )
+
+                  (let x
+                    (mul
+                      (cos theta)
+                      archRadius
+                    )
+                  )
+
+                  (let y
+                    (mul
+                      (sin theta)
+                      archRadius
+                    )
+                  )
+
+                  (concat
+
+                    acc
+
+                    (list
+
+                      (list
+
+                        "type" "cube"
+
+                        "x" x
+                        "y" (add y 8)
+                        "z" z
+
+                        "sx" 1.1
+                        "sy" 0.42
+                        "sz" 1
+
+                        "rotZ" theta
+
+                        "r" 230
+                        "g" 230
+                        "b" 240
+
+                      )
+
+                    )
+
+                  )
+
+                )
+
+                (list)
+
+                (range 0 archSegments)
+
+              )
+
+            )
+
+          )
+
+        )
+
+        (list)
+
+        (range 0 hallwayCount)
+
+      )
+
+    )
+
+  )
+
+)
