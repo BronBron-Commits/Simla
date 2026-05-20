@@ -1,0 +1,124 @@
+(let make-building
+  (fn (x z w h d r g b)
+
+    (list
+      "x" x
+      "y" 0
+      "z" z
+
+      "children"
+
+      (list
+
+        ;; main tower
+        (list
+          "type" "cube"
+          "x" 0
+          "y" h
+          "z" 0
+          "sx" w
+          "sy" h
+          "sz" d
+          "r" r
+          "g" g
+          "b" b
+        )
+
+        ;; roof
+        (list
+          "type" "cube"
+          "x" 0
+          "y" (add h h)
+          "z" 0
+          "sx" (sub w 1)
+          "sy" 1
+          "sz" (sub d 1)
+          "r" (add r 20)
+          "g" (add g 20)
+          "b" (add b 20)
+        )
+
+        ;; left arch pillar
+        (list
+          "type" "cube"
+          "x" (sub 0 (div w 2))
+          "y" 2
+          "z" (add d 2)
+          "sx" 1
+          "sy" 4
+          "sz" 1
+          "r" 160
+          "g" 140
+          "b" 110
+        )
+
+        ;; right arch pillar
+        (list
+          "type" "cube"
+          "x" (div w 2)
+          "y" 2
+          "z" (add d 2)
+          "sx" 1
+          "sy" 4
+          "sz" 1
+          "r" 160
+          "g" 140
+          "b" 110
+        )
+
+        ;; arch top
+        (list
+          "type" "cube"
+          "x" 0
+          "y" 5
+          "z" (add d 2)
+          "sx" w
+          "sy" 1
+          "sz" 1
+          "r" 190
+          "g" 170
+          "b" 130
+        )
+      )
+    )
+  )
+)
+
+(list
+
+  ;; center plaza
+  (list
+    "type" "cube"
+    "x" 0
+    "y" -1
+    "z" 0
+    "sx" 120
+    "sy" 1
+    "sz" 120
+    "r" 45
+    "g" 45
+    "b" 55
+  )
+
+  ;; north row
+  (make-building -40 -30 8 10 8 70 90 140)
+  (make-building -20 -30 10 14 10 90 120 180)
+  (make-building   0 -30 12 18 12 80 110 160)
+  (make-building  20 -30 10 13 10 100 100 170)
+  (make-building  40 -30 8 9 8 70 130 170)
+
+  ;; south row
+  (make-building -40 30 8 8 8 130 90 90)
+  (make-building -20 30 10 12 10 140 100 100)
+  (make-building   0 30 12 20 12 150 120 110)
+  (make-building  20 30 10 11 10 120 80 120)
+  (make-building  40 30 8 9 8 100 70 140)
+
+  ;; east towers
+  (make-building 60 0 14 26 14 90 90 160)
+  (make-building 85 0 10 18 10 70 70 130)
+
+  ;; west towers
+  (make-building -60 0 14 24 14 140 110 90)
+  (make-building -85 0 10 17 10 120 100 80)
+)

@@ -87,7 +87,7 @@ const camera = new THREE.PerspectiveCamera(
   1000
 );
 
-camera.position.set(10, 8, 12);
+camera.position.set(0, 45, 140);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true
@@ -439,6 +439,14 @@ async function loadScene() {
 
         const type = prop(finalNode, "type");
 
+
+        console.log(
+          "RENDERING",
+          type,
+          finalNode
+        );
+
+
         if (type === "cube") addCube(finalNode);
         else if (type === "sphere") addSphere(finalNode);
         else if (type === "cylinder") addCylinder(finalNode);
@@ -470,13 +478,9 @@ async function loadScene() {
       }
     }
 
-for (const o of objects) {
-
-    const type = prop(o, "type");
-
-    if (type === "cube") {
-      addCube(o);
-    }
+  for (const o of objects) {
+    renderNode(o);
+  }
 
     else if (type === "sphere") {
       addSphere(o);

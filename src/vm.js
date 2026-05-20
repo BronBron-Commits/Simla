@@ -820,10 +820,7 @@ function run(bytecode, input = {}) {
 
   const result = exec(bytecode, GLOBAL_ENV);
 
-  return {
-    result,
-    state: GLOBAL_ENV.vars
-  };
+  return result;
 }
 
 function emitSharedTrace(trace, depth, ip, ins, stack) {
