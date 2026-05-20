@@ -73,9 +73,20 @@ Simla Primitive Sandbox
   <div id="lookKnob" class="knob"></div>
 </div>
 
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+  }
+}
+</script>
+
 <script type="module">
 
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202530);
@@ -87,7 +98,15 @@ const camera = new THREE.PerspectiveCamera(
   2000
 );
 
-camera.position.set(0, 45, 140);
+
+// Initial character position
+let characterPosition = new THREE.Vector3(0, 5, 0);
+let characterVelocityY = 0;
+
+
+// Camera offset settings
+const CAMERA_DISTANCE = 8;
+const CAMERA_HEIGHT = 3;
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true
@@ -107,7 +126,55 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
 sunLight.position.set(10, 20, 10);
 scene.add(sunLight);
 
-scene.add(new THREE.GridHelper(200, 200));
+// Procedural asphalt texture
+function generateAsphaltTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  
+  // Base dark asphalt color
+  ctx.fillStyle = "#2a2a2a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add noise and texture
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    // Random dark noise
+    const noise = (Math.random() - 0.5) * 40;
+    data[i] += noise;
+    data[i + 1] += noise;
+    data[i + 2] += noise;
+    
+    // Occasional lighter spots (gravel/aggregate)
+    if (Math.random() < 0.15) {
+      const brightness = Math.random() * 60 + 40;
+      data[i] += brightness;
+      data[i + 1] += brightness;
+      data[i + 2] += brightness;
+    }
+    
+    // Occasional dark streaks
+    if (Math.random() < 0.05) {
+      const darkness = Math.random() * 30;
+      data[i] -= darkness;
+      data[i + 1] -= darkness;
+      data[i + 2] -= darkness;
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(4, 4); // Tile the texture
+  return texture;
+}
 
 // Sun and Moon objects
 const sunGeometry = new THREE.SphereGeometry(100, 32, 32);
@@ -617,6 +684,78 @@ function generateFacadeTexture() {
   return texture;
 }
 
+// Procedural brick texture
+function generateBrickTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  
+  const brickWidth = 32;
+  const brickHeight = 16;
+  const mortarThickness = 1;
+  
+  for (let row = 0; row < canvas.height; row += brickHeight + mortarThickness) {
+    // Offset every other row
+    const offset = (Math.floor(row / (brickHeight + mortarThickness)) % 2) * (brickWidth / 2);
+    
+    for (let col = -brickWidth; col < canvas.width + brickWidth; col += brickWidth + mortarThickness) {
+      const x = col + offset;
+      const y = row;
+      
+      // Brick base color with variation
+      const brickBase = 190 + Math.floor(Math.random() * 40);
+      const brickGreen = 80 + Math.floor(Math.random() * 30);
+      const brickBlue = 60 + Math.floor(Math.random() * 30);
+      
+      ctx.fillStyle = `rgb(${brickBase}, ${brickGreen}, ${brickBlue})`;
+      ctx.fillRect(x, y, brickWidth, brickHeight);
+      
+      // Add subtle texture variation
+      const imageData = ctx.getImageData(x, y, brickWidth, brickHeight);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 30;
+        data[i] = Math.max(0, Math.min(255, data[i] + noise));
+        data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise * 0.5));
+        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise * 0.3));
+      }
+      ctx.putImageData(imageData, x, y);
+    }
+  }
+  
+  // Draw mortar lines
+  ctx.strokeStyle = "#c4a57b";
+  ctx.lineWidth = mortarThickness;
+  
+  // Horizontal mortar
+  for (let row = brickHeight; row < canvas.height; row += brickHeight + mortarThickness) {
+    ctx.beginPath();
+    ctx.moveTo(0, row);
+    ctx.lineTo(canvas.width, row);
+    ctx.stroke();
+  }
+  
+  // Vertical mortar
+  for (let row = 0; row < canvas.height; row += brickHeight + mortarThickness) {
+    const offset = (Math.floor(row / (brickHeight + mortarThickness)) % 2) * (brickWidth / 2);
+    for (let col = brickWidth + offset; col < canvas.width + brickWidth; col += brickWidth + mortarThickness) {
+      ctx.beginPath();
+      ctx.moveTo(col, row);
+      ctx.lineTo(col, row + brickHeight);
+      ctx.stroke();
+    }
+  }
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 2);
+  return texture;
+}
+
 function makeMaterial(o) {
 
   const baseConfig = {
@@ -639,8 +778,19 @@ function makeMaterial(o) {
     }
   }
 
+  // Detect ground/plaza (flat, large surface)
+  const sx = prop(o, "sx", prop(o, "size", 1));
+  const sy = prop(o, "sy", prop(o, "size", 1));
+  const sz = prop(o, "sz", prop(o, "size", 1));
+  const isGround = sy < 2 && sx > 20 && sz > 20;
+  
+  if (isGround) {
+    const groundConfig = { ...baseConfig, map: generateAsphaltTexture() };
+    return new THREE.MeshStandardMaterial(groundConfig);
+  }
+
   // Apply building facade texture to tall structures
-  const isTall = prop(o, "sy", 1) > 5 || prop(o, "sy", 1) / prop(o, "sx", 1) > 1.5;
+  const isTall = sy > 5 || sy / sx > 1.5;
   
   if (isTall && !prop(o, "noTexture", false)) {
     const facadeMat = new THREE.MeshStandardMaterial({
@@ -653,6 +803,14 @@ function makeMaterial(o) {
     // Material array: [right, left, top, bottom, front, back]
     // Top (index 2) gets flat roof, others get facade
     return [facadeMat, facadeMat, roofMat, facadeMat, facadeMat, facadeMat];
+  }
+
+  // Apply brick texture to arches and other marked elements
+  if (prop(o, "noTexture", false)) {
+    return new THREE.MeshStandardMaterial({
+      ...baseConfig,
+      map: generateBrickTexture()
+    });
   }
 
   return new THREE.MeshStandardMaterial(baseConfig);
@@ -1105,24 +1263,53 @@ let pitch = -0.3;
 // Player physics
 let playerVelocityY = 0;
 const GRAVITY = 0.03;
-const PLAYER_HEIGHT = 20;
+const PLAYER_HEIGHT = 5;
 const FLOOR_Y = PLAYER_HEIGHT / 2; // Bottom of capsule at ground level
 const JUMP_FORCE = 0.8;
 let isOnGround = false;
 
-// Create player capsule visualization
-const capsuleGeometry = new THREE.CapsuleGeometry(8, 20, 4, 8);
-const capsuleMaterial = new THREE.MeshStandardMaterial({ 
-  color: 0x00aa00,
-  roughness: 0.5,
-  metalness: 0.2,
-  transparent: true,
-  opacity: 0.6
+// Load player character model
+let playerCharacter = null;
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/libs/draco/');
+
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
+loader.load('newcharacter_compressed.glb', (gltf) => {
+  playerCharacter = gltf.scene;
+  playerCharacter.scale.set(0.125, 0.125, 0.125); // Scale down character even further
+  scene.add(playerCharacter);
+
+  // Find skeleton and collect all neck/head bones for rig demo
+  playerCharacter.rigBones = [];
+  playerCharacter.lastHeadBone = null;
+  playerCharacter.neckBone = null;
+  playerCharacter.hipBone = null;
+  playerCharacter.traverse((obj) => {
+    if (obj.isSkinnedMesh && obj.skeleton) {
+      for (const bone of obj.skeleton.bones) {
+        const name = bone.name.toLowerCase();
+        if (!playerCharacter.hipBone && (name.includes('hip') || name === 'root' || name === 'root1')) {
+          playerCharacter.hipBone = bone;
+        }
+        if (name.includes('neck')) {
+          playerCharacter.neckBone = bone;
+        }
+        if (name.includes('head')) {
+          playerCharacter.lastHeadBone = bone;
+        }
+        if (name.includes('head') || name.includes('neck')) {
+          playerCharacter.rigBones.push(bone);
+        }
+        // Log all bone names for debugging
+        console.log('Bone:', bone.name);
+      }
+    }
+  });
+  if (!playerCharacter.lastHeadBone && !playerCharacter.neckBone) {
+    console.warn('No head/neck bone found. See bone names above.');
+  }
 });
-const playerCapsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
-playerCapsule.castShadow = true;
-playerCapsule.receiveShadow = true;
-scene.add(playerCapsule);
 
 window.addEventListener("resize", () => {
 
@@ -1138,83 +1325,97 @@ window.addEventListener("resize", () => {
   );
 });
 
-function animate() {
 
+function animate() {
   requestAnimationFrame(animate);
 
   yaw -= lookInput.x * 0.03;
   pitch -= lookInput.y * 0.02;
+  pitch = Math.max(-1.5, Math.min(1.5, pitch));
 
-  pitch = Math.max(
-    -1.5,
-    Math.min(1.5, pitch)
-  );
+  // Movement directions
+  const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+  const right = new THREE.Vector3(forward.z, 0, -forward.x).normalize();
+  const moveSpeed = 0.15;
+
+  let keyX = 0, keyY = 0;
+  if (keyState.w) keyY -= 1;
+  if (keyState.s) keyY += 1;
+  if (keyState.a) keyX -= 1;
+  if (keyState.d) keyX += 1;
+  const totalX = Math.max(-1, Math.min(1, moveInput.x + keyX));
+  const totalY = Math.max(-1, Math.min(1, moveInput.y + keyY));
+  const moveForward = -totalY * moveSpeed;
+  const moveRight = -totalX * moveSpeed;
+
+  // Apply movement to character
+  characterPosition.x += forward.x * moveForward + right.x * moveRight;
+  characterPosition.z += forward.z * moveForward + right.z * moveRight;
 
   // Apply gravity
-  playerVelocityY -= GRAVITY;
-  camera.position.y += playerVelocityY;
+  characterVelocityY -= GRAVITY;
+  characterPosition.y += characterVelocityY;
 
   // Floor collision
-  if (camera.position.y < FLOOR_Y) {
-    camera.position.y = FLOOR_Y;
-    playerVelocityY = 0;
+  if (characterPosition.y < FLOOR_Y) {
+    characterPosition.y = FLOOR_Y;
+    characterVelocityY = 0;
     isOnGround = true;
   } else {
     isOnGround = false;
   }
 
-  const forward =
-    new THREE.Vector3(
-      Math.sin(yaw),
-      0,
-      Math.cos(yaw)
-    ).normalize();
-
-  const right =
-    new THREE.Vector3(
-      forward.z,
-      0,
-      -forward.x
-    ).normalize();
-
-  const moveSpeed = 0.15;
-
-  let keyX = 0;
-  let keyY = 0;
-
-  if (keyState.w) keyY -= 1;
-  if (keyState.s) keyY += 1;
-  if (keyState.a) keyX -= 1;
-  if (keyState.d) keyX += 1;
-
-  const totalX =
-    Math.max(-1, Math.min(1, moveInput.x + keyX));
-
-  const totalY =
-    Math.max(-1, Math.min(1, moveInput.y + keyY));
-
-  const moveForward =
-    -totalY * moveSpeed;
-
-  const moveRight =
-    -totalX * moveSpeed;
-
-  camera.position.x +=
-    forward.x * moveForward +
-    right.x * moveRight;
-
-  camera.position.z +=
-    forward.z * moveForward +
-    right.z * moveRight;
-
-  camera.lookAt(
-    camera.position.x + Math.sin(yaw),
-    camera.position.y + pitch,
-    camera.position.z + Math.cos(yaw)
-  );
+  // Camera follows behind and above character
+  camera.position.x = characterPosition.x - Math.sin(yaw) * CAMERA_DISTANCE;
+  camera.position.y = characterPosition.y + CAMERA_HEIGHT;
+  camera.position.z = characterPosition.z - Math.cos(yaw) * CAMERA_DISTANCE;
+  // Look at head bone if available, else at character
+  if (playerCharacter && playerCharacter.lastHeadBone) {
+    // Get world position of head bone
+    playerCharacter.updateMatrixWorld(true);
+    const headWorldPos = new THREE.Vector3();
+    playerCharacter.lastHeadBone.getWorldPosition(headWorldPos);
+    camera.lookAt(headWorldPos);
+  } else {
+    camera.lookAt(characterPosition.x, characterPosition.y + 1, characterPosition.z);
+  }
 
   // Keep skybox centered on camera
   skybox.position.copy(camera.position);
+
+  // Update player character position and rotation
+  if (playerCharacter) {
+    playerCharacter.position.copy(characterPosition);
+
+    // Do NOT rotate the character root at all!
+    // Instead, apply yaw to the hip/root bone if available
+
+    if (playerCharacter.hipBone) {
+      playerCharacter.hipBone.rotation.x = 0;
+      playerCharacter.hipBone.rotation.z = 0;
+      playerCharacter.hipBone.rotation.y = yaw;
+    }
+
+    // Rig demo: reset and rotate all neck/head bones
+    if (playerCharacter.rigBones && playerCharacter.rigBones.length > 0) {
+      for (const bone of playerCharacter.rigBones) {
+        bone.rotation.x = 0;
+        bone.rotation.y = 0;
+        bone.rotation.z = 0;
+      }
+      // Apply pitch to last head bone, and a fraction to neck (only X axis)
+      if (playerCharacter.lastHeadBone) {
+        playerCharacter.lastHeadBone.rotation.x = pitch;
+        playerCharacter.lastHeadBone.rotation.y = 0;
+        playerCharacter.lastHeadBone.rotation.z = 0;
+      }
+      if (playerCharacter.neckBone) {
+        playerCharacter.neckBone.rotation.x = pitch * 0.4;
+        playerCharacter.neckBone.rotation.y = 0;
+        playerCharacter.neckBone.rotation.z = 0;
+      }
+    }
+  }
 
   // Update day-night cycle
   cycleTime += 0.0001; // Slow day-night cycle
@@ -1267,12 +1468,12 @@ function animate() {
   skyboxMaterial.map = generateSkyTextureForTime(cycleTime);
   skyboxMaterial.map.needsUpdate = true;
 
-  // Update player capsule position and orientation
-  playerCapsule.position.copy(camera.position);
-  playerCapsule.position.y -= PLAYER_HEIGHT / 2; // Center capsule on camera
-  playerCapsule.rotation.order = "YXZ";
-  playerCapsule.rotation.y = yaw;
-  playerCapsule.rotation.x = pitch;
+  // Update player character rotation
+  if (playerCharacter) {
+    playerCharacter.rotation.order = "YXZ";
+    playerCharacter.rotation.y = yaw;
+    playerCharacter.rotation.x = pitch;
+  }
 
   // Animate clouds
   const time = Date.now() * 0.0001;
