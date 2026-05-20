@@ -198,66 +198,127 @@ function objectProps(value) {
   return {};
 }
 
-function mergeTransform(inherited, local) {
+function num(value, fallback=0) {
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function extractNodeProps(node) {
+
+  if (isSimlaNode(node)) {
+    return objectProps(node.props);
+  }
+
+  if (isSimlaObject(node)) {
+    return objectProps(node.props);
+  }
+
+  if (isPairList(node)) {
+    return pairsToObj(node);
+  }
+
+  if (
+    node
+    && typeof node === "object"
+    && !Array.isArray(node)
+  ) {
+    return node;
+  }
+
+  return {};
+}
+
+function extractNodeChildren(node, props) {
+
+  if (isSimlaNode(node)) {
+
+    return Array.isArray(node.children)
+      ? node.children
+      : [];
+  }
+
+  return Array.isArray(props.children)
+    ? props.children
+    : [];
+}
+
+function readNodeTransform(props) {
+
+  const tf = objectProps(prop(props, "transform", null));
+
+  const uniformScale =
+    num(
+      prop(tf, "scale", prop(props, "scale", 1)),
+      1
+    );
 
   return {
 
-    x:
-      Number(inherited.x || 0)
-      + Number(local.x || 0),
+    x: num(prop(tf, "x", prop(props, "x", 0))),
+    y: num(prop(tf, "y", prop(props, "y", 0))),
+    z: num(prop(tf, "z", prop(props, "z", 0))),
 
-    y:
-      Number(inherited.y || 0)
-      + Number(local.y || 0),
+    rotX: num(
+      prop(tf, "rotX", prop(tf, "rx", prop(props, "rotX", 0)))
+    ),
 
-    z:
-      Number(inherited.z || 0)
-      + Number(local.z || 0),
+    rotY: num(
+      prop(tf, "rotY", prop(tf, "ry", prop(props, "rotY", 0)))
+    ),
 
-    rotX:
-      Number(inherited.rotX || 0)
-      + Number(local.rotX || 0),
+    rotZ: num(
+      prop(tf, "rotZ", prop(tf, "rz", prop(props, "rotZ", 0)))
+    ),
 
-    rotY:
-      Number(inherited.rotY || 0)
-      + Number(local.rotY || 0),
+    scaleX: num(
+      prop(
+        tf,
+        "scaleX",
+        prop(tf, "sx", prop(props, "scaleX", uniformScale))
+      ),
+      uniformScale
+    ),
 
-    rotZ:
-      Number(inherited.rotZ || 0)
-      + Number(local.rotZ || 0)
+    scaleY: num(
+      prop(
+        tf,
+        "scaleY",
+        prop(tf, "sy", prop(props, "scaleY", uniformScale))
+      ),
+      uniformScale
+    ),
+
+    scaleZ: num(
+      prop(
+        tf,
+        "scaleZ",
+        prop(tf, "sz", prop(props, "scaleZ", uniformScale))
+      ),
+      uniformScale
+    )
   };
 }
 
-function applyTransform(props, tf) {
+function buildLocalMatrix(tf) {
 
-  return {
+  const position =
+    new THREE.Vector3(tf.x, tf.y, tf.z);
 
-    ...props,
+  const rotation =
+    new THREE.Euler(tf.rotX, tf.rotY, tf.rotZ, "XYZ");
 
-    x:
-      Number(props.x || 0)
-      + Number(tf.x || 0),
+  const quaternion =
+    new THREE.Quaternion().setFromEuler(rotation);
 
-    y:
-      Number(props.y || 0)
-      + Number(tf.y || 0),
+  const scale =
+    new THREE.Vector3(tf.scaleX, tf.scaleY, tf.scaleZ);
 
-    z:
-      Number(props.z || 0)
-      + Number(tf.z || 0),
-
-    rotX:
-      Number(props.rotX || 0)
-      + Number(tf.rotX || 0),
-
-    rotY:
-      Number(props.rotY || 0)
-      + Number(tf.rotY || 0),
-
-    rotZ:
-      Number(props.rotZ || 0)
-      + Number(tf.rotZ || 0)
-  };
+  return new THREE.Matrix4().compose(
+    position,
+    quaternion,
+    scale
+  );
 }
 
 function normalizeSceneItems(payload) {
@@ -269,191 +330,74 @@ function normalizeSceneItems(payload) {
 
   const out = [];
 
-  function walkLegacyNode(node, inheritedTf) {
+  function addWorldTransformedPrimitive(baseProps, worldMatrix) {
 
-    const props =
-      Array.isArray(node)
-        ? pairsToObj(node)
-        : node;
+    const worldPos = new THREE.Vector3();
+    const worldQuat = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
 
-    const nextTf =
-      mergeTransform(inheritedTf, props);
+    worldMatrix.decompose(
+      worldPos,
+      worldQuat,
+      worldScale
+    );
+
+    const worldRot =
+      new THREE.Euler().setFromQuaternion(
+        worldQuat,
+        "XYZ"
+      );
+
+    out.push({
+      ...baseProps,
+      x: worldPos.x,
+      y: worldPos.y,
+      z: worldPos.z,
+      rotX: worldRot.x,
+      rotY: worldRot.y,
+      rotZ: worldRot.z,
+      worldScaleX: worldScale.x,
+      worldScaleY: worldScale.y,
+      worldScaleZ: worldScale.z
+    });
+  }
+
+  function walkNodeLike(node, parentWorldMatrix) {
+
+    const props = extractNodeProps(node);
+    const localTf = readNodeTransform(props);
+    const localMatrix = buildLocalMatrix(localTf);
+
+    const worldMatrix =
+      new THREE.Matrix4().multiplyMatrices(
+        parentWorldMatrix,
+        localMatrix
+      );
 
     if (props.type) {
-
-      out.push(
-        applyTransform(props, inheritedTf)
-      );
+      addWorldTransformedPrimitive(props, worldMatrix);
     }
 
     const children =
-      Array.isArray(props.children)
-        ? props.children
-        : [];
+      extractNodeChildren(node, props);
 
     for (const child of children) {
-
-      if (Array.isArray(child)) {
-
-        walkLegacyNode(
-          pairsToObj(child),
-          nextTf
-        );
-
-        continue;
-      }
-
-      if (
-        child
-        && typeof child === "object"
-      ) {
-
-        walkLegacyNode(
-          child,
-          nextTf
-        );
-      }
+      walkNodeLike(child, worldMatrix);
     }
   }
 
-  function walkNode(node, inheritedTf) {
-
-    const props =
-      objectProps(node.props);
-
-    const nextTf =
-      mergeTransform(inheritedTf, props);
-
-    if (props.type) {
-
-      out.push(
-        applyTransform(props, inheritedTf)
-      );
-    }
-
-    const children =
-      Array.isArray(node.children)
-        ? node.children
-        : [];
-
-    for (const child of children) {
-
-      if (isSimlaNode(child)) {
-
-        walkNode(child, nextTf);
-        continue;
-      }
-
-      if (isPairList(child)) {
-
-        walkLegacyNode(child, nextTf);
-
-        continue;
-      }
-
-      if (isSimlaObject(child)) {
-
-        out.push(
-          applyTransform(
-            child.props,
-            nextTf
-          )
-        );
-      }
-    }
-  }
+  const identity = new THREE.Matrix4();
 
   if (Array.isArray(rootValue)) {
 
     for (const item of rootValue) {
 
-      if (isSimlaNode(item)) {
-
-        walkNode(
-          item,
-          {
-            x:0,
-            y:0,
-            z:0,
-            rotX:0,
-            rotY:0,
-            rotZ:0
-          }
-        );
-
-        continue;
-      }
-
-      if (isPairList(item)) {
-
-        walkLegacyNode(
-          item,
-          {
-            x:0,
-            y:0,
-            z:0,
-            rotX:0,
-            rotY:0,
-            rotZ:0
-          }
-        );
-
-        continue;
-      }
-
-      if (
-        item
-        && typeof item === "object"
-        && item.children
-      ) {
-
-        walkLegacyNode(
-          item,
-          {
-            x:0,
-            y:0,
-            z:0,
-            rotX:0,
-            rotY:0,
-            rotZ:0
-          }
-        );
-
-        continue;
-      }
-
-      if (isSimlaObject(item)) {
-
-        out.push(
-          { ...item.props }
-        );
-
-        continue;
-      }
-
-      if (
-        item
-        && typeof item === "object"
-        && !Array.isArray(item)
-      ) {
-        out.push(item);
-      }
+      walkNodeLike(item, identity);
     }
   }
 
-  else if (isSimlaNode(rootValue)) {
-
-    walkNode(
-      rootValue,
-      {
-        x:0,
-        y:0,
-        z:0,
-        rotX:0,
-        rotY:0,
-        rotZ:0
-      }
-    );
+  else {
+    walkNodeLike(rootValue, identity);
   }
 
   return out;
@@ -497,6 +441,12 @@ function addCube(o) {
     prop(o, "rotZ", 0)
   );
 
+  mesh.scale.set(
+    prop(o, "worldScaleX", 1),
+    prop(o, "worldScaleY", 1),
+    prop(o, "worldScaleZ", 1)
+  );
+
   scene.add(mesh);
 }
 
@@ -519,6 +469,18 @@ function addSphere(o) {
     prop(o, "x", 0),
     prop(o, "y", 0),
     prop(o, "z", 0)
+  );
+
+  mesh.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  mesh.scale.set(
+    prop(o, "worldScaleX", 1),
+    prop(o, "worldScaleY", 1),
+    prop(o, "worldScaleZ", 1)
   );
 
   scene.add(mesh);
@@ -546,7 +508,125 @@ function addCylinder(o) {
     prop(o, "z", 0)
   );
 
+  mesh.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  mesh.scale.set(
+    prop(o, "worldScaleX", 1),
+    prop(o, "worldScaleY", 1),
+    prop(o, "worldScaleZ", 1)
+  );
+
   scene.add(mesh);
+}
+
+function addWedge(o) {
+
+  const width = prop(o, "width", prop(o, "sx", 1));
+  const height = prop(o, "height", prop(o, "sy", 1));
+  const depth = prop(o, "depth", prop(o, "sz", 1));
+
+  const group = new THREE.Group();
+
+  const backBox = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.01, depth),
+    makeMaterial(o)
+  );
+  backBox.position.y = -height / 2;
+  group.add(backBox);
+
+  const frontBox = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    makeMaterial(o)
+  );
+  frontBox.position.z = depth / 2;
+  group.add(frontBox);
+
+  const sideLeft = new THREE.Mesh(
+    new THREE.BoxGeometry(0.01, height / 2, depth),
+    makeMaterial(o)
+  );
+  sideLeft.position.x = -width / 2;
+  sideLeft.position.y = height / 4;
+  group.add(sideLeft);
+
+  const sideRight = new THREE.Mesh(
+    new THREE.BoxGeometry(0.01, height / 2, depth),
+    makeMaterial(o)
+  );
+  sideRight.position.x = width / 2;
+  sideRight.position.y = height / 4;
+  group.add(sideRight);
+
+  group.position.set(
+    prop(o, "x", 0),
+    prop(o, "y", 0),
+    prop(o, "z", 0)
+  );
+
+  group.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  group.scale.set(
+    prop(o, "worldScaleX", 1),
+    prop(o, "worldScaleY", 1),
+    prop(o, "worldScaleZ", 1)
+  );
+
+  scene.add(group);
+}
+
+function addStair(o) {
+
+  const width = prop(o, "width", prop(o, "sx", 1));
+  const stepCount = prop(o, "stepCount", 3);
+  const stepHeight = prop(o, "stepHeight", 0.3);
+  const stepDepth = prop(o, "stepDepth", 0.4);
+
+  const group = new THREE.Group();
+
+  for (let i = 0; i < stepCount; i++) {
+
+    const step = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        width,
+        stepHeight,
+        stepDepth
+      ),
+      makeMaterial(o)
+    );
+
+    step.position.y = stepHeight / 2 + i * stepHeight;
+    step.position.z = i * stepDepth;
+
+    group.add(step);
+  }
+
+  group.position.set(
+    prop(o, "x", 0),
+    prop(o, "y", 0),
+    prop(o, "z", 0)
+  );
+
+  group.rotation.set(
+    prop(o, "rotX", 0),
+    prop(o, "rotY", 0),
+    prop(o, "rotZ", 0)
+  );
+
+  group.scale.set(
+    prop(o, "worldScaleX", 1),
+    prop(o, "worldScaleY", 1),
+    prop(o, "worldScaleZ", 1)
+  );
+
+  scene.add(group);
 }
 
 async function loadScene() {
@@ -596,6 +676,14 @@ async function loadScene() {
 
     else if (type === "cylinder") {
       addCylinder(o);
+    }
+
+    else if (type === "wedge") {
+      addWedge(o);
+    }
+
+    else if (type === "stair") {
+      addStair(o);
     }
   }
 }
