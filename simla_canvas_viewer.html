@@ -48,7 +48,7 @@
   </style>
 </head>
 <body>
-  <div id="hud">Simla Canvas Viewer<br>WASD/Arrows to move, Q/E or mouse wheel to zoom</div>
+  <div id="hud">Simla Canvas Viewer<br>Click canvas to mouse-look, WASD fly, wheel zoom, Space/Ctrl up/down</div>
   <div id="inspector">
     <h2 id="inspectorTitle">Inspector</h2>
     <pre id="inspectorBody">Click an object to inspect it.</pre>
@@ -60,17 +60,24 @@
     const canvas = document.getElementById('scene');
     const ctx = canvas.getContext('2d');
     const inspectorBody = document.getElementById('inspectorBody');
-    // Camera as orbit (spherical coordinates)
+    // Camera as free-fly (position + yaw/pitch)
     let camera = {
-      radius: 32,
-      azimuth: 0, // horizontal angle (radians)
-      elevation: 0.3, // vertical angle (radians)
-      zoom: 32
+      x: 0,
+      y: 8,
+      z: 34,
+      yaw: Math.PI,
+      pitch: -0.18,
+      fov: Math.PI / 3
     };
+    const keyState = new Set();
+    let lastFrameTime = performance.now();
+    let animationStarted = false;
+    const MOVE_SPEED = 18;
+    const LOOK_SENSITIVITY = 0.0022;
     let objects = [];
     let selectedIndex = -1;
-    const MIN_CAMERA_RADIUS = 4;
-    const MAX_CAMERA_RADIUS = 200;
+    const MIN_CAMERA_FOV = Math.PI / 7.5;
+    const MAX_CAMERA_FOV = Math.PI / 1.9;
     const NEAR_PLANE = 0.1;
     const KEY_LIGHT = normalizeVec({ x: 0.55, y: 0.95, z: 0.7 });
     const FILL_LIGHT = normalizeVec({ x: -0.8, y: 0.35, z: 0.25 });
@@ -148,49 +155,55 @@
     }
 
     // --- Perspective projection (true 3D) ---
-    function getCameraPosition() {
-      // Spherical to Cartesian
-      const r = camera.radius;
-      const theta = camera.azimuth;
-      const phi = camera.elevation;
-      return {
-        x: Math.sin(theta) * Math.cos(phi) * r,
-        y: Math.sin(phi) * r,
-        z: Math.cos(theta) * Math.cos(phi) * r
-      };
+    function getCameraBasis() {
+      const cp = Math.cos(camera.pitch);
+      const sp = Math.sin(camera.pitch);
+      const cy = Math.cos(camera.yaw);
+      const sy = Math.sin(camera.yaw);
+
+      const forward = normalizeVec({
+        x: sy * cp,
+        y: sp,
+        z: cy * cp
+      });
+
+      const worldUp = { x: 0, y: 1, z: 0 };
+      let right = normalizeVec({
+        x: worldUp.y * forward.z - worldUp.z * forward.y,
+        y: worldUp.z * forward.x - worldUp.x * forward.z,
+        z: worldUp.x * forward.y - worldUp.y * forward.x
+      });
+
+      if (Math.abs(right.x) + Math.abs(right.y) + Math.abs(right.z) < 1e-6) {
+        right = { x: 1, y: 0, z: 0 };
+      }
+
+      const up = normalizeVec({
+        x: forward.y * right.z - forward.z * right.y,
+        y: forward.z * right.x - forward.x * right.z,
+        z: forward.x * right.y - forward.y * right.x
+      });
+
+      return { forward, right, up };
     }
 
     // Transform a point to camera space
     function worldToCamera(x, y, z) {
-      const cam = getCameraPosition();
-      const target = {x:0, y:0, z:0};
-      // Build camera basis
-      let fx = target.x - cam.x, fy = target.y - cam.y, fz = target.z - cam.z;
-      const flen = Math.sqrt(fx*fx+fy*fy+fz*fz);
-      fx /= flen; fy /= flen; fz /= flen;
-      let upx = 0, upy = 1, upz = 0;
-      let rx = upy*fz - upz*fy;
-      let ry = upz*fx - upx*fz;
-      let rz = upx*fy - upy*fx;
-      const rlen = Math.sqrt(rx*rx+ry*ry+rz*rz);
-      rx /= rlen; ry /= rlen; rz /= rlen;
-      let ux = fy*rz - fz*ry;
-      let uy = fz*rx - fx*rz;
-      let uz = fx*ry - fy*rx;
-      const px = x - cam.x;
-      const py = y - cam.y;
-      const pz = z - cam.z;
+      const basis = getCameraBasis();
+      const px = x - camera.x;
+      const py = y - camera.y;
+      const pz = z - camera.z;
       // Camera space coordinates
       return {
-        x: px*rx + py*ry + pz*rz,
-        y: px*ux + py*uy + pz*uz,
-        z: px*fx + py*fy + pz*fz
+        x: px*basis.right.x + py*basis.right.y + pz*basis.right.z,
+        y: px*basis.up.x + py*basis.up.y + pz*basis.up.z,
+        z: px*basis.forward.x + py*basis.forward.y + pz*basis.forward.z
       };
     }
 
     // Canonical perspective projection (from camera space)
     function projectCameraTo2D(cx, cy, cz) {
-      const fov = Math.PI/3; // 60 deg
+      const fov = camera.fov;
       if (cz < NEAR_PLANE) return null;
       const f = 0.5 * window.innerHeight / Math.tan(fov/2);
       return {
@@ -205,10 +218,43 @@
     }
 
     function projectedRadiusAt(cameraZ, worldRadius) {
-      const fov = Math.PI/3;
+      const fov = camera.fov;
       if (cameraZ < NEAR_PLANE) return 0;
       const f = 0.5 * window.innerHeight / Math.tan(fov/2);
       return Math.max(0, (worldRadius * f) / cameraZ);
+    }
+
+    function updateFlyCamera(dtSec) {
+      const basis = getCameraBasis();
+      const up = { x: 0, y: 1, z: 0 };
+
+      let forwardInput = 0;
+      if (keyState.has('w') || keyState.has('arrowup')) forwardInput += 1;
+      if (keyState.has('s') || keyState.has('arrowdown')) forwardInput -= 1;
+
+      let strafeInput = 0;
+      if (keyState.has('d') || keyState.has('arrowright')) strafeInput += 1;
+      if (keyState.has('a') || keyState.has('arrowleft')) strafeInput -= 1;
+
+      let verticalInput = 0;
+      if (keyState.has(' ') || keyState.has('space')) verticalInput += 1;
+      if (keyState.has('control') || keyState.has('controlleft') || keyState.has('controlright') || keyState.has('c')) verticalInput -= 1;
+
+      let mvx = basis.forward.x * forwardInput + basis.right.x * strafeInput + up.x * verticalInput;
+      let mvy = basis.forward.y * forwardInput + basis.right.y * strafeInput + up.y * verticalInput;
+      let mvz = basis.forward.z * forwardInput + basis.right.z * strafeInput + up.z * verticalInput;
+      const mlen = Math.sqrt(mvx*mvx + mvy*mvy + mvz*mvz);
+      if (mlen > 1e-6) {
+        mvx /= mlen;
+        mvy /= mlen;
+        mvz /= mlen;
+      }
+
+      const boost = keyState.has('shift') || keyState.has('shiftleft') || keyState.has('shiftright') ? 2 : 1;
+      const speed = MOVE_SPEED * boost;
+      camera.x += mvx * speed * dtSec;
+      camera.y += mvy * speed * dtSec;
+      camera.z += mvz * speed * dtSec;
     }
 
     function clipPolygonToNearPlane(camVerts, near = NEAR_PLANE) {
@@ -438,33 +484,73 @@
       }
     }
     function drawSphere(o) {
-      // Billboard sphere with perspective-correct radius
       const { x, y, z, radius=1, r=180, g=180, b=180 } = o;
-      const cam = worldToCamera(x, y, z);
-      const p = projectCameraTo2D(cam.x, cam.y, cam.z);
-      if (!p) return;
-      const rr = projectedRadiusAt(cam.z, radius);
-      if (rr <= 0) return;
+      const latSegments = 16;
+      const lonSegments = 24;
+      const centerCam = worldToCamera(x, y, z);
 
-      const lx = KEY_LIGHT.x * 0.6;
-      const ly = -KEY_LIGHT.y * 0.6;
-      const hx = p.x - rr * lx;
-      const hy = p.y - rr * ly;
-      const grad = ctx.createRadialGradient(hx, hy, rr * 0.12, p.x, p.y, rr);
-      grad.addColorStop(0, `rgb(${Math.min(255, r + 70)},${Math.min(255, g + 70)},${Math.min(255, b + 70)})`);
-      grad.addColorStop(0.5, `rgb(${Math.round(r*1.05)},${Math.round(g*1.05)},${Math.round(b*1.05)})`);
-      grad.addColorStop(1, `rgb(${Math.round(r*0.38)},${Math.round(g*0.38)},${Math.round(b*0.38)})`);
+      const camGrid = [];
+      for (let lat = 0; lat <= latSegments; lat++) {
+        const theta = (lat / latSegments) * Math.PI;
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+        const row = [];
 
-      ctx.save();
-      ctx.globalAlpha = 0.96;
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, rr, rr, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = Math.max(1, rr * 0.08);
-      ctx.stroke();
-      ctx.restore();
+        for (let lon = 0; lon <= lonSegments; lon++) {
+          const phi = (lon / lonSegments) * Math.PI * 2;
+          const sinP = Math.sin(phi);
+          const cosP = Math.cos(phi);
+          const wx = x + cosP * sinT * radius;
+          const wy = y + cosT * radius;
+          const wz = z + sinP * sinT * radius;
+          row.push(worldToCamera(wx, wy, wz));
+        }
+        camGrid.push(row);
+      }
+
+      function orientOutward(a, b, c) {
+        const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
+        const vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+        const nx = uy*vz - uz*vy;
+        const ny = uz*vx - ux*vz;
+        const nz = ux*vy - uy*vx;
+        const cx = (a.x + b.x + c.x) / 3 - centerCam.x;
+        const cy = (a.y + b.y + c.y) / 3 - centerCam.y;
+        const cz = (a.z + b.z + c.z) / 3 - centerCam.z;
+        const outward = nx * cx + ny * cy + nz * cz;
+        return outward >= 0 ? [a, b, c] : [a, c, b];
+      }
+
+      const faces = [];
+      for (let lat = 0; lat < latSegments; lat++) {
+        for (let lon = 0; lon < lonSegments; lon++) {
+          const v00 = camGrid[lat][lon];
+          const v01 = camGrid[lat][lon + 1];
+          const v10 = camGrid[lat + 1][lon];
+          const v11 = camGrid[lat + 1][lon + 1];
+          faces.push(orientOutward(v00, v10, v11));
+          faces.push(orientOutward(v00, v11, v01));
+        }
+      }
+
+      const sortedFaces = faces.map((verts) => {
+        const z = (verts[0].z + verts[1].z + verts[2].z) / 3;
+        return { verts, z };
+      }).sort((a, b) => a.z - b.z);
+
+      for (const face of sortedFaces) {
+        drawCameraFace(face.verts, { r, g, b }, {
+          alpha: 0.97,
+          lineWidth: 0.5,
+          strokeStyle: 'rgba(8, 10, 14, 0.12)',
+          ambient: 0.34,
+          keyStrength: 0.58,
+          fillStrength: 0.2,
+          hemiStrength: 0.26,
+          minShade: 0.2,
+          maxShade: 1.32
+        });
+      }
     }
     function drawCylinder(o) {
       const { x, y, z, radiusTop=1, radiusBottom=1, height=2, r=180, g=180, b=180 } = o;
@@ -539,32 +625,49 @@
       }
     }
 
-    // --- Controls (orbit camera) ---
+    // --- Controls (fly camera + mouse look) ---
     document.addEventListener('keydown', e => {
-      if (e.key === 'w' || e.key === 'ArrowUp') camera.elevation = Math.min(camera.elevation + 0.08, Math.PI/2-0.05);
-      if (e.key === 's' || e.key === 'ArrowDown') camera.elevation = Math.max(camera.elevation - 0.08, -Math.PI/2+0.05);
-      if (e.key === 'a' || e.key === 'ArrowLeft') camera.azimuth -= 0.12;
-      if (e.key === 'd' || e.key === 'ArrowRight') camera.azimuth += 0.12;
-      if (e.key === 'q') camera.radius = clamp(camera.radius * 1.1, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
-      if (e.key === 'e') camera.radius = clamp(camera.radius / 1.1, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
-      render();
+      keyState.add(e.key.toLowerCase());
+      if (e.key === ' ') e.preventDefault();
     });
+
+    document.addEventListener('keyup', e => {
+      keyState.delete(e.key.toLowerCase());
+    });
+
+    canvas.addEventListener('click', e => {
+      if (e.shiftKey) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        selectedIndex = findNearestObjectAtScreen(sx, sy);
+        updateInspector();
+        return;
+      }
+      if (document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock();
+      }
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (document.pointerLockElement !== canvas) return;
+      camera.yaw += e.movementX * LOOK_SENSITIVITY;
+      camera.pitch -= e.movementY * LOOK_SENSITIVITY;
+      camera.pitch = clamp(camera.pitch, -Math.PI/2 + 0.02, Math.PI/2 - 0.02);
+    });
+
+    function animationFrame(now) {
+      const dtSec = Math.min(0.05, Math.max(0, (now - lastFrameTime) / 1000));
+      lastFrameTime = now;
+      updateFlyCamera(dtSec);
+      render();
+      requestAnimationFrame(animationFrame);
+    }
 
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
-      const zoomFactor = Math.exp(e.deltaY * 0.0015);
-      camera.radius = clamp(camera.radius * zoomFactor, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
-      render();
+      camera.fov = clamp(camera.fov + e.deltaY * 0.0012, MIN_CAMERA_FOV, MAX_CAMERA_FOV);
     }, { passive: false });
-
-    canvas.addEventListener('click', e => {
-      const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      selectedIndex = findNearestObjectAtScreen(sx, sy);
-      updateInspector();
-      render();
-    });
 
     window.addEventListener('resize', () => {
       resizeCanvasToViewport();
@@ -577,7 +680,11 @@
       selectedIndex = -1;
       updateInspector();
       resizeCanvasToViewport();
-      render();
+      if (!animationStarted) {
+        animationStarted = true;
+        lastFrameTime = performance.now();
+        requestAnimationFrame(animationFrame);
+      }
     });
   </script>
 </body>
