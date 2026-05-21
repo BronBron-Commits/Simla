@@ -2,7 +2,9 @@
 import { trace } from "../runtime/debug.js";
 
 const VM_TRACE =
-  process.env.SIMLA_TRACE === "1";
+  typeof process !== "undefined"
+  && process.env
+  && process.env.SIMLA_TRACE === "1";
 
 let GLOBAL_ENV = null;
 

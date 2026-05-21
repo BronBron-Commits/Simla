@@ -243,8 +243,27 @@ function applyTransform(props, tf) {
 
 function normalizeScenePayload(payload) {
   // tools/run_js_vm.js emits { result, state }, and scene value is under result.
-  const vmResult = payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
+  const vmResultRaw = payload && typeof payload === "object" && "result" in payload ? payload.result : payload;
+  let vmResult = vmResultRaw;
   const out = [];
+
+  // Support legacy pair-list/object wrappers like (list "objects" (...)).
+  if (isPairList(vmResult)) {
+    const rootObj = pairsToObj(vmResult);
+    if (Array.isArray(rootObj.objects)) {
+      vmResult = rootObj.objects;
+    } else {
+      vmResult = rootObj;
+    }
+  }
+
+  if (vmResult && typeof vmResult === "object" && !Array.isArray(vmResult)) {
+    if (Array.isArray(vmResult.objects)) {
+      vmResult = vmResult.objects;
+    } else {
+      vmResult = [vmResult];
+    }
+  }
 
   function walkNode(node, inheritedTf) {
     const props = objectProps(node.props);

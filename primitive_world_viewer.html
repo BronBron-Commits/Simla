@@ -1374,46 +1374,52 @@ let isOnGround = false;
 
 // Load player character model
 let playerCharacter = null;
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/libs/draco/');
+const avatarEnabled = (new URLSearchParams(location.search).get("avatar") || "0") === "1";
 
-const loader = new GLTFLoader();
-loader.setDRACOLoader(dracoLoader);
-loader.load('newcharacter_compressed.glb', (gltf) => {
-  playerCharacter = gltf.scene;
-  playerCharacter.scale.set(0.125, 0.125, 0.125); // Scale down character even further
-  scene.add(playerCharacter);
+if (avatarEnabled) {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/libs/draco/');
 
-  // Find skeleton and collect all neck/head bones for rig demo
-  playerCharacter.rigBones = [];
-  playerCharacter.lastHeadBone = null;
-  playerCharacter.neckBone = null;
-  playerCharacter.hipBone = null;
-  playerCharacter.traverse((obj) => {
-    if (obj.isSkinnedMesh && obj.skeleton) {
-      for (const bone of obj.skeleton.bones) {
-        const name = bone.name.toLowerCase();
-        if (!playerCharacter.hipBone && (name.includes('hip') || name === 'root' || name === 'root1')) {
-          playerCharacter.hipBone = bone;
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+  loader.load('newcharacter_compressed.glb', (gltf) => {
+    playerCharacter = gltf.scene;
+    playerCharacter.scale.set(0.125, 0.125, 0.125); // Scale down character even further
+    scene.add(playerCharacter);
+
+    // Find skeleton and collect all neck/head bones for rig demo
+    playerCharacter.rigBones = [];
+    playerCharacter.lastHeadBone = null;
+    playerCharacter.neckBone = null;
+    playerCharacter.hipBone = null;
+    playerCharacter.traverse((obj) => {
+      if (obj.isSkinnedMesh && obj.skeleton) {
+        for (const bone of obj.skeleton.bones) {
+          const name = bone.name.toLowerCase();
+          if (!playerCharacter.hipBone && (name.includes('hip') || name === 'root' || name === 'root1')) {
+            playerCharacter.hipBone = bone;
+          }
+          if (name.includes('neck')) {
+            playerCharacter.neckBone = bone;
+          }
+          if (name.includes('head')) {
+            playerCharacter.lastHeadBone = bone;
+          }
+          if (name.includes('head') || name.includes('neck')) {
+            playerCharacter.rigBones.push(bone);
+          }
+          // Log all bone names for debugging
+          console.log('Bone:', bone.name);
         }
-        if (name.includes('neck')) {
-          playerCharacter.neckBone = bone;
-        }
-        if (name.includes('head')) {
-          playerCharacter.lastHeadBone = bone;
-        }
-        if (name.includes('head') || name.includes('neck')) {
-          playerCharacter.rigBones.push(bone);
-        }
-        // Log all bone names for debugging
-        console.log('Bone:', bone.name);
       }
+    });
+    if (!playerCharacter.lastHeadBone && !playerCharacter.neckBone) {
+      console.warn('No head/neck bone found. See bone names above.');
     }
+  }, undefined, (err) => {
+    console.warn('Optional avatar failed to load:', err?.message || err);
   });
-  if (!playerCharacter.lastHeadBone && !playerCharacter.neckBone) {
-    console.warn('No head/neck bone found. See bone names above.');
-  }
-});
+}
 
 window.addEventListener("resize", () => {
 
