@@ -1,0 +1,559 @@
+(begin
+
+  (list
+
+    "objects"
+
+    (list
+
+      ;; floor
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -1
+        "z" 0
+        "sx" 60
+        "sy" 1
+        "sz" 60
+        "r" 42
+        "g" 46
+        "b" 58
+      )
+
+      ;; outer walls
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 3
+        "z" -18
+        "sx" 44
+        "sy" 8
+        "sz" 2
+        "r" 78
+        "g" 84
+        "b" 104
+      )
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 3
+        "z" 18
+        "sx" 44
+        "sy" 8
+        "sz" 2
+        "r" 78
+        "g" 84
+        "b" 104
+      )
+
+      (list
+        "type" "cube"
+        "x" -18
+        "y" 3
+        "z" 0
+        "sx" 2
+        "sy" 8
+        "sz" 44
+        "r" 78
+        "g" 84
+        "b" 104
+      )
+
+      (list
+        "type" "cube"
+        "x" 18
+        "y" 3
+        "z" 0
+        "sx" 2
+        "sy" 8
+        "sz" 44
+        "r" 78
+        "g" 84
+        "b" 104
+      )
+
+      ;; central dais
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -0.25
+        "z" 0
+        "sx" 18
+        "sy" 0.5
+        "sz" 18
+        "r" 92
+        "g" 96
+        "b" 116
+      )
+
+      ;; inner pillar ring
+      (list
+        "type" "cylinder"
+        "x" 0
+        "y" 3
+        "z" -10
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" 8
+        "y" 3
+        "z" -6
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" 10
+        "y" 3
+        "z" 0
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" 8
+        "y" 3
+        "z" 6
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" 0
+        "y" 3
+        "z" 10
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" -8
+        "y" 3
+        "z" 6
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" -10
+        "y" 3
+        "z" 0
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      (list
+        "type" "cylinder"
+        "x" -8
+        "y" 3
+        "z" -6
+        "radiusTop" 0.8
+        "radiusBottom" 0.9
+        "height" 6
+        "r" 176
+        "g" 162
+        "b" 118
+      )
+
+      ;; altar
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 1.25
+        "z" 0
+        "sx" 8
+        "sy" 2.5
+        "sz" 8
+        "r" 120
+        "g" 130
+        "b" 150
+      )
+
+      ;; altar core
+      (list
+        "type" "sphere"
+        "x" 0
+        "y" 5.6
+        "z" 0
+        "radius" 2.4
+        "r" 120
+        "g" 180
+        "b" 255
+      )
+
+      ;; altar flares
+      (list
+        "type" "sphere"
+        "x" -4
+        "y" 5.2
+        "z" -4
+        "radius" 0.7
+        "r" 255
+        "g" 210
+        "b" 110
+      )
+
+      (list
+        "type" "sphere"
+        "x" 4
+        "y" 5.2
+        "z" -4
+        "radius" 0.7
+        "r" 255
+        "g" 210
+        "b" 110
+      )
+
+      (list
+        "type" "sphere"
+        "x" -4
+        "y" 5.2
+        "z" 4
+        "radius" 0.7
+        "r" 255
+        "g" 210
+        "b" 110
+      )
+
+      (list
+        "type" "sphere"
+        "x" 4
+        "y" 5.2
+        "z" 4
+        "radius" 0.7
+        "r" 255
+        "g" 210
+        "b" 110
+      )
+
+      ;; ceiling beams
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 7.6
+        "z" -14
+        "sx" 34
+        "sy" 0.8
+        "sz" 1.2
+        "r" 102
+        "g" 110
+        "b" 128
+      )
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 7.6
+        "z" 14
+        "sx" 34
+        "sy" 0.8
+        "sz" 1.2
+        "r" 102
+        "g" 110
+        "b" 128
+      )
+
+      (list
+        "type" "cube"
+        "x" -14
+        "y" 7.6
+        "z" 0
+        "sx" 1.2
+        "sy" 0.8
+        "sz" 34
+        "r" 102
+        "g" 110
+        "b" 128
+      )
+
+      (list
+        "type" "cube"
+        "x" 14
+        "y" 7.6
+        "z" 0
+        "sx" 1.2
+        "sy" 0.8
+        "sz" 34
+        "r" 102
+        "g" 110
+        "b" 128
+      )
+
+      ;; approach steps (south)
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -0.8
+        "z" 22
+        "sx" 12
+        "sy" 0.4
+        "sz" 3
+        "r" 86
+        "g" 92
+        "b" 110
+      )
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" -0.4
+        "z" 19
+        "sx" 10
+        "sy" 0.4
+        "sz" 3
+        "r" 92
+        "g" 98
+        "b" 116
+      )
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 0.0
+        "z" 16
+        "sx" 8
+        "sy" 0.4
+        "sz" 3
+        "r" 98
+        "g" 104
+        "b" 122
+      )
+
+      ;; corner plinths
+      (list
+        "type" "cube"
+        "x" -12
+        "y" 0.4
+        "z" -12
+        "sx" 4
+        "sy" 0.8
+        "sz" 4
+        "r" 110
+        "g" 116
+        "b" 136
+      )
+
+      (list
+        "type" "cube"
+        "x" 12
+        "y" 0.4
+        "z" -12
+        "sx" 4
+        "sy" 0.8
+        "sz" 4
+        "r" 110
+        "g" 116
+        "b" 136
+      )
+
+      (list
+        "type" "cube"
+        "x" -12
+        "y" 0.4
+        "z" 12
+        "sx" 4
+        "sy" 0.8
+        "sz" 4
+        "r" 110
+        "g" 116
+        "b" 136
+      )
+
+      (list
+        "type" "cube"
+        "x" 12
+        "y" 0.4
+        "z" 12
+        "sx" 4
+        "sy" 0.8
+        "sz" 4
+        "r" 110
+        "g" 116
+        "b" 136
+      )
+
+      ;; corner lanterns
+      (list
+        "type" "sphere"
+        "x" -12
+        "y" 2.2
+        "z" -12
+        "radius" 0.9
+        "r" 255
+        "g" 200
+        "b" 120
+      )
+
+      (list
+        "type" "sphere"
+        "x" 12
+        "y" 2.2
+        "z" -12
+        "radius" 0.9
+        "r" 255
+        "g" 200
+        "b" 120
+      )
+
+      (list
+        "type" "sphere"
+        "x" -12
+        "y" 2.2
+        "z" 12
+        "radius" 0.9
+        "r" 255
+        "g" 200
+        "b" 120
+      )
+
+      (list
+        "type" "sphere"
+        "x" 12
+        "y" 2.2
+        "z" 12
+        "radius" 0.9
+        "r" 255
+        "g" 200
+        "b" 120
+      )
+
+      ;; elevated ring around altar
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 0.3
+        "z" -9
+        "sx" 22
+        "sy" 0.6
+        "sz" 1.2
+        "r" 88
+        "g" 96
+        "b" 114
+      )
+
+      (list
+        "type" "cube"
+        "x" 0
+        "y" 0.3
+        "z" 9
+        "sx" 22
+        "sy" 0.6
+        "sz" 1.2
+        "r" 88
+        "g" 96
+        "b" 114
+      )
+
+      (list
+        "type" "cube"
+        "x" -9
+        "y" 0.3
+        "z" 0
+        "sx" 1.2
+        "sy" 0.6
+        "sz" 22
+        "r" 88
+        "g" 96
+        "b" 114
+      )
+
+      (list
+        "type" "cube"
+        "x" 9
+        "y" 0.3
+        "z" 0
+        "sx" 1.2
+        "sy" 0.6
+        "sz" 22
+        "r" 88
+        "g" 96
+        "b" 114
+      )
+
+      ;; hanging ornaments
+      (list
+        "type" "sphere"
+        "x" 0
+        "y" 6.5
+        "z" -9
+        "radius" 0.6
+        "r" 110
+        "g" 190
+        "b" 255
+      )
+
+      (list
+        "type" "sphere"
+        "x" 0
+        "y" 6.5
+        "z" 9
+        "radius" 0.6
+        "r" 110
+        "g" 190
+        "b" 255
+      )
+
+      (list
+        "type" "sphere"
+        "x" -9
+        "y" 6.5
+        "z" 0
+        "radius" 0.6
+        "r" 110
+        "g" 190
+        "b" 255
+      )
+
+      (list
+        "type" "sphere"
+        "x" 9
+        "y" 6.5
+        "z" 0
+        "radius" 0.6
+        "r" 110
+        "g" 190
+        "b" 255
+      )
+
+    )
+
+  )
+
+)

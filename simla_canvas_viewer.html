@@ -72,9 +72,60 @@
     const MIN_CAMERA_RADIUS = 4;
     const MAX_CAMERA_RADIUS = 200;
     const NEAR_PLANE = 0.1;
+    const KEY_LIGHT = normalizeVec({ x: 0.55, y: 0.95, z: 0.7 });
+    const FILL_LIGHT = normalizeVec({ x: -0.8, y: 0.35, z: 0.25 });
+    const AMBIENT_STRENGTH = 0.32;
 
     function clamp(v, min, max) {
       return Math.max(min, Math.min(max, v));
+    }
+
+    function normalizeVec(v) {
+      const len = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z) || 1;
+      return { x: v.x / len, y: v.y / len, z: v.z / len };
+    }
+
+    function computeLightShade(nx, ny, nz, nlen, options = {}) {
+      const nnx = nx / nlen;
+      const nny = ny / nlen;
+      const nnz = nz / nlen;
+      const key = Math.max(0, nnx * KEY_LIGHT.x + nny * KEY_LIGHT.y + nnz * KEY_LIGHT.z);
+      const fill = Math.max(0, nnx * FILL_LIGHT.x + nny * FILL_LIGHT.y + nnz * FILL_LIGHT.z);
+      const hemi = 0.5 + 0.5 * nny;
+
+      const ambient = options.ambient ?? AMBIENT_STRENGTH;
+      const keyStrength = options.keyStrength ?? 0.55;
+      const fillStrength = options.fillStrength ?? 0.2;
+      const hemiStrength = options.hemiStrength ?? 0.28;
+      const shade = ambient + key * keyStrength + fill * fillStrength + hemi * hemiStrength;
+      return clamp(shade, options.minShade ?? 0.2, options.maxShade ?? 1.4);
+    }
+
+    function drawSkyBackground() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#5f7fa5');
+      sky.addColorStop(0.35, '#334b67');
+      sky.addColorStop(1, '#141a24');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h);
+
+      const sunX = w * 0.62;
+      const sunY = h * 0.18;
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, Math.max(w, h) * 0.45);
+      sunGlow.addColorStop(0, 'rgba(255, 235, 190, 0.38)');
+      sunGlow.addColorStop(0.25, 'rgba(255, 210, 120, 0.16)');
+      sunGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = sunGlow;
+      ctx.fillRect(0, 0, w, h);
+
+      const vignette = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.15, w * 0.5, h * 0.5, Math.max(w, h) * 0.75);
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0.48)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
     }
 
     function resizeCanvasToViewport() {
@@ -196,7 +247,7 @@
       return next.length >= 3 ? next : [];
     }
 
-    function drawCameraFace(camVerts, rgb, lightDir, options = {}) {
+    function drawCameraFace(camVerts, rgb, options = {}) {
       const clipped = clipPolygonToNearPlane(camVerts);
       if (clipped.length < 3) return;
 
@@ -222,10 +273,7 @@
       const facing = nx * (-cx) + ny * (-cy) + nz * (-cz);
       if (facing <= 0) return;
 
-      const ldotn = (nx * lightDir.x + ny * lightDir.y + nz * lightDir.z) / nlen;
-      const minShade = options.minShade ?? 0.16;
-      const maxGain = options.maxGain ?? 0.84;
-      const shade = Math.max(minShade, ldotn * maxGain + minShade);
+      const shade = computeLightShade(nx, ny, nz, nlen, options);
 
       const projected = clipped.map(v => {
         const p = projectCameraTo2D(v.x, v.y, v.z);
@@ -366,10 +414,6 @@
         [1,2,6,5], // right (+x)
         [0,4,7,3], // left (-x)
       ];
-      // Lighting: simple directional
-      const lightDir = {x: 0.5, y: 1, z: 0.7}; // from above and side
-      const lightLen = Math.sqrt(lightDir.x*lightDir.x + lightDir.y*lightDir.y + lightDir.z*lightDir.z);
-      lightDir.x /= lightLen; lightDir.y /= lightLen; lightDir.z /= lightLen;
       // Compute face depths for painter's order (average z in camera space)
       const faceDepths = faces.map(face => {
         let zsum = 0;
@@ -381,11 +425,15 @@
       faceDepths.sort((a,b)=>a.z-b.z); // draw farthest first
       for (const f of faceDepths) {
         const faceVerts = f.idx.map(idx => camVerts[idx]);
-        drawCameraFace(faceVerts, { r, g, b }, lightDir, {
+        drawCameraFace(faceVerts, { r, g, b }, {
           alpha: 0.97,
           lineWidth: 1.5,
-          minShade: 0.15,
-          maxGain: 0.85
+          ambient: 0.34,
+          keyStrength: 0.56,
+          fillStrength: 0.22,
+          hemiStrength: 0.28,
+          minShade: 0.22,
+          maxShade: 1.35
         });
       }
     }
@@ -397,12 +445,25 @@
       if (!p) return;
       const rr = projectedRadiusAt(cam.z, radius);
       if (rr <= 0) return;
+
+      const lx = KEY_LIGHT.x * 0.6;
+      const ly = -KEY_LIGHT.y * 0.6;
+      const hx = p.x - rr * lx;
+      const hy = p.y - rr * ly;
+      const grad = ctx.createRadialGradient(hx, hy, rr * 0.12, p.x, p.y, rr);
+      grad.addColorStop(0, `rgb(${Math.min(255, r + 70)},${Math.min(255, g + 70)},${Math.min(255, b + 70)})`);
+      grad.addColorStop(0.5, `rgb(${Math.round(r*1.05)},${Math.round(g*1.05)},${Math.round(b*1.05)})`);
+      grad.addColorStop(1, `rgb(${Math.round(r*0.38)},${Math.round(g*0.38)},${Math.round(b*0.38)})`);
+
       ctx.save();
-      ctx.globalAlpha = 0.92;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.globalAlpha = 0.96;
+      ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, rr, rr, 0, 0, Math.PI*2);
       ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = Math.max(1, rr * 0.08);
+      ctx.stroke();
       ctx.restore();
     }
     function drawCylinder(o) {
@@ -437,12 +498,6 @@
         faces.push([centerBottom, bottomRing[i], bottomRing[j]]);
       }
 
-      const lightDir = { x: 0.5, y: 1, z: 0.7 };
-      const lightLen = Math.sqrt(lightDir.x*lightDir.x + lightDir.y*lightDir.y + lightDir.z*lightDir.z);
-      lightDir.x /= lightLen;
-      lightDir.y /= lightLen;
-      lightDir.z /= lightLen;
-
       const sortedFaces = faces.map((verts) => {
         let zsum = 0;
         for (const v of verts) zsum += v.z;
@@ -451,18 +506,22 @@
 
       for (const face of sortedFaces) {
         const verts = face.verts;
-        drawCameraFace(verts, { r, g, b }, lightDir, {
+        drawCameraFace(verts, { r, g, b }, {
           alpha: 0.94,
           lineWidth: 1,
-          minShade: 0.17,
-          maxGain: 0.83
+          ambient: 0.35,
+          keyStrength: 0.5,
+          fillStrength: 0.23,
+          hemiStrength: 0.24,
+          minShade: 0.24,
+          maxShade: 1.28
         });
       }
     }
 
     // --- Main render loop ---
     function render() {
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      drawSkyBackground();
       // Sort by camera-space depth for painter's order across object types
       const sorted = [...objects].sort((a, b) => {
         const ca = worldToCamera(a.x||0, a.y||0, a.z||0);
