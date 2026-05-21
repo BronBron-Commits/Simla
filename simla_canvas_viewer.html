@@ -4,19 +4,62 @@
   <meta charset="utf-8">
   <title>Simla Canvas Viewer (No Three.js)</title>
   <style>
-    body { background: #222; margin: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #222;
+    }
     #hud { position: absolute; top: 10px; left: 10px; color: #fff; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 8px; font-family: sans-serif; z-index: 10; }
-    canvas { display: block; margin: 0 auto; background: #222; }
+    #inspector {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 300px;
+      color: #eef6ff;
+      background: rgba(0, 0, 0, 0.62);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      z-index: 10;
+      box-sizing: border-box;
+      border: 1px solid rgba(210, 230, 255, 0.18);
+      backdrop-filter: blur(2px);
+    }
+    #inspectorTitle {
+      font-family: sans-serif;
+      font-size: 14px;
+      margin: 0 0 8px;
+      color: #fff;
+    }
+    #inspectorBody {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #222;
+    }
   </style>
 </head>
 <body>
-  <div id="hud">Simla Canvas Viewer<br>WASD/Arrows to move, Q/E to zoom</div>
-  <canvas id="scene" width="900" height="700"></canvas>
+  <div id="hud">Simla Canvas Viewer<br>WASD/Arrows to move, Q/E or mouse wheel to zoom</div>
+  <div id="inspector">
+    <h2 id="inspectorTitle">Inspector</h2>
+    <pre id="inspectorBody">Click an object to inspect it.</pre>
+  </div>
+  <canvas id="scene"></canvas>
   <script>
     // --- Config ---
     const sceneFile = new URLSearchParams(location.search).get('file') || 'examples/building/simla_only_sanctum.sim';
     const canvas = document.getElementById('scene');
     const ctx = canvas.getContext('2d');
+    const inspectorBody = document.getElementById('inspectorBody');
     // Camera as orbit (spherical coordinates)
     let camera = {
       radius: 32,
@@ -25,6 +68,23 @@
       zoom: 32
     };
     let objects = [];
+    let selectedIndex = -1;
+    const MIN_CAMERA_RADIUS = 4;
+    const MAX_CAMERA_RADIUS = 200;
+    const NEAR_PLANE = 0.1;
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function resizeCanvasToViewport() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const w = Math.max(1, Math.floor(window.innerWidth));
+      const h = Math.max(1, Math.floor(window.innerHeight));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
 
     // --- Simla scene loader (minimal) ---
     async function loadSimlaScene(file) {
@@ -80,12 +140,11 @@
     // Canonical perspective projection (from camera space)
     function projectCameraTo2D(cx, cy, cz) {
       const fov = Math.PI/3; // 60 deg
-      const near = 0.1;
-      if (cz < near) return null;
-      const f = 0.5 * canvas.height / Math.tan(fov/2);
+      if (cz < NEAR_PLANE) return null;
+      const f = 0.5 * window.innerHeight / Math.tan(fov/2);
       return {
-        x: canvas.width/2 + cx * f / cz,
-        y: canvas.height/2 - cy * f / cz
+        x: window.innerWidth/2 + cx * f / cz,
+        y: window.innerHeight/2 - cy * f / cz
       };
     }
 
@@ -96,10 +155,190 @@
 
     function projectedRadiusAt(cameraZ, worldRadius) {
       const fov = Math.PI/3;
-      const near = 0.1;
-      if (cameraZ < near) return 0;
-      const f = 0.5 * canvas.height / Math.tan(fov/2);
+      if (cameraZ < NEAR_PLANE) return 0;
+      const f = 0.5 * window.innerHeight / Math.tan(fov/2);
       return Math.max(0, (worldRadius * f) / cameraZ);
+    }
+
+    function clipPolygonToNearPlane(camVerts, near = NEAR_PLANE) {
+      if (!camVerts || camVerts.length < 3) return [];
+      let out = camVerts;
+      const next = [];
+      for (let i = 0; i < out.length; i++) {
+        const a = out[i];
+        const b = out[(i + 1) % out.length];
+        const aIn = a.z >= near;
+        const bIn = b.z >= near;
+
+        if (aIn && bIn) {
+          next.push(b);
+          continue;
+        }
+
+        if (!aIn && !bIn) {
+          continue;
+        }
+
+        const dz = b.z - a.z;
+        if (Math.abs(dz) < 1e-8) continue;
+        const t = (near - a.z) / dz;
+        const ix = a.x + (b.x - a.x) * t;
+        const iy = a.y + (b.y - a.y) * t;
+        const iz = near;
+
+        if (aIn && !bIn) {
+          next.push({ x: ix, y: iy, z: iz });
+        } else if (!aIn && bIn) {
+          next.push({ x: ix, y: iy, z: iz });
+          next.push(b);
+        }
+      }
+      return next.length >= 3 ? next : [];
+    }
+
+    function drawCameraFace(camVerts, rgb, lightDir, options = {}) {
+      const clipped = clipPolygonToNearPlane(camVerts);
+      if (clipped.length < 3) return;
+
+      const v0 = clipped[0], v1 = clipped[1], v2 = clipped[2];
+      const ux = v1.x - v0.x, uy = v1.y - v0.y, uz = v1.z - v0.z;
+      const vx = v2.x - v0.x, vy = v2.y - v0.y, vz = v2.z - v0.z;
+      const nx = uy*vz - uz*vy;
+      const ny = uz*vx - ux*vz;
+      const nz = ux*vy - uy*vx;
+      const nlen = Math.sqrt(nx*nx + ny*ny + nz*nz);
+      if (nlen < 1e-8) return;
+
+      let cx = 0, cy = 0, cz = 0;
+      for (const v of clipped) {
+        cx += v.x;
+        cy += v.y;
+        cz += v.z;
+      }
+      cx /= clipped.length;
+      cy /= clipped.length;
+      cz /= clipped.length;
+
+      const facing = nx * (-cx) + ny * (-cy) + nz * (-cz);
+      if (facing <= 0) return;
+
+      const ldotn = (nx * lightDir.x + ny * lightDir.y + nz * lightDir.z) / nlen;
+      const minShade = options.minShade ?? 0.16;
+      const maxGain = options.maxGain ?? 0.84;
+      const shade = Math.max(minShade, ldotn * maxGain + minShade);
+
+      const projected = clipped.map(v => {
+        const p = projectCameraTo2D(v.x, v.y, v.z);
+        return p;
+      });
+
+      ctx.save();
+      ctx.globalAlpha = options.alpha ?? 0.95;
+      ctx.fillStyle = `rgb(${Math.round(rgb.r*shade)},${Math.round(rgb.g*shade)},${Math.round(rgb.b*shade)})`;
+      ctx.strokeStyle = options.strokeStyle || '#222';
+      ctx.lineWidth = options.lineWidth ?? 1;
+      ctx.beginPath();
+      ctx.moveTo(projected[0].x, projected[0].y);
+      for (let i = 1; i < projected.length; i++) {
+        ctx.lineTo(projected[i].x, projected[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function numberOr(v, fallback = 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function objectScreenInfo(o) {
+      const x = numberOr(o.x);
+      const y = numberOr(o.y);
+      const z = numberOr(o.z);
+      const cam = worldToCamera(x, y, z);
+      const p = projectCameraTo2D(cam.x, cam.y, cam.z);
+      if (!p) return null;
+
+      let worldRadius = 1;
+      if (o.type === 'sphere') {
+        worldRadius = numberOr(o.radius, 1);
+      } else if (o.type === 'cylinder') {
+        worldRadius = Math.max(numberOr(o.radiusTop, 1), numberOr(o.radiusBottom, 1));
+      } else {
+        worldRadius = Math.max(numberOr(o.sx, 1), numberOr(o.sy, 1), numberOr(o.sz, 1)) * 0.5;
+      }
+
+      const pxRadius = Math.max(8, projectedRadiusAt(cam.z, worldRadius));
+      return { x: p.x, y: p.y, z: cam.z, pxRadius };
+    }
+
+    function distanceSq(x1, y1, x2, y2) {
+      const dx = x1 - x2;
+      const dy = y1 - y2;
+      return dx*dx + dy*dy;
+    }
+
+    function findNearestObjectAtScreen(sx, sy) {
+      let best = null;
+      for (let i = 0; i < objects.length; i++) {
+        const o = objects[i];
+        const info = objectScreenInfo(o);
+        if (!info) continue;
+        const d2 = distanceSq(sx, sy, info.x, info.y);
+        const hitR = info.pxRadius * 1.05;
+        if (d2 > hitR * hitR) continue;
+        if (!best || info.z < best.z || (info.z === best.z && d2 < best.d2)) {
+          best = { index: i, z: info.z, d2 };
+        }
+      }
+      return best ? best.index : -1;
+    }
+
+    function toFixedNumber(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+    }
+
+    function updateInspector() {
+      if (selectedIndex < 0 || selectedIndex >= objects.length) {
+        inspectorBody.textContent = 'Click an object to inspect it.';
+        return;
+      }
+      const o = objects[selectedIndex] || {};
+      const lines = [
+        `index: ${selectedIndex}`,
+        `type: ${o.type || 'unknown'}`,
+        '',
+        `position: (${toFixedNumber(o.x)}, ${toFixedNumber(o.y)}, ${toFixedNumber(o.z)})`,
+      ];
+
+      if (o.type === 'cube') {
+        lines.push(`size: (${toFixedNumber(o.sx)}, ${toFixedNumber(o.sy)}, ${toFixedNumber(o.sz)})`);
+      } else if (o.type === 'sphere') {
+        lines.push(`radius: ${toFixedNumber(o.radius)}`);
+      } else if (o.type === 'cylinder') {
+        lines.push(`radiusTop: ${toFixedNumber(o.radiusTop)}`);
+        lines.push(`radiusBottom: ${toFixedNumber(o.radiusBottom)}`);
+        lines.push(`height: ${toFixedNumber(o.height)}`);
+      }
+
+      lines.push(`color: rgb(${numberOr(o.r, 180)}, ${numberOr(o.g, 180)}, ${numberOr(o.b, 180)})`);
+
+      inspectorBody.textContent = lines.join('\n');
+    }
+
+    function drawSelection(o) {
+      const info = objectScreenInfo(o);
+      if (!info) return;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 235, 120, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(info.x, info.y, info.pxRadius + 6, info.pxRadius + 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // --- Draw primitives (true 3D) ---
@@ -120,12 +359,12 @@
       const camVerts = verts.map(([vx,vy,vz]) => worldToCamera(vx,vy,vz));
       // 6 faces, each as [vertex indices]
       const faces = [
-        [0,1,2,3], // back
-        [4,5,6,7], // front
-        [0,1,5,4], // bottom
-        [2,3,7,6], // top
-        [1,2,6,5], // right
-        [0,3,7,4], // left
+        [0,3,2,1], // back (-z)
+        [4,5,6,7], // front (+z)
+        [0,1,5,4], // bottom (-y)
+        [2,3,7,6], // top (+y)
+        [1,2,6,5], // right (+x)
+        [0,4,7,3], // left (-x)
       ];
       // Lighting: simple directional
       const lightDir = {x: 0.5, y: 1, z: 0.7}; // from above and side
@@ -141,48 +380,13 @@
       });
       faceDepths.sort((a,b)=>a.z-b.z); // draw farthest first
       for (const f of faceDepths) {
-        // Backface culling: skip faces facing away from camera
-        const i0 = f.idx[0], i1 = f.idx[1], i2 = f.idx[2];
-        const v0 = camVerts[i0], v1 = camVerts[i1], v2 = camVerts[i2];
-        // Compute face normal in camera space (cross product)
-        const ux = v1.x - v0.x, uy = v1.y - v0.y, uz = v1.z - v0.z;
-        const vx = v2.x - v0.x, vy = v2.y - v0.y, vz = v2.z - v0.z;
-        const nx = uy*vz - uz*vy;
-        const ny = uz*vx - ux*vz;
-        const nz = ux*vy - uy*vx;
-        // Lighting: Lambertian
-        const nlen = Math.sqrt(nx*nx+ny*ny+nz*nz);
-        const ldotn = Math.abs((nx*lightDir.x + ny*lightDir.y + nz*lightDir.z) / (nlen));
-        const shade = Math.max(0.15, ldotn * 0.85 + 0.15); // keep some ambient
-        const faceColor = `rgb(${Math.round(r*shade)},${Math.round(g*shade)},${Math.round(b*shade)})`;
-        const projected = [];
-        let skipFace = false;
-        for (let j=0; j<4; ++j) {
-          const cv = camVerts[f.idx[j]];
-          const p = projectCameraTo2D(cv.x, cv.y, cv.z);
-          if (!p) {
-            skipFace = true;
-            break;
-          }
-          projected.push(p);
-        }
-        if (skipFace) continue;
-        ctx.save();
-        ctx.globalAlpha = 0.97;
-        ctx.fillStyle = faceColor;
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        const p0 = projected[0];
-        ctx.moveTo(p0.x, p0.y);
-        for (let j=1; j<4; ++j) {
-          const pj = projected[j];
-          ctx.lineTo(pj.x, pj.y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
+        const faceVerts = f.idx.map(idx => camVerts[idx]);
+        drawCameraFace(faceVerts, { r, g, b }, lightDir, {
+          alpha: 0.97,
+          lineWidth: 1.5,
+          minShade: 0.15,
+          maxGain: 0.85
+        });
       }
     }
     function drawSphere(o) {
@@ -202,34 +406,63 @@
       ctx.restore();
     }
     function drawCylinder(o) {
-      // Draw as a perspective-correct capsule approximation
       const { x, y, z, radiusTop=1, radiusBottom=1, height=2, r=180, g=180, b=180 } = o;
-      const topCam = worldToCamera(x, y+height/2, z);
-      const botCam = worldToCamera(x, y-height/2, z);
-      const top = projectCameraTo2D(topCam.x, topCam.y, topCam.z);
-      const bottom = projectCameraTo2D(botCam.x, botCam.y, botCam.z);
-      if (!top || !bottom) return;
-      const rt = projectedRadiusAt(topCam.z, radiusTop);
-      const rb = projectedRadiusAt(botCam.z, radiusBottom);
-      if (rt <= 0 || rb <= 0) return;
-      ctx.save();
-      ctx.globalAlpha = 0.92;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      // Draw body
-      ctx.beginPath();
-      ctx.moveTo(top.x + rt, top.y);
-      ctx.lineTo(bottom.x + rb, bottom.y);
-      ctx.arc(bottom.x, bottom.y, rb, 0, Math.PI, true);
-      ctx.lineTo(top.x - rt, top.y);
-      ctx.arc(top.x, top.y, rt, Math.PI, 0, true);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+      const segments = 18;
+      const halfH = height * 0.5;
+
+      const topRing = [];
+      const bottomRing = [];
+      for (let i = 0; i < segments; i++) {
+        const t = (i / segments) * Math.PI * 2;
+        const ct = Math.cos(t);
+        const st = Math.sin(t);
+        topRing.push(worldToCamera(x + ct * radiusTop, y + halfH, z + st * radiusTop));
+        bottomRing.push(worldToCamera(x + ct * radiusBottom, y - halfH, z + st * radiusBottom));
+      }
+
+      const centerTop = worldToCamera(x, y + halfH, z);
+      const centerBottom = worldToCamera(x, y - halfH, z);
+      const faces = [];
+
+      for (let i = 0; i < segments; i++) {
+        const j = (i + 1) % segments;
+        // Side quad winding points outward.
+        faces.push([topRing[i], topRing[j], bottomRing[j], bottomRing[i]]);
+      }
+
+      // Top cap (+y) and bottom cap (-y).
+      for (let i = 0; i < segments; i++) {
+        const j = (i + 1) % segments;
+        faces.push([centerTop, topRing[j], topRing[i]]);
+        faces.push([centerBottom, bottomRing[i], bottomRing[j]]);
+      }
+
+      const lightDir = { x: 0.5, y: 1, z: 0.7 };
+      const lightLen = Math.sqrt(lightDir.x*lightDir.x + lightDir.y*lightDir.y + lightDir.z*lightDir.z);
+      lightDir.x /= lightLen;
+      lightDir.y /= lightLen;
+      lightDir.z /= lightLen;
+
+      const sortedFaces = faces.map((verts) => {
+        let zsum = 0;
+        for (const v of verts) zsum += v.z;
+        return { verts, z: zsum / verts.length };
+      }).sort((a, b) => a.z - b.z);
+
+      for (const face of sortedFaces) {
+        const verts = face.verts;
+        drawCameraFace(verts, { r, g, b }, lightDir, {
+          alpha: 0.94,
+          lineWidth: 1,
+          minShade: 0.17,
+          maxGain: 0.83
+        });
+      }
     }
 
     // --- Main render loop ---
     function render() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       // Sort by camera-space depth for painter's order across object types
       const sorted = [...objects].sort((a, b) => {
         const ca = worldToCamera(a.x||0, a.y||0, a.z||0);
@@ -241,6 +474,10 @@
         else if (o.type === 'sphere') drawSphere(o);
         else if (o.type === 'cylinder') drawCylinder(o);
       }
+
+      if (selectedIndex >= 0 && selectedIndex < objects.length) {
+        drawSelection(objects[selectedIndex]);
+      }
     }
 
     // --- Controls (orbit camera) ---
@@ -249,14 +486,38 @@
       if (e.key === 's' || e.key === 'ArrowDown') camera.elevation = Math.max(camera.elevation - 0.08, -Math.PI/2+0.05);
       if (e.key === 'a' || e.key === 'ArrowLeft') camera.azimuth -= 0.12;
       if (e.key === 'd' || e.key === 'ArrowRight') camera.azimuth += 0.12;
-      if (e.key === 'q') camera.radius *= 1.1;
-      if (e.key === 'e') camera.radius /= 1.1;
+      if (e.key === 'q') camera.radius = clamp(camera.radius * 1.1, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
+      if (e.key === 'e') camera.radius = clamp(camera.radius / 1.1, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
+      render();
+    });
+
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const zoomFactor = Math.exp(e.deltaY * 0.0015);
+      camera.radius = clamp(camera.radius * zoomFactor, MIN_CAMERA_RADIUS, MAX_CAMERA_RADIUS);
+      render();
+    }, { passive: false });
+
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      selectedIndex = findNearestObjectAtScreen(sx, sy);
+      updateInspector();
+      render();
+    });
+
+    window.addEventListener('resize', () => {
+      resizeCanvasToViewport();
       render();
     });
 
     // --- Init ---
     loadSimlaScene(sceneFile).then(objs => {
       objects = objs;
+      selectedIndex = -1;
+      updateInspector();
+      resizeCanvasToViewport();
       render();
     });
   </script>
