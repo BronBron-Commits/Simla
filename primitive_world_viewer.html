@@ -110,6 +110,8 @@ const GRAVITY = 0.03;
 const PLAYER_HEIGHT = 5;
 const FLOOR_Y = PLAYER_HEIGHT / 2; // Bottom of capsule at ground level
 const JUMP_FORCE = 0.8;
+const MAX_JUMPS = 3;
+let jumpsRemaining = MAX_JUMPS;
 
 
 // Camera offset settings
@@ -1319,7 +1321,8 @@ const keyState = {
   w: false,
   a: false,
   s: false,
-  d: false
+  d: false,
+  shift: false
 };
 
 const hud = document.getElementById("hud");
@@ -1460,11 +1463,13 @@ window.addEventListener("keydown", e => {
   if (key === "a") keyState.a = true;
   if (key === "s") keyState.s = true;
   if (key === "d") keyState.d = true;
+  if (key === "shift") keyState.shift = true;
   if (key === " ") {
     e.preventDefault();
-    if (isOnGround) {
-      playerVelocityY = JUMP_FORCE;
+    if (jumpsRemaining > 0) {
+      characterVelocityY = JUMP_FORCE;
       isOnGround = false;
+      jumpsRemaining -= 1;
     }
   }
 });
@@ -1477,13 +1482,11 @@ window.addEventListener("keyup", e => {
   if (key === "a") keyState.a = false;
   if (key === "s") keyState.s = false;
   if (key === "d") keyState.d = false;
+  if (key === "shift") keyState.shift = false;
 });
 
 let yaw = 0;
 let pitch = -0.3;
-
-// Player physics
-let playerVelocityY = 0;
 
 // Load player character model
 let playerCharacter = null;
@@ -1559,7 +1562,7 @@ function animate() {
   // Movement directions
   const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
   const right = new THREE.Vector3(forward.z, 0, -forward.x).normalize();
-  const moveSpeed = 0.15;
+  const moveSpeed = 0.30 * (keyState.shift ? 1.8 : 1);
 
   let keyX = 0, keyY = 0;
   if (keyState.w) keyY -= 1;
@@ -1585,6 +1588,7 @@ function animate() {
     characterPosition.y = FLOOR_Y;
     characterVelocityY = 0;
     isOnGround = true;
+    jumpsRemaining = MAX_JUMPS;
   } else {
     isOnGround = false;
   }
