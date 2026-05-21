@@ -104,6 +104,7 @@ let characterPosition = new THREE.Vector3(0, 5, 0);
 let characterVelocityY = 0;
 let controlledPrimitiveParts = [];
 let controlledPrimitiveGroup = null;
+let walkCycleTime = 0;
 let isOnGround = false;
 const GRAVITY = 0.03;
 const PLAYER_HEIGHT = 5;
@@ -1060,6 +1061,25 @@ function isFloorLikeObject(o) {
   return sy <= 1.0 && sx >= 10 && sz >= 10 && y <= 1.0;
 }
 
+function getCharacterPartRole(o) {
+  const x = prop(o, "x", 0);
+  const y = prop(o, "y", 0);
+  const type = prop(o, "type", "");
+  const sy = prop(o, "sy", prop(o, "height", prop(o, "size", 1)));
+  const sx = prop(o, "sx", prop(o, "size", 1));
+
+  if (type === "sphere" && y > 7) return "head";
+  if (type === "cylinder" && y > 6.5 && y < 7.4) return "neck";
+  if (type === "cube" && y > 8.5 && sy > 1) return "crest";
+  if (type === "cube" && y > 4.5 && y < 5.5 && sx > 3) return "torso";
+  if (type === "cube" && y > 6 && sx < 0.6) return "sword";
+  if (x < 0 && y > 5.0 && y < 6.4) return "leftArm";
+  if (x > 0 && y > 5.0 && y < 6.4) return "rightArm";
+  if (x < 0 && y > 2.0 && y < 4.5) return "leftLeg";
+  if (x > 0 && y > 2.0 && y < 4.5) return "rightLeg";
+  return "body";
+}
+
 function addExtendedGround(objects) {
   if (!objects || objects.length === 0) return;
 
@@ -1265,16 +1285,25 @@ async function loadScene() {
     for (const part of controlledPrimitiveParts) {
       const o = part.source;
       scene.remove(part.obj);
-      part.obj.position.set(
+      part.basePosition = new THREE.Vector3(
         prop(o, "x", 0) - anchorX,
         prop(o, "y", 0) - anchorY,
         prop(o, "z", 0) - anchorZ
       );
-      part.obj.rotation.set(
+      part.baseRotation = new THREE.Euler(
         prop(o, "rotX", 0),
         prop(o, "rotY", 0),
         prop(o, "rotZ", 0)
       );
+      part.baseScale = new THREE.Vector3(
+        prop(o, "worldScaleX", 1),
+        prop(o, "worldScaleY", 1),
+        prop(o, "worldScaleZ", 1)
+      );
+      part.role = getCharacterPartRole(o);
+      part.obj.position.copy(part.basePosition);
+      part.obj.rotation.copy(part.baseRotation);
+      part.obj.scale.copy(part.baseScale);
       controlledPrimitiveGroup.add(part.obj);
     }
 
@@ -1541,6 +1570,7 @@ function animate() {
   const totalY = Math.max(-1, Math.min(1, moveInput.y + keyY));
   const moveForward = -totalY * moveSpeed;
   const moveRight = -totalX * moveSpeed;
+  const isMoving = Math.abs(moveForward) > 0.0001 || Math.abs(moveRight) > 0.0001;
 
   // Apply movement to character
   characterPosition.x += forward.x * moveForward + right.x * moveRight;
@@ -1614,6 +1644,43 @@ function animate() {
     controlledPrimitiveGroup.position.y = characterPosition.y;
     controlledPrimitiveGroup.position.z = characterPosition.z;
     controlledPrimitiveGroup.rotation.y = yaw;
+  }
+
+  if (controlledPrimitiveParts.length > 0) {
+    if (isMoving) {
+      walkCycleTime += 0.18;
+    } else {
+      walkCycleTime *= 0.9;
+    }
+
+    const walkSwing = Math.sin(walkCycleTime) * 0.28;
+    const walkBob = Math.abs(Math.sin(walkCycleTime * 2)) * 0.06;
+    const walkLean = Math.sin(walkCycleTime) * 0.08;
+
+    for (const part of controlledPrimitiveParts) {
+      part.obj.position.copy(part.basePosition);
+      part.obj.rotation.copy(part.baseRotation);
+      part.obj.scale.copy(part.baseScale);
+
+      if (part.role === "leftLeg") {
+        part.obj.rotation.x += walkSwing;
+        part.obj.position.y += walkBob;
+      } else if (part.role === "rightLeg") {
+        part.obj.rotation.x -= walkSwing;
+        part.obj.position.y += walkBob;
+      } else if (part.role === "leftArm") {
+        part.obj.rotation.x -= walkSwing * 0.85;
+        part.obj.rotation.z += walkLean * 0.5;
+      } else if (part.role === "rightArm") {
+        part.obj.rotation.x += walkSwing * 0.85;
+        part.obj.rotation.z -= walkLean * 0.5;
+      } else if (part.role === "torso") {
+        part.obj.position.y += walkBob * 0.35;
+        part.obj.rotation.x += Math.sin(walkCycleTime * 2) * 0.03;
+      } else if (part.role === "head") {
+        part.obj.position.y += walkBob * 0.2;
+      }
+    }
   }
 
   // Update day-night cycle
