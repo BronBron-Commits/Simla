@@ -224,7 +224,7 @@
       ;; blade
       (list
         "type" "cube"
-        "x" 3.3
+        "x" -3.3
         "y" 6.2
         "z" 0
         "sx" 0.3
@@ -238,7 +238,7 @@
       ;; sword guard
       (list
         "type" "cube"
-        "x" 3.3
+        "x" -3.3
         "y" 4.9
         "z" 0
         "sx" 1.2
@@ -252,7 +252,7 @@
       ;; sword grip
       (list
         "type" "cylinder"
-        "x" 3.3
+        "x" -3.3
         "y" 4.4
         "z" 0
         "radiusTop" 0.16

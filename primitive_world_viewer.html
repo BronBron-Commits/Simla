@@ -102,11 +102,18 @@ const camera = new THREE.PerspectiveCamera(
 // Initial character position
 let characterPosition = new THREE.Vector3(0, 5, 0);
 let characterVelocityY = 0;
+let controlledPrimitiveParts = [];
+let controlledPrimitiveGroup = null;
+let isOnGround = false;
+const GRAVITY = 0.03;
+const PLAYER_HEIGHT = 5;
+const FLOOR_Y = PLAYER_HEIGHT / 2; // Bottom of capsule at ground level
+const JUMP_FORCE = 0.8;
 
 
 // Camera offset settings
 const CAMERA_DISTANCE = 8;
-const CAMERA_HEIGHT = 3;
+const CAMERA_HEIGHT = 9;
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true
@@ -853,6 +860,7 @@ function addCube(o) {
   );
 
   scene.add(mesh);
+  return mesh;
 }
 
 function addSphere(o) {
@@ -889,6 +897,7 @@ function addSphere(o) {
   );
 
   scene.add(mesh);
+  return mesh;
 }
 
 function addCylinder(o) {
@@ -926,6 +935,7 @@ function addCylinder(o) {
   );
 
   scene.add(mesh);
+  return mesh;
 }
 
 function addWedge(o) {
@@ -985,6 +995,7 @@ function addWedge(o) {
   );
 
   scene.add(group);
+  return group;
 }
 
 function addStair(o) {
@@ -1032,6 +1043,21 @@ function addStair(o) {
   );
 
   scene.add(group);
+  return group;
+}
+
+function isCharacterSceneFile(sceneFile) {
+  return /(^|\/)character\.sim$/i.test(sceneFile || "");
+}
+
+function isFloorLikeObject(o) {
+  const type = prop(o, "type", "");
+  if (type !== "cube") return false;
+  const sx = prop(o, "sx", prop(o, "size", 1));
+  const sy = prop(o, "sy", prop(o, "size", 1));
+  const sz = prop(o, "sz", prop(o, "size", 1));
+  const y = prop(o, "y", 0);
+  return sy <= 1.0 && sx >= 10 && sz >= 10 && y <= 1.0;
 }
 
 function addExtendedGround(objects) {
@@ -1148,6 +1174,10 @@ async function loadScene() {
   const objects =
     normalizeSceneItems(raw);
 
+  controlledPrimitiveParts = [];
+  controlledPrimitiveGroup = null;
+  const controlCharacterPrimitives = isCharacterSceneFile(sceneFile);
+
   const extendedPrimaryGround =
     extendPrimaryGroundObject(objects);
 
@@ -1167,29 +1197,88 @@ async function loadScene() {
       o
     );
 
+    let rendered = null;
+
     if (type === "cube") {
-      addCube(o);
+      rendered = addCube(o);
     }
 
     else if (type === "sphere") {
-      addSphere(o);
+      rendered = addSphere(o);
     }
 
     else if (type === "cylinder") {
-      addCylinder(o);
+      rendered = addCylinder(o);
     }
 
     else if (type === "wedge") {
-      addWedge(o);
+      rendered = addWedge(o);
     }
 
     else if (type === "stair") {
-      addStair(o);
+      rendered = addStair(o);
+    }
+
+    if (rendered && controlCharacterPrimitives && !isFloorLikeObject(o)) {
+      controlledPrimitiveParts.push({
+        obj: rendered,
+        source: o
+      });
     }
   }
 
   if (!extendedPrimaryGround) {
     addExtendedGround(objects);
+  }
+
+  if (controlledPrimitiveParts.length > 0) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+
+    for (const part of controlledPrimitiveParts) {
+      const o = part.source;
+      const x = prop(o, "x", 0);
+      const y = prop(o, "y", 0);
+      const z = prop(o, "z", 0);
+      const sx = prop(o, "sx", prop(o, "size", prop(o, "radius", 1) * 2));
+      const sy = prop(o, "sy", prop(o, "size", prop(o, "radius", 1) * 2));
+      const sz = prop(o, "sz", prop(o, "size", prop(o, "radius", 1) * 2));
+
+      minX = Math.min(minX, x - sx / 2);
+      maxX = Math.max(maxX, x + sx / 2);
+      minY = Math.min(minY, y - sy / 2);
+      minZ = Math.min(minZ, z - sz / 2);
+      maxZ = Math.max(maxZ, z + sz / 2);
+    }
+
+    const anchorX = (minX + maxX) / 2;
+    const anchorY = minY;
+    const anchorZ = (minZ + maxZ) / 2;
+
+    controlledPrimitiveGroup = new THREE.Group();
+    controlledPrimitiveGroup.position.set(anchorX, anchorY, anchorZ);
+    scene.add(controlledPrimitiveGroup);
+
+    for (const part of controlledPrimitiveParts) {
+      const o = part.source;
+      scene.remove(part.obj);
+      part.obj.position.set(
+        prop(o, "x", 0) - anchorX,
+        prop(o, "y", 0) - anchorY,
+        prop(o, "z", 0) - anchorZ
+      );
+      part.obj.rotation.set(
+        prop(o, "rotX", 0),
+        prop(o, "rotY", 0),
+        prop(o, "rotZ", 0)
+      );
+      controlledPrimitiveGroup.add(part.obj);
+    }
+
+    characterPosition.set(anchorX, Math.max(FLOOR_Y, anchorY), anchorZ);
   }
 }
 
@@ -1366,11 +1455,6 @@ let pitch = -0.3;
 
 // Player physics
 let playerVelocityY = 0;
-const GRAVITY = 0.03;
-const PLAYER_HEIGHT = 5;
-const FLOOR_Y = PLAYER_HEIGHT / 2; // Bottom of capsule at ground level
-const JUMP_FORCE = 0.8;
-let isOnGround = false;
 
 // Load player character model
 let playerCharacter = null;
@@ -1523,6 +1607,13 @@ function animate() {
         playerCharacter.neckBone.rotation.z = 0;
       }
     }
+  }
+
+  if (controlledPrimitiveGroup) {
+    controlledPrimitiveGroup.position.x = characterPosition.x;
+    controlledPrimitiveGroup.position.y = characterPosition.y;
+    controlledPrimitiveGroup.position.z = characterPosition.z;
+    controlledPrimitiveGroup.rotation.y = yaw;
   }
 
   // Update day-night cycle
