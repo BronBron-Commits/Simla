@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Simla Canvas Viewer (No Three.js)</title>
+  <style>
+    body { background: #222; margin: 0; }
+    #hud { position: absolute; top: 10px; left: 10px; color: #fff; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 8px; font-family: sans-serif; z-index: 10; }
+    canvas { display: block; margin: 0 auto; background: #222; }
+  </style>
+</head>
+<body>
+  <div id="hud">Simla Canvas Viewer<br>WASD/Arrows to move, Q/E to zoom</div>
+  <canvas id="scene" width="900" height="700"></canvas>
+  <script>
+    // --- Config ---
+    const sceneFile = new URLSearchParams(location.search).get('file') || 'examples/building/simla_only_sanctum.sim';
+    const canvas = document.getElementById('scene');
+    const ctx = canvas.getContext('2d');
+    // Camera as orbit (spherical coordinates)
+    let camera = {
+      radius: 32,
+      azimuth: 0, // horizontal angle (radians)
+      elevation: 0.3, // vertical angle (radians)
+      zoom: 32
+    };
+    let objects = [];
+
+    // --- Simla scene loader (minimal) ---
+    async function loadSimlaScene(file) {
+      const res = await fetch('/api/scene?file=' + encodeURIComponent(file));
+      const raw = await res.json();
+      // Accepts either {objects: [...]}, or just [...]
+      if (Array.isArray(raw)) return raw;
+      if (raw && Array.isArray(raw.objects)) return raw.objects;
+      return [];
+    }
+
+    // --- Perspective projection (true 3D) ---
+    function getCameraPosition() {
+      // Spherical to Cartesian
+      const r = camera.radius;
+      const theta = camera.azimuth;
+      const phi = camera.elevation;
+      return {
+        x: Math.sin(theta) * Math.cos(phi) * r,
+        y: Math.sin(phi) * r,
+        z: Math.cos(theta) * Math.cos(phi) * r
+      };
+    }
+
+    // Transform a point to camera space
+    function worldToCamera(x, y, z) {
+      const cam = getCameraPosition();
+      const target = {x:0, y:0, z:0};
+      // Build camera basis
+      let fx = target.x - cam.x, fy = target.y - cam.y, fz = target.z - cam.z;
+      const flen = Math.sqrt(fx*fx+fy*fy+fz*fz);
+      fx /= flen; fy /= flen; fz /= flen;
+      let upx = 0, upy = 1, upz = 0;
+      let rx = upy*fz - upz*fy;
+      let ry = upz*fx - upx*fz;
+      let rz = upx*fy - upy*fx;
+      const rlen = Math.sqrt(rx*rx+ry*ry+rz*rz);
+      rx /= rlen; ry /= rlen; rz /= rlen;
+      let ux = fy*rz - fz*ry;
+      let uy = fz*rx - fx*rz;
+      let uz = fx*ry - fy*rx;
+      const px = x - cam.x;
+      const py = y - cam.y;
+      const pz = z - cam.z;
+      // Camera space coordinates
+      return {
+        x: px*rx + py*ry + pz*rz,
+        y: px*ux + py*uy + pz*uz,
+        z: px*fx + py*fy + pz*fz
+      };
+    }
+
+    // Canonical perspective projection (from camera space)
+    function projectCameraTo2D(cx, cy, cz) {
+      const fov = Math.PI/3; // 60 deg
+      const aspect = canvas.width/canvas.height;
+      const near = 0.1;
+      if (cz < near) return {x: -10000, y: -10000}; // behind camera
+      const f = 0.5 * canvas.height / Math.tan(fov/2);
+      return {
+        x: canvas.width/2 + cx * f / cz,
+        y: canvas.height/2 - cy * f / cz
+      };
+    }
+
+    function project3Dto2D(x, y, z) {
+      // Camera position
+      const cam = getCameraPosition();
+      // Camera looks at (0,0,0), up is +Y
+      // Build camera basis
+      const cx = cam.x, cy = cam.y, cz = cam.z;
+      const up = [0,1,0];
+      // Forward vector (from camera to target)
+      let fx = -cx, fy = -cy, fz = -cz;
+      const flen = Math.sqrt(fx*fx+fy*fy+fz*fz);
+      fx /= flen; fy /= flen; fz /= flen;
+      // Right = up x forward
+      let rx = up[1]*fz - up[2]*fy;
+      let ry = up[2]*fx - up[0]*fz;
+      let rz = up[0]*fy - up[1]*fx;
+      const rlen = Math.sqrt(rx*rx+ry*ry+rz*rz);
+      rx /= rlen; ry /= rlen; rz /= rlen;
+      // True up = forward x right
+      let ux = fy*rz - fz*ry;
+      let uy = fz*rx - fx*rz;
+      let uz = fx*ry - fy*rx;
+      // Transform point to camera space
+      const px = x - cx;
+      const py = y - cy;
+      const pz = z - cz;
+      // Camera space coordinates
+      const ex = px*rx + py*ry + pz*rz;
+      const ey = px*ux + py*uy + pz*uz;
+      const ez = px*fx + py*fy + pz*fz;
+      // Perspective projection
+      const fov = Math.PI/3;
+      const aspect = canvas.width/canvas.height;
+      const scale = camera.zoom / (ez + 0.0001); // avoid div0
+      return {
+        x: canvas.width/2 + ex * scale * aspect,
+        y: canvas.height/2 - ey * scale
+      };
+    }
+
+    // --- Draw primitives (true 3D) ---
+    function drawCube(o) {
+      // 8 vertices of a cube centered at (x,y,z)
+      const { x, y, z, sx=1, sy=1, sz=1, r=180, g=180, b=180 } = o;
+      const verts = [
+        [x-sx/2, y-sy/2, z-sz/2],
+        [x+sx/2, y-sy/2, z-sz/2],
+        [x+sx/2, y+sy/2, z-sz/2],
+        [x-sx/2, y+sy/2, z-sz/2],
+        [x-sx/2, y-sy/2, z+sz/2],
+        [x+sx/2, y-sy/2, z+sz/2],
+        [x+sx/2, y+sy/2, z+sz/2],
+        [x-sx/2, y+sy/2, z+sz/2],
+      ];
+      // Transform all verts to camera space
+      const camVerts = verts.map(([vx,vy,vz]) => worldToCamera(vx,vy,vz));
+      // 6 faces, each as [vertex indices]
+      const faces = [
+        [0,1,2,3], // back
+        [4,5,6,7], // front
+        [0,1,5,4], // bottom
+        [2,3,7,6], // top
+        [1,2,6,5], // right
+        [0,3,7,4], // left
+      ];
+      // Compute face depths for painter's order (average z in camera space)
+      const faceDepths = faces.map(face => {
+        let zsum = 0;
+        for (const i of face) {
+          zsum += camVerts[i].z;
+        }
+        return { idx: face, z: zsum/4 };
+      });
+      faceDepths.sort((a,b)=>a.z-b.z); // draw farthest first
+      for (const f of faceDepths) {
+        // Backface culling: skip faces facing away from camera
+        const i0 = f.idx[0], i1 = f.idx[1], i2 = f.idx[2];
+        const v0 = camVerts[i0], v1 = camVerts[i1], v2 = camVerts[i2];
+        // Compute face normal in camera space (cross product)
+        const ux = v1.x - v0.x, uy = v1.y - v0.y, uz = v1.z - v0.z;
+        const vx = v2.x - v0.x, vy = v2.y - v0.y, vz = v2.z - v0.z;
+        const nx = uy*vz - uz*vy;
+        const ny = uz*vx - ux*vz;
+        const nz = ux*vy - uy*vx;
+        // If normal.z > 0, face is away from camera
+        if (nz > 0) continue;
+        ctx.save();
+        ctx.globalAlpha = 0.95;
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const p0 = projectCameraTo2D(camVerts[f.idx[0]].x, camVerts[f.idx[0]].y, camVerts[f.idx[0]].z);
+        ctx.moveTo(p0.x, p0.y);
+        for (let j=1; j<4; ++j) {
+          const pj = projectCameraTo2D(camVerts[f.idx[j]].x, camVerts[f.idx[j]].y, camVerts[f.idx[j]].z);
+          ctx.lineTo(pj.x, pj.y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    function drawSphere(o) {
+      // Draw as a 3D-projected circle (not a true sphere)
+      const { x, y, z, radius=1, r=180, g=180, b=180 } = o;
+      const p = project3Dto2D(x, y, z);
+      // Project a point at (x, y+radius, z) to get vertical scale
+      const p2 = project3Dto2D(x, y+radius, z);
+      const ry = Math.abs(p2.y - p.y);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, radius*camera.zoom, ry, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+    function drawCylinder(o) {
+      // Draw as a 3D-projected capsule (not a true cylinder)
+      const { x, y, z, radiusTop=1, radiusBottom=1, height=2, r=180, g=180, b=180 } = o;
+      // Top and bottom centers
+      const top = project3Dto2D(x, y+height/2, z);
+      const bottom = project3Dto2D(x, y-height/2, z);
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      // Draw body
+      ctx.beginPath();
+      ctx.moveTo(top.x + radiusTop*camera.zoom, top.y);
+      ctx.lineTo(bottom.x + radiusBottom*camera.zoom, bottom.y);
+      ctx.arc(bottom.x, bottom.y, radiusBottom*camera.zoom, 0, Math.PI, true);
+      ctx.lineTo(top.x - radiusTop*camera.zoom, top.y);
+      ctx.arc(top.x, top.y, radiusTop*camera.zoom, Math.PI, 0, true);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // --- Main render loop ---
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Sort by y for painter's order
+      const sorted = [...objects].sort((a, b) => (a.y||0)-(b.y||0));
+      for (const o of sorted) {
+        if (o.type === 'cube') drawCube(o);
+        else if (o.type === 'sphere') drawSphere(o);
+        else if (o.type === 'cylinder') drawCylinder(o);
+      }
+    }
+
+    // --- Controls (orbit camera) ---
+    document.addEventListener('keydown', e => {
+      if (e.key === 'w' || e.key === 'ArrowUp') camera.elevation = Math.min(camera.elevation + 0.08, Math.PI/2-0.05);
+      if (e.key === 's' || e.key === 'ArrowDown') camera.elevation = Math.max(camera.elevation - 0.08, -Math.PI/2+0.05);
+      if (e.key === 'a' || e.key === 'ArrowLeft') camera.azimuth -= 0.12;
+      if (e.key === 'd' || e.key === 'ArrowRight') camera.azimuth += 0.12;
+      if (e.key === 'q') camera.radius *= 1.1;
+      if (e.key === 'e') camera.radius /= 1.1;
+      render();
+    });
+
+    // --- Init ---
+    loadSimlaScene(sceneFile).then(objs => {
+      objects = objs;
+      render();
+    });
+  </script>
+</body>
+</html>
