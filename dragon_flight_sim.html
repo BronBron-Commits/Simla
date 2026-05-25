@@ -366,6 +366,15 @@
       }
     }
 
+    function setPointerLockUi(isLocked) {
+      launchOverlay.style.opacity = isLocked ? '0' : '1';
+      launchOverlay.style.pointerEvents = isLocked ? 'none' : 'auto';
+      if (!isLocked) {
+        input.mouseX = 0;
+        input.mouseY = 0;
+      }
+    }
+
     function requestPointerLock() {
       document.body.requestPointerLock?.();
     }
@@ -387,15 +396,27 @@
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
-    document.addEventListener('pointerlockchange', () => {
+    function syncPointerLockState() {
+      setPointerLockUi(document.pointerLockElement === document.body);
+    }
+
+    document.addEventListener('pointerlockchange', syncPointerLockState);
+    document.addEventListener('pointerlockerror', syncPointerLockState);
+    window.addEventListener('blur', () => {
       if (document.pointerLockElement === document.body) {
-        launchOverlay.style.opacity = '0';
-        launchOverlay.style.pointerEvents = 'none';
+        document.exitPointerLock?.();
       }
+      syncPointerLockState();
     });
 
     launchButton.addEventListener('click', () => {
       requestPointerLock();
+    });
+
+    renderer.domElement.addEventListener('click', () => {
+      if (document.pointerLockElement !== document.body) {
+        requestPointerLock();
+      }
     });
 
     document.addEventListener('mousemove', (event) => {
