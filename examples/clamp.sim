@@ -1,0 +1,7 @@
+(begin
+  (list
+    "inside" (clamp 5 0 10)
+    "low" (clamp -3 0 10)
+    "high" (clamp 14 0 10)
+  )
+)

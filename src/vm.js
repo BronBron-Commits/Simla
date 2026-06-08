@@ -170,6 +170,44 @@ while (ip < code.length) {
 
       case "MUL": stack.push(stack.pop() * stack.pop()); break;
 
+      case "MIN": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.min(a, b));
+        break;
+      }
+
+      case "MAX": {
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(Math.max(a, b));
+        break;
+      }
+
+      case "CLAMP": {
+        const high = stack.pop();
+        const low = stack.pop();
+        const value = stack.pop();
+        stack.push(Math.min(Math.max(value, low), high));
+        break;
+      }
+
+      case "LERP": {
+        const t = stack.pop();
+        const b = stack.pop();
+        const a = stack.pop();
+        stack.push(a + (b - a) * t);
+        break;
+      }
+
+      case "INVLERP": {
+        const b = stack.pop();
+        const a = stack.pop();
+        const value = stack.pop();
+        stack.push((value - a) / (b - a));
+        break;
+      }
+
       // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADD THIS BACK
       case "OR": {
         const b = stack.pop();

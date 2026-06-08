@@ -418,6 +418,33 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "clamp") {
+      expectArgs(node, "clamp", 3);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      out.push(["CLAMP"]);
+      return out;
+    }
+
+    if (name === "lerp") {
+      expectArgs(node, "lerp", 3);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      out.push(["LERP"]);
+      return out;
+    }
+
+    if (name === "invlerp") {
+      expectArgs(node, "invlerp", 3);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      out.push(["INVLERP"]);
+      return out;
+    }
+
 
     if (name === "damage_all") {
       compile(node.args[0], out); // list

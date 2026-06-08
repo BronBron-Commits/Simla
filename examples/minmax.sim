@@ -1,0 +1,6 @@
+(begin
+  (list
+    "min" (min 7 3)
+    "max" (max 7 3)
+  )
+)

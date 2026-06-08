@@ -1,0 +1,8 @@
+(begin
+  (list
+    "start" (lerp 0 10 0)
+    "middle" (lerp 0 10 0.5)
+    "end" (lerp 0 10 1)
+    "quarter" (lerp 10 20 0.25)
+  )
+)

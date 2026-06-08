@@ -1,0 +1,7 @@
+(begin
+  (list
+    "mid" (invlerp 5 0 10)
+    "start" (invlerp 0 0 10)
+    "end" (invlerp 10 0 10)
+  )
+)
