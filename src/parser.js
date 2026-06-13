@@ -46,6 +46,10 @@ function parse(tokens) {
       return { type: "string", value: token.slice(1, -1) };
     }
 
+    if (token.startsWith("'")) {
+      return { type: "symbol", name: token.slice(1) };
+    }
+
     return { type: "identifier", name: token };
   }
 

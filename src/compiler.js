@@ -145,6 +145,11 @@ function compile(node, out = []) {
     return out;
   }
 
+  if (node.type === "symbol") {
+    out.push(["SYMBOL", node.name]);
+    return out;
+  }
+
   if (node.type === "identifier") {
     out.push(["LOAD", node.name]);
     return out;

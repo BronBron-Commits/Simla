@@ -40,6 +40,19 @@ function isSimlaTuple(value) {
   return !!value && typeof value === "object" && !Array.isArray(value) && value.__simlaKind === "tuple";
 }
 
+function keysEqual(a, b) {
+  if (
+    a &&
+    b &&
+    a.__simlaKind === "symbol" &&
+    b.__simlaKind === "symbol"
+  ) {
+    return a.name === b.name;
+  }
+
+  return a === b;
+}
+
 function isPairList(value) {
   if (!Array.isArray(value) || value.length % 2 !== 0) return false;
   for (let i = 0; i < value.length; i += 2) {
@@ -70,6 +83,7 @@ function kindOf(value) {
   if (Array.isArray(value)) return "list";
   if (typeof value === "number") return "number";
   if (typeof value === "string") return "string";
+  if (!!value && typeof value === "object" && value.__simlaKind === "symbol") return "symbol";
   if (typeof value === "boolean") return "boolean";
   if (value && Array.isArray(value.params)) return "function";
   return "unknown";
@@ -96,7 +110,7 @@ function getProperty(container, key) {
 
   if (isPairList(container)) {
     for (let i = 0; i < container.length; i += 2) {
-      if (container[i] === propKey) return container[i + 1];
+      if (keysEqual(container[i], key)) return container[i + 1];
     }
   }
 
@@ -154,6 +168,7 @@ while (ip < code.length) {
     switch (op) {
 
       case "PUSH": stack.push(a); break;
+      case "SYMBOL": stack.push({ __simlaKind: "symbol", name: a }); break;
       case "LOAD": stack.push(lookup(env, a)); break;
       case "STORE": env.vars[a] = stack.pop(); break;
       case "POP": stack.pop(); break;
@@ -252,7 +267,7 @@ case "LIST": {
         let val = 0;
         if (Array.isArray(obj)) {
           for (let i = 0; i < obj.length; i += 2) {
-            if (obj[i] === key) {
+            if (keysEqual(obj[i], key)) {
               val = obj[i + 1];
               break;
             }
@@ -272,7 +287,7 @@ case "LIST": {
 
         let found = false;
         for (let i = 0; i < newObj.length; i += 2) {
-          if (newObj[i] === key) {
+          if (keysEqual(newObj[i], key)) {
             newObj[i + 1] = value;
             found = true;
             break;
@@ -676,7 +691,18 @@ case "LIST": {
         case "EQ": {
           const b = stack.pop();
           const a = stack.pop();
-          stack.push(a === b ? 1 : 0);
+
+          if (
+            a &&
+            b &&
+            a.__simlaKind === "symbol" &&
+            b.__simlaKind === "symbol"
+          ) {
+            stack.push(a.name === b.name ? 1 : 0);
+          } else {
+            stack.push(a === b ? 1 : 0);
+          }
+
           break;
         }
 

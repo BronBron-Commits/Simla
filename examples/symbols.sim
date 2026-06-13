@@ -1,0 +1,7 @@
+(begin
+  (list
+    "kind" (kind 'player)
+    "symbol" 'player
+    "same" (eq 'player 'player)
+  )
+)

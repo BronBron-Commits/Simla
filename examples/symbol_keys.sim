@@ -1,0 +1,9 @@
+(begin
+  (let entity (set (list) 'team 'player))
+  (let entity (set entity 'hp 100))
+  (list
+    "team" (get entity 'team)
+    "hp" (get entity 'hp)
+    "teamKind" (kind (get entity 'team))
+  )
+)
