@@ -1,0 +1,7 @@
+(begin
+  (list
+    "symbol" (symbol? 'player)
+    "string" (symbol? "player")
+    "number" (symbol? 42)
+  )
+)

@@ -1,0 +1,6 @@
+(begin
+  (list
+    "name" (symbol_name 'player)
+    "missing" (symbol_name "player")
+  )
+)

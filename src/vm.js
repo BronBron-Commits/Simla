@@ -413,6 +413,26 @@ case "LIST": {
         break;
       }
 
+      case "SYMBOL_NAME": {
+        const value = stack.pop();
+        stack.push(
+          value && value.__simlaKind === "symbol"
+            ? value.name
+            : ""
+        );
+        break;
+      }
+
+      case "IS_SYMBOL": {
+        const value = stack.pop();
+        stack.push(
+          value && value.__simlaKind === "symbol"
+            ? 1
+            : 0
+        );
+        break;
+      }
+
       case "IS_NODE": {
         const value = stack.pop();
         stack.push(isSimlaNode(value) ? 1 : 0);

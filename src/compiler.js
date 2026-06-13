@@ -285,6 +285,20 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "symbol_name") {
+      expectArgs(node, "symbol_name", 1);
+      compile(node.args[0], out);
+      out.push(["SYMBOL_NAME"]);
+      return out;
+    }
+
+    if (name === "symbol?") {
+      expectArgs(node, "symbol?", 1);
+      compile(node.args[0], out);
+      out.push(["IS_SYMBOL"]);
+      return out;
+    }
+
     if (name === "is_node") {
       expectArgs(node, "is_node", 1);
       compile(node.args[0], out);
