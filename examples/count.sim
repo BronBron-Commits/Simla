@@ -1,0 +1,10 @@
+(begin
+  (let entity (set (list) 'hp 100))
+  (let entity (set entity 'mana 50))
+  (let entity (set entity 'team 'player))
+
+  (list
+    "count" (count entity)
+    "empty" (count (list))
+  )
+)

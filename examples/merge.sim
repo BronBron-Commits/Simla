@@ -1,0 +1,15 @@
+(begin
+  (let base (set (list) 'hp 100))
+  (let base (set base 'mana 50))
+  (let patch (set (list) 'hp 75))
+  (let patch (set patch 'team 'player))
+
+  (let merged (merge base patch))
+
+  (list
+    "hp" (get merged 'hp)
+    "mana" (get merged 'mana)
+    "team" (get merged 'team)
+    "count" (count merged)
+  )
+)

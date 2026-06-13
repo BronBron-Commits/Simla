@@ -254,6 +254,21 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "count") {
+      expectArgs(node, "count", 1);
+      compile(node.args[0], out);
+      out.push(["COUNT"]);
+      return out;
+    }
+
+    if (name === "merge") {
+      expectArgs(node, "merge", 2);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      out.push(["MERGE"]);
+      return out;
+    }
+
     if (name === "set") {
       compile(node.args[0], out); // entity
       compile(node.args[1], out); // key

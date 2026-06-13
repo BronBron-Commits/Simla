@@ -353,6 +353,49 @@ case "LIST": {
         break;
       }
 
+      case "COUNT": {
+        const obj = stack.pop();
+
+        if (Array.isArray(obj)) {
+          stack.push(Math.floor(obj.length / 2));
+        } else {
+          stack.push(0);
+        }
+
+        break;
+      }
+
+      case "MERGE": {
+        const b = stack.pop();
+        const a = stack.pop();
+
+        const result = Array.isArray(a) ? [...a] : [];
+
+        if (Array.isArray(b)) {
+          for (let i = 0; i < b.length; i += 2) {
+            const key = b[i];
+            const value = b[i + 1];
+
+            let found = false;
+
+            for (let j = 0; j < result.length; j += 2) {
+              if (keysEqual(result[j], key)) {
+                result[j + 1] = value;
+                found = true;
+                break;
+              }
+            }
+
+            if (!found) {
+              result.push(key, value);
+            }
+          }
+        }
+
+        stack.push(result);
+        break;
+      }
+
       case "SET": {
         const value = stack.pop();
         const key = stack.pop();
