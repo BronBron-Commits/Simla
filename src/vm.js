@@ -396,6 +396,23 @@ case "LIST": {
         break;
       }
 
+      case "ENTRIES": {
+        const obj = stack.pop();
+        const result = [];
+
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i += 2) {
+            result.push([
+              obj[i],
+              obj[i + 1]
+            ]);
+          }
+        }
+
+        stack.push(result);
+        break;
+      }
+
       case "SET": {
         const value = stack.pop();
         const key = stack.pop();

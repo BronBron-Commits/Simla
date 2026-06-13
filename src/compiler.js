@@ -269,6 +269,13 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "entries") {
+      expectArgs(node, "entries", 1);
+      compile(node.args[0], out);
+      out.push(["ENTRIES"]);
+      return out;
+    }
+
     if (name === "set") {
       compile(node.args[0], out); // entity
       compile(node.args[1], out); // key
