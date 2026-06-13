@@ -1,0 +1,7 @@
+(begin
+  (list
+    "half" (remap 50 0 100 0 1)
+    "angle" (remap 75 0 100 0 360)
+    "healthBar" (remap 25 0 100 0 10)
+  )
+)

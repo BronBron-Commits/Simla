@@ -1,0 +1,12 @@
+(begin
+  (let entity (set (list) 'hp 100))
+  (let entity (set entity 'mana 50))
+
+  (let entity2 (remove entity 'hp))
+
+  (list
+    "oldHp" (has entity 'hp)
+    "newHp" (has entity2 'hp)
+    "mana" (get entity2 'mana)
+  )
+)

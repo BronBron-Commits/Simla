@@ -223,6 +223,17 @@ while (ip < code.length) {
         break;
       }
 
+      case "REMAP": {
+        const outMax = stack.pop();
+        const outMin = stack.pop();
+        const inMax = stack.pop();
+        const inMin = stack.pop();
+        const value = stack.pop();
+        const t = (value - inMin) / (inMax - inMin);
+        stack.push(outMin + (outMax - outMin) * t);
+        break;
+      }
+
       // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADD THIS BACK
       case "OR": {
         const b = stack.pop();
@@ -275,6 +286,70 @@ case "LIST": {
         }
 
         stack.push(val);
+        break;
+      }
+
+      case "HAS": {
+        const key = stack.pop();
+        const obj = stack.pop();
+
+        let found = 0;
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i += 2) {
+            if (keysEqual(obj[i], key)) {
+              found = 1;
+              break;
+            }
+          }
+        }
+
+        stack.push(found);
+        break;
+      }
+
+      case "REMOVE": {
+        const key = stack.pop();
+        const obj = stack.pop();
+
+        const result = [];
+
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i += 2) {
+            if (!keysEqual(obj[i], key)) {
+              result.push(obj[i], obj[i + 1]);
+            }
+          }
+        }
+
+        stack.push(result);
+        break;
+      }
+
+      case "KEYS": {
+        const obj = stack.pop();
+        const result = [];
+
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i += 2) {
+            result.push(obj[i]);
+          }
+        }
+
+        stack.push(result);
+        break;
+      }
+
+      case "VALUES": {
+        const obj = stack.pop();
+        const result = [];
+
+        if (Array.isArray(obj)) {
+          for (let i = 1; i < obj.length; i += 2) {
+            result.push(obj[i]);
+          }
+        }
+
+        stack.push(result);
         break;
       }
 

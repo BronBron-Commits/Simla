@@ -1,0 +1,10 @@
+(begin
+  (let entity (set (list) 'hp 100))
+  (let entity (set entity 'team 'player))
+  (list
+    "hasHp" (has entity 'hp)
+    "hasTeam" (has entity 'team)
+    "hasMana" (has entity 'mana)
+    "hp" (get entity 'hp)
+  )
+)

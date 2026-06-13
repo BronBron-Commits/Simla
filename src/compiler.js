@@ -224,6 +224,36 @@ if (name === "get") {
       return out;
     }
 
+    if (name === "has") {
+      expectArgs(node, "has", 2);
+      compile(node.args[0], out); // entity
+      compile(node.args[1], out); // key
+      out.push(["HAS"]);
+      return out;
+    }
+
+    if (name === "remove") {
+      expectArgs(node, "remove", 2);
+      compile(node.args[0], out); // entity
+      compile(node.args[1], out); // key
+      out.push(["REMOVE"]);
+      return out;
+    }
+
+    if (name === "keys") {
+      expectArgs(node, "keys", 1);
+      compile(node.args[0], out);
+      out.push(["KEYS"]);
+      return out;
+    }
+
+    if (name === "values") {
+      expectArgs(node, "values", 1);
+      compile(node.args[0], out);
+      out.push(["VALUES"]);
+      return out;
+    }
+
     if (name === "set") {
       compile(node.args[0], out); // entity
       compile(node.args[1], out); // key
@@ -461,6 +491,17 @@ if (name === "get") {
       compile(node.args[1], out);
       compile(node.args[2], out);
       out.push(["INVLERP"]);
+      return out;
+    }
+
+    if (name === "remap") {
+      expectArgs(node, "remap", 5);
+      compile(node.args[0], out);
+      compile(node.args[1], out);
+      compile(node.args[2], out);
+      compile(node.args[3], out);
+      compile(node.args[4], out);
+      out.push(["REMAP"]);
       return out;
     }
 
